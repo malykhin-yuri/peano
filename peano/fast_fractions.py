@@ -1,5 +1,4 @@
 from math import gcd
-from functools import cached_property
 
 
 class FastFraction:
@@ -34,9 +33,11 @@ class FastFraction:
             n, d = fraction_str, 1
         return cls(int(n), int(d))
 
-    @cached_property
+    @property
     def one_complement(self):
-        return FastFraction(self.d - self.n, self.d)
+        if not hasattr(self, '_one_complement'):
+            self._one_complement = FastFraction(self.d - self.n, self.d)
+        return self._one_complement
 
     def __gt__(self, other):
         return self.n * other.d > other.n * self.d

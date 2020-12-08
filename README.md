@@ -5,7 +5,7 @@ Python package "peano" implements regular peano fractal curves on d-dimensional 
 Required python packages:
 - python-sat
 
-Tested on python 3.8.
+Tested on python 3.5 and 3.8.
 
 This repo is mostly frozen, only fixes will appear.
 

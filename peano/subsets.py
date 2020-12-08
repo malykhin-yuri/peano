@@ -1,5 +1,4 @@
 import itertools
-from functools import cached_property
 from collections import namedtuple
 
 from .fast_fractions import FastFraction
@@ -214,14 +213,15 @@ class HyperFaceDivSubset(Subset):
         new_cubes = (face_map.apply_cube(self.div, cube) for cube in self.cubes)
         return type(self)(self.dim, self.div, new_face, new_cubes)
 
-    @cached_property
     def all_cube_maps(self):
-        return list(BaseMap.gen_base_maps(self.dim, time_rev=False))
+        if not hasattr(self, '_all_cube_maps'):
+            self._all_cube_maps = list(BaseMap.gen_base_maps(self.dim, time_rev=False))
+        return self._all_cube_maps
 
     def argmul_intersect(self, other, bms=None):
         """Yield bms that bm * self intersects other."""
         if bms is None:
-            bms = self.all_cube_maps
+            bms = self.all_cube_maps()
         for bm in bms:
             if self.map_face(bm) != other.face:  # optimization!
                 continue
