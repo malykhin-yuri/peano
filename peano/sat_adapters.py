@@ -50,7 +50,7 @@ class CurveSATAdapter:
         """Init basic vars and clauses for given fuzzy curve."""
 
         # possible specs
-        for pnum in range(curve.pattern_count):
+        for pnum in range(curve.pcount):
             for cnum in range(curve.genus):
                 self.make_only([self.get_sp_var(pnum, cnum, sp) for sp in curve.gen_allowed_specs(pnum, cnum)])
 
@@ -163,7 +163,7 @@ class CurveSATAdapter:
     def get_curve_from_model(self, curve, model):
         allowed_by_model_variants = []
         G = curve.genus
-        for pnum in range(curve.pattern_count):
+        for pnum in range(curve.pcount):
             for cnum in range(G):
                 allowed_by_model = []
                 for sp in curve.gen_allowed_specs(pnum, cnum):

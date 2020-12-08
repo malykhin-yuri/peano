@@ -46,7 +46,7 @@ class FuzzyCurve:
             pattern = Pattern(proto=proto, specs=specs)
             self.patterns.append(pattern)
 
-        self.pattern_count = len(self.patterns)
+        self.pcount = len(self.patterns)
         self.pnum = pnum
 
         self.proto = self.patterns[pnum].proto
@@ -154,7 +154,7 @@ class FuzzyCurve:
         G = self.genus
 
         # large list of generators of specs for each (pnum, cnum); flatten by pnum * G + cnum
-        for pnum in range(self.pattern_count):
+        for pnum in range(self.pcount):
             for cnum in range(G):
                 sp_variant_generators.append(self.gen_allowed_specs(pnum, cnum))
 
@@ -272,7 +272,7 @@ class FuzzyCurve:
     #
 
     def gen_auto_junctions(self):
-        for pnum in range(self.pattern_count):
+        for pnum in range(self.pcount):
             yield Junction.get_auto_junc(dim=self.dim, pnum=pnum)
 
     def gen_junctions_from_base(self, base_juncs):
@@ -340,7 +340,7 @@ class FuzzyCurve:
         # - specs at (pnum, cnum) and (pnum, cnum+1)
         configs = []
         G = self.genus
-        P = self.pattern_count
+        P = self.pcount
         variants = []
         for pnum in range(P):
             variants.append(self.gen_allowed_specs(pnum=pnum, cnum=0))
@@ -398,7 +398,7 @@ class Curve(FuzzyCurve):
     def gen_base_junctions(self):
         """Generate base junctions."""
         seen = set()
-        for pnum in range(self.pattern_count):
+        for pnum in range(self.pcount):
             for cnum in range(self.genus - 1):
                 junc = self.get_base_junction(cnum=cnum, pnum=pnum)
                 if junc not in seen:
@@ -417,7 +417,7 @@ class Curve(FuzzyCurve):
 
     def get_paths(self):
         # TODO: unite with check
-        P = self.pattern_count
+        P = self.pcount
         gates = {pnum: Gate(Point(self.get_entrance(pnum)), Point(self.get_exit(pnum))) for pnum in range(P)}
         paths = []
         for pnum, pattern in enumerate(self.patterns):
@@ -539,7 +539,7 @@ class Curve(FuzzyCurve):
         (there is a subtlety for non-active patterns - we check them, too).
         """
 
-        d, n, G, P = self.dim, self.div, self.genus, self.pattern_count
+        d, n, G, P = self.dim, self.div, self.genus, self.pcount
 
         for pattern in self.patterns:
             assert len(pattern.proto) == self.genus, 'bad proto length'

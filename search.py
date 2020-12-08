@@ -14,17 +14,18 @@ from peano.fast_fractions import FastFraction
 
 
 def run_estimator(
-        dim, div, pattern_count,
+        dim, div, pcount,
         ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None, 
         gate_list=None, hyper=False, max_cdist=None,
         upper_bound=None, 
         output_gates=False, output_stats=False, shuffle=False,
+        finish_max_count=None,
     ):
 
     if gate_list is not None:
         gates_generator = gate_list
     else:
-        gates_generator = GatesGenerator(dim, div, pattern_count, hyper=hyper).gen_gates()
+        gates_generator = GatesGenerator(dim, div, pcount, hyper=hyper).gen_gates()
 
     def gen_pcurves():
         for gates_idx, gates in enumerate(gates_generator):
@@ -42,7 +43,10 @@ def run_estimator(
                 yield counts
                 continue
 
-            paths_list = list(paths_gen.generate_paths(std=True))
+            kw = {}
+            if finish_max_count is not None:
+                kw['finish_max_count'] = finish_max_count
+            paths_list = list(paths_gen.generate_paths(std=True, **kw))
             logging.warning('gates: %s', [str(g) for g in gates])
             logging.warning('paths: %d', len(paths_list))
 
@@ -97,6 +101,7 @@ if __name__ == "__main__":
     argparser.add_argument('--gates', type=str, help='one tuple of "|"-separated gates')
     argparser.add_argument('--gates-file', type=str)
     argparser.add_argument('--max-cdist', type=int)
+    argparser.add_argument('--finish-max-count', type=int)
 
     # ratio estimation args
     argparser.add_argument('--metric', type=str, choices=['l1','l2','l2_squared','linf'])
@@ -122,7 +127,7 @@ if __name__ == "__main__":
 
     print('args:', args)
     gate_list = []
-    kwargs = vars(args)
+    kwargs = vars(args).copy()
     kwargs['ratio_func'] = funcs.get(kwargs.pop('metric'))
     verbosity = kwargs.pop('verbose')
     if verbosity == 1:

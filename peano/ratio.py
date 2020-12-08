@@ -483,7 +483,7 @@ class Estimator:
         'argmax':  pair of points where lo is achieved (if use_vertex_brkline is set)
         """
         if use_vertex_brkline:
-            if curve.pattern_count > 1:
+            if curve.pcount > 1:
                 raise NotImplementedError("Brklines for multiple patterns not implemented!")
             vertex_brkline = [(x, t) for x, t in curve.get_vertex_moments().items()]
             brkline = IntegerBrokenLine(curve.dim, vertex_brkline)
@@ -574,7 +574,7 @@ class Estimator:
 
         stats = Counter()
         # start lower bound: it would be profitable to use good theoretical
-        # bounds like 5**2 for ratio_l2_squared, dim=2, pattern_count=1 (?)
+        # bounds like 5**2 for ratio_l2_squared, dim=2, pcount=1 (?)
         if start_lower_bound is None:
             curr_lo = FastFraction(0, 1)
         else:

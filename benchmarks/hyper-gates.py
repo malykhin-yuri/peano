@@ -16,4 +16,4 @@ logging.basicConfig(level=logging.INFO)
 
 
 if __name__ == "__main__":
-    list(GatesGenerator(dim=3, div=2, pattern_count=2, hyper=True).gen_gates())
+    list(GatesGenerator(dim=3, div=2, pcount=2, hyper=True).gen_gates())

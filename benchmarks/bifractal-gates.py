@@ -13,4 +13,4 @@ from peano.gate_utils import gen_possible_gates
 
 
 if __name__ == "__main__":
-    list(gen_possible_gates(dim=2, div=2, pattern_count=2))
+    list(gen_possible_gates(dim=2, div=2, pcount=2))

@@ -9,22 +9,22 @@ from .base_maps import BaseMap, Spec
 
 
 class GatesGenerator:
-    def __init__(self, dim, div, pattern_count, hyper=False):
+    def __init__(self, dim, div, pcount, hyper=False):
         """
         Generate gates for given configuration, optimized for hypercurves.
 
         Args:
-          dim, div, pattern_count  --  base configuration
+          dim, div, pcount  --  base configuration
           hyper  --  work with hypercurves only
         """
         self.dim = dim
         self.div = div
-        self.pattern_count = pattern_count
+        self.pcount = pcount
         self.hyper = hyper
         self.stats = Counter()
         self.seen_gates = set()
         self.seen_std_gates = set()
-        self.pnum_cnum_list = [(pnum, cnum) for pnum in range(pattern_count) for cnum in [0, -1]]
+        self.pnum_cnum_list = [(pnum, cnum) for pnum in range(pcount) for cnum in [0, -1]]
 
     def gen_gates(self, **kwargs):
         """
@@ -53,7 +53,7 @@ class GatesGenerator:
         Args:
           narrow_steps  --  TODO
         """
-        dim, div, pattern_count = self.dim, self.div, self.pattern_count
+        dim, div, pcount = self.dim, self.div, self.pcount
 
         face0 = HyperFaceDivSubset(dim=dim, div=div, face=(0, 0))  # x0=0
         face1 = HyperFaceDivSubset(dim=dim, div=div, face=(0, 1))  # x0=1
@@ -61,7 +61,7 @@ class GatesGenerator:
 
         # we either go to the opposite face, either to the neighbour face, or return to the same face
         portal_variants = [Portal(face0, face0), Portal(face0, face1), Portal(face0, face2)]
-        portals_list = list(itertools.combinations_with_replacement(portal_variants, r=pattern_count))
+        portals_list = list(itertools.combinations_with_replacement(portal_variants, r=pcount))
 
         for portals_idx, portals in enumerate(portals_list):
             logging.info('processing global portals %d of %d', portals_idx + 1, len(portals_list))
@@ -81,7 +81,7 @@ class GatesGenerator:
                 yield from self._gen_path_gates(paths)
 
     def _gen_possible_gates(self):
-        dim, div, pattern_count = self.dim, self.div, self.pattern_count
+        dim, div, pcount = self.dim, self.div, self.pcount
 
         # curves are non-internal, so first and last cubes are on the boundary
         all_cubes = itertools.product(range(div), repeat=dim)
@@ -101,7 +101,7 @@ class GatesGenerator:
 
         # as base_maps are not defined yet, we can permute pairs (i.e., assume that pairs tuple is sorted)
         # so we use combinations with replacement instead of product
-        std_pairs_list = list(itertools.combinations_with_replacement(std_pairs, r=pattern_count))
+        std_pairs_list = list(itertools.combinations_with_replacement(std_pairs, r=pcount))
 
         # to find gates, we should specify:
         # * first and last cubes in proto (for each pattern) -- will use std_pairs_list for that
@@ -121,7 +121,7 @@ class GatesGenerator:
             spec_dict = {}
             for pnum, cnum in self.pnum_cnum_list:
                 specs = []
-                for pn in range(pattern_count):
+                for pn in range(pcount):
                     for bm in BaseMap.gen_base_maps(dim):
                         if touch_same_hyperface(protos[pnum][cnum], (bm * protos[pn])[cnum]):
                             spec = Spec(bm, pnum=pn)
@@ -136,7 +136,7 @@ class GatesGenerator:
         spec_dict = {}
         for pnum, cnum in self.pnum_cnum_list:
             specs = []
-            for pn in range(self.pattern_count):
+            for pn in range(self.pcount):
                 for bm in paths[pn].portal.argmul_intersect(paths[pnum].portals[cnum]):
                     spec = Spec(bm, pnum=pn)
                     specs.append(spec)
@@ -157,9 +157,9 @@ class GatesGenerator:
                 yield gate
 
     def check_and_std(self, protos, spec_list):
-        dim, div, pattern_count = self.dim, self.div, self.pattern_count
+        dim, div, pcount = self.dim, self.div, self.pcount
 
-        pattern_specs = [[None] * (div**dim) for _ in range(pattern_count)]
+        pattern_specs = [[None] * (div**dim) for _ in range(pcount)]
         for (pnum, cnum), spec in zip(self.pnum_cnum_list, spec_list):
             pattern_specs[pnum][cnum] = spec
 
@@ -167,7 +167,7 @@ class GatesGenerator:
         curve = FuzzyCurve(dim=dim, div=div, patterns=patterns)
 
         gates = []
-        for pnum in range(pattern_count):
+        for pnum in range(pcount):
             entr = Point(curve.get_entrance(pnum))
             if (self.hyper and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
                 return
