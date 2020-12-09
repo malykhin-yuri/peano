@@ -22,10 +22,6 @@ class TestCurve(unittest.TestCase):
                 'ratio': {'l2': 8, 'l1': 32/3, 'linf': 8},
             },
             {
-                'curve': get_haverkort_curve_1(),
-                'ratio': {'l1': (99 + 5/9)},
-            },
-            {
                 'curve': get_tokarev_curve(),
                 'ratio': {'l1': [98.2, 98.4], 'l2': [26.1, 26.3], 'linf': [24.1, 24.3]},
             },
@@ -46,15 +42,15 @@ class TestCurve(unittest.TestCase):
                 'ratio': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
             },
             {
-                'curve': get_R_curve(),
+                'curve': get_r_curve(),
                 'ratio': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
             },
             {   
-                'curve': get_haverkort_curve_A26(),
+                'curve': get_haverkort_curve_a26(),
                 'ratio': {'l1': (99 + 5/9), 'l2': [22.7,22.9], 'linf': (12 + 4/9)},
             },
             {   
-                'curve': get_haverkort_curve_2(),
+                'curve': get_haverkort_curve_f(),
                 'ratio': {'l1': [89.7, 89.8], 'l2': [18,19], 'linf': 14},
             },
         ]
@@ -85,7 +81,7 @@ class TestCurve(unittest.TestCase):
     def test_polycurve_ratio(self):
         known_bounds = [
             {
-                'curve': get_beta_Omega_Curve(),
+                'curve': get_beta_omega_curve(),
                 'ratio': { 'l2': 5, 'l1': 9, 'linf': 5},
             },
             {
@@ -123,7 +119,7 @@ class TestCurve(unittest.TestCase):
             (4, 2), (4, 1), (3, 1), (3, 0), (4, 0),
         ])
         # in new version we have (0,0)->(0,1) gate
-        good_proto = basis2base_map('ji') * good_proto
+        good_proto = BaseMap.parse_basis('ji') * good_proto
 
         paths_gen = PathsGenerator(dim=2, div=5, hdist=1, max_cdist=1)
         for paths in paths_gen.generate_paths():

@@ -8,7 +8,12 @@ from .paths import Proto, CurvePath
 from .subsets import Gate, Point
 
 
-Pattern = namedtuple('Pattern', ['proto', 'specs'])
+class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
+    @classmethod
+    def parse_basis(cls, chain, specs):
+        proto = Proto.parse_basis(chain)
+        specs = [Spec.parse_basis(c) for c in specs]
+        return cls(proto, specs)
 
 
 class FuzzyCurve:
@@ -53,6 +58,20 @@ class FuzzyCurve:
         self.specs = self.patterns[pnum].specs
 
         self.genus = div**dim
+
+    @classmethod
+    def parse_basis(cls, patterns_bases):
+        """
+        Convenient way to define a curve.
+
+        patterns_bases is a list of pairs (chain_code, spec_bases),
+        chain_code defined protopype (see Proto.parse_basis),
+        spec_bases define specs (see Spec.parse_basis)
+        """
+        patterns = [Pattern.parse_basis(chain, spec_bases) for chain, spec_bases in patterns_bases]
+        proto0 = patterns[0].proto
+        dim, div = proto0.dim, proto0.div
+        return cls(dim, div, patterns)
 
     def get_fraction(self, cnum):
         """First-order fraction of a curve."""

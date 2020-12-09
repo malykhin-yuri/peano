@@ -4,8 +4,6 @@ from peano.subsets import Point
 from peano.base_maps import BaseMap
 from peano.fast_fractions import FastFraction as FF
 
-from .examples import basis2base_map
-
 
 class TestBaseMap(unittest.TestCase):
     def setUp(self):
@@ -14,10 +12,10 @@ class TestBaseMap(unittest.TestCase):
             self.base_maps += list(BaseMap.gen_base_maps(dim))
 
     def test_mul(self):
-        bm1 = basis2base_map('Ij')
-        bm2 = basis2base_map('ji')
-        self.assertEqual(bm1 * bm2, basis2base_map('Ji'))
-        self.assertEqual(bm2 * bm1, basis2base_map('jI'))
+        bm1 = BaseMap.parse_basis('Ij')
+        bm2 = BaseMap.parse_basis('ji')
+        self.assertEqual(bm1 * bm2, BaseMap.parse_basis('jI'))
+        self.assertEqual(bm2 * bm1, BaseMap.parse_basis('Ji'))
 
     def test_inv(self):
         for bm in self.base_maps:
@@ -28,6 +26,7 @@ class TestBaseMap(unittest.TestCase):
         dim3 = [bm for bm in self.base_maps if bm.dim == 3]
         for bm1 in dim3:
             for bm2 in dim3:
+                # TODO - правилен ли такой конжугад?
                 self.assertEqual(bm1.conjugate_by(bm2), bm2 * bm1 * ~bm2)
 
     def test_constraint_fast(self):

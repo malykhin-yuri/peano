@@ -29,6 +29,40 @@ class Proto(tuple):
             cubes = reversed(cubes)
         return type(self)(self.dim, self.div, cubes)
 
+    @classmethod
+    def parse_basis(cls, chain_code):
+        """
+        Convert chain code like 'ijK' to curve prototype.
+
+        We assume that we start from zero cube!  TODO : do not assume:)
+        """
+        dim = len(set(''.join(chain_code).lower()))
+
+        assert dim <= 6
+        letters = 'ijklmn'
+
+        vect_dict = {}
+        for k in range(dim):
+            coord = [0]*dim
+            coord[k] = 1
+            vect_dict[letters[k]] = coord
+            vect_dict[letters[k].upper()] = [-m for m in coord]
+
+        def diag_coord(vector):
+            arg = [vect_dict[k] for k in vector]
+            coord = list(map(sum,zip(*arg)))
+            return coord
+
+        proto = [list(map(vect_dict.get,chain_code)) if len(chain_code) == 1 else diag_coord(m) for m in chain_code]
+
+        proto = [[0] * dim] + proto
+        for l in range(len(proto)-1):
+            proto[l+1] = [c + d for c, d in zip(proto[l], proto[l+1])]
+
+        div = 1 + max(cj for cube in proto for cj in cube)
+
+        return cls(dim, div, proto)
+
 
 class PortalPath:
     """Prototype + portals."""

@@ -14,6 +14,7 @@ class BaseMap:
     """
 
     var_letters = 'xyz'
+    basis_letters = 'ijklmn'
 
     _obj_cache = {}
 
@@ -86,6 +87,40 @@ class BaseMap:
             rev, l = (True, y[2:]) if y.startswith('1-') else (False, y)
             coords.append((l2idx[l], rev))
 
+        return cls(coords, time_rev)
+
+    @classmethod
+    def parse_basis(cls, text):
+        """
+        Convenient way to represent a base map.
+
+        basis -- string, e.g., 'Ij', representing images of standard basis e_1, e_2, ...
+            i=e_1, j=e_2, k=e_3, l=e_4, m=e_5, n=e_6
+            upper-case letters correspond to negation of vectors: I = -i, J = -j, ...
+            To get time reverse, place '~' at the end of the string, e.g., 'iJ~'
+
+        We restrict here to dim <= 6, but the limit may by increased by extending basis_letters.
+        """
+
+        text = text.strip()
+        if text[-1] == '~':
+            time_rev = True
+            basis = text[:-1]
+        else:
+            time_rev = False
+            basis = text
+
+        assert len(basis) <= len(cls.basis_letters)
+
+        l2i = {l: i for i, l in enumerate(cls.basis_letters)}
+        cmap = {}
+        for k, l in enumerate(basis):
+            ll = l.lower()
+            i, b = l2i[ll], (l != ll)
+            # e_k -> (+/-)e_i, so y_i = x_k^b
+            cmap[i] = (k, b)
+
+        coords = [cmap[i] for i in range(len(cmap))]
         return cls(coords, time_rev)
 
     def cube_map(self):
@@ -284,6 +319,16 @@ class Spec:
 
     def __hash__(self):
         return hash(self._key)
+
+    @classmethod
+    def parse_basis(cls, text):
+        if text[0].isdigit():
+            pnum = int(text[0])
+            basis = text[1:]
+        else:
+            pnum = 0
+            basis = text
+        return cls(base_map=BaseMap.parse_basis(basis), pnum=pnum)
 
     def __repr__(self):
         return '{}[{}]'.format(self.base_map, self.pnum)

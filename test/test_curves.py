@@ -1,8 +1,22 @@
 import unittest
 
-from peano.fast_fractions import FastFraction
+from peano.base_maps import BaseMap
+from peano.curves import Curve
+from peano.fast_fractions import FastFraction as FF
+from peano.subsets import Point, Gate
 
 from .examples import *
+
+
+# some additional curves for testing
+def get_rev_curves():
+    chain = 'jiJ'
+    bases_list = [
+        ['ji','Ij~','ij','JI'],  # time rev at the middle
+        ['Ji~','ij','ij','JI'],  # time rev at first cube
+        ['ji','ij','ij','jI~'],  # time rev at last cube
+    ]
+    return [Curve.parse_basis([(chain, b)]) for b in bases_list]
 
 
 class TestCommon(unittest.TestCase):
@@ -17,22 +31,19 @@ class TestCommon(unittest.TestCase):
             get_meurthe_curve(),
             get_coil_curve(),
             get_serpentine_curve(),
-            get_R_curve(),
-            get_haverkort_curve_1(),
-            get_haverkort_curve_2(),
-            get_rev_curve(),
-            get_rev2_curve(),
-            get_rev3_curve(),
+            get_r_curve(),
+            get_haverkort_curve_a26(),
+            get_haverkort_curve_f(),
 
             get_hilbert_curve().forget(),
-            get_haverkort_curve_1().forget(),
+            get_haverkort_curve_a26().forget(),
 
-            get_hilbert_bicurve(),
-            get_beta_Omega_Curve(),
-            #get_ARW_Curve(),
+            get_beta_omega_curve(),
+            get_ARW_Curve(),
             get_neptunus_curve(),
             get_luna_curve(),
         ]
+        self.curves += get_rev_curves()
 
     def test_rrev(self):
         """Double reverse does not change curve."""
@@ -81,22 +92,20 @@ class TestCurve(unittest.TestCase):
             get_hilbert_curve(),
             get_peano_curve(),
             get_peano5_curve(),
+            get_scepin_bauman_curve(),
             get_tokarev_curve(),
             get_meurthe_curve(),
             get_coil_curve(),
             get_serpentine_curve(),
-            get_R_curve(),
-            get_haverkort_curve_1(),
-            get_haverkort_curve_2(),
-            get_rev_curve(),
-            get_rev2_curve(),
-            get_rev3_curve(),
-            get_hilbert_bicurve(),
-            get_beta_Omega_Curve(),
-            #get_ARW_Curve(),
+            get_r_curve(),
+            get_haverkort_curve_a26(),
+            get_haverkort_curve_f(),
+            get_beta_omega_curve(),
+            get_ARW_Curve(),
             get_neptunus_curve(),
             get_luna_curve(),
         ]
+        self.curves += get_rev_curves()
 
     def test_check(self):
         for curve in self.curves:
@@ -127,17 +136,42 @@ class TestCurve(unittest.TestCase):
     def test_vertex_moments(self):
         known_moments = [
             {
-                'curve': get_haverkort_curve_A26(),
-                'moments': [FastFraction(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
+                'curve': get_haverkort_curve_a26(),
+                'moments': [FF(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
             },
             {
-                'curve': get_haverkort_curve_2(),
-                'moments': [FastFraction(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
+                'curve': get_haverkort_curve_f(),
+                'moments': [FF(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
             },
         ]
         for d in known_moments:
             moments = d['curve'].get_vertex_moments().values()
             self.assertSetEqual(set(d['moments']), set(moments))
+
+    def test_gate(self):
+        known = [
+            {
+                'curve': get_haverkort_curve_f(),
+                'gate': Gate.parse('(0,1/3,1/3)->(2/3,1/3,0)'),
+            },
+            {
+                'curve': get_beta_omega_curve(),
+                'gates': [Gate.parse('(0,1/3)->(1,1/3)'), Gate.parse('(0,1/3)->(2/3,0)')],
+            },
+            {
+                'curve': get_neptunus_curve(),
+                'gates': [Gate.parse('(0,0,0)->(1,0,0)'), Gate.parse('(0,0,0)->(1,1,1)')],
+            },
+            {
+                'curve': get_luna_curve(),
+                'gates': [Gate.parse('(0,0,0)->(1,0,0)'), Gate.parse('(0,0,0)->(1,1,1)')],
+            },
+        ]
+        for data in known:
+            curve = data['curve']
+            gates = [Gate(Point(curve.get_entrance(pnum)), Point(curve.get_exit(pnum))) for pnum in range(curve.pcount)]
+            true_gates = [data['gate']] if 'gate' in data else data['gates']
+            self.assertEqual(gates, true_gates)
 
     def test_depth(self):
         assert get_hilbert_curve().get_depth() == 2
@@ -152,11 +186,10 @@ class TestFuzzyCurves(unittest.TestCase):
             get_hilbert_curve(),
             get_peano_curve(),
             get_tokarev_curve(),
-            get_rev_curve(),
         ]
 
     def test_check(self):
-        for curve in [get_hilbert_curve(), get_hilbert_bicurve()]:
+        for curve in [get_hilbert_curve()]:
             pcurve = curve.forget(allow_time_rev=True)
             for c in pcurve.gen_possible_curves():
                 c.check()
