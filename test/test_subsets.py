@@ -1,6 +1,7 @@
 import unittest
 
-from peano.fast_fractions import FastFraction as FF
+from sympy import Rational
+
 from peano.subsets import Point, HyperFaceDivSubset
 from peano.base_maps import BaseMap
 
@@ -8,7 +9,7 @@ from peano.base_maps import BaseMap
 class TestSubset(unittest.TestCase):
 
     def test_intcubes(self):
-        pt = Point((FF(0, 1), FF(1, 2), FF(1, 3)))
+        pt = Point((Rational(0, 1), Rational(1, 2), Rational(1, 3)))
         assert len(list(pt.gen_integer_cubes())) == 2
 
     def test_facediv(self):

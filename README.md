@@ -3,6 +3,7 @@
 Python package "peano" implements regular peano fractal curves on d-dimensional cube.
 
 Required python packages:
+- sympy (Rational module)
 - python-sat
 
 Tested on python 3.5 and 3.8.

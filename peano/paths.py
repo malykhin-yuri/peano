@@ -2,8 +2,9 @@ from collections import defaultdict
 import logging
 import itertools
 
+from sympy import Rational
+
 from .base_maps import BaseMap
-from .fast_fractions import FastFraction
 from .subsets import Gate, Point, Portal
 from .node_paths import NodePathTree
 from .utils import combinations_product
@@ -132,8 +133,8 @@ class PathsGenerator:
         self.div = div
 
         if portals is None:
-            entrance = Point((FastFraction(0, 1),) * dim)
-            exit = Point((FastFraction(0, 1),) * (dim - hdist) + (FastFraction(1, 1),) * hdist)
+            entrance = Point((Rational(0, 1),) * dim)
+            exit = Point((Rational(0, 1),) * (dim - hdist) + (Rational(1, 1),) * hdist)
             portals = [Gate(entrance, exit)]
         self.portals = portals
 

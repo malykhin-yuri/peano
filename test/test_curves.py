@@ -1,8 +1,9 @@
 import unittest
 
+from sympy import Rational
+
 from peano.base_maps import BaseMap
 from peano.curves import Curve
-from peano.fast_fractions import FastFraction as FF
 from peano.subsets import Point, Gate
 
 from .examples import *
@@ -137,11 +138,11 @@ class TestCurve(unittest.TestCase):
         known_moments = [
             {
                 'curve': get_haverkort_curve_a26(),
-                'moments': [FF(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
+                'moments': [Rational(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
             },
             {
                 'curve': get_haverkort_curve_f(),
-                'moments': [FF(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
+                'moments': [Rational(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
             },
         ]
         for d in known_moments:

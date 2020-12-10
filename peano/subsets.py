@@ -1,7 +1,8 @@
 import itertools
 from collections import namedtuple
 
-from .fast_fractions import FastFraction
+from sympy import Rational
+
 from .base_maps import BaseMap
 
 
@@ -65,18 +66,18 @@ class Point(tuple, Subset):
     def transform(self, scale=None, shift=None):
         """M -> M*scale + shift"""
         if scale is not None:
-            scale = FastFraction.convert(scale)
+            scale = Rational(scale)
         new_pt = []
         for j, pj in enumerate(self):
             if scale is not None:
                 pj *= scale
             if shift is not None:
-                pj += FastFraction.convert(shift[j])
+                pj += Rational(shift[j])
             new_pt.append(pj)
         return type(self)(new_pt)
 
     def map_to_cube(self, div, cube):
-        return self.transform(shift=cube).transform(scale=FastFraction(1, div))
+        return self.transform(shift=cube).transform(scale=Rational(1, div))
 
     def intersects(self, other):
         return self == other
@@ -99,8 +100,8 @@ class Point(tuple, Subset):
     def gen_integer_cubes(self):
         rngs = []
         for pj in self:
-            r = pj.n // pj.d
-            rng = [r-1, r] if pj.n % pj.d == 0 else [r]
+            r = pj.p // pj.q
+            rng = [r-1, r] if pj.p % pj.q == 0 else [r]
             rngs.append(rng)
         yield from itertools.product(*rngs)
 
@@ -113,12 +114,12 @@ class Point(tuple, Subset):
 
     @classmethod
     def parse(cls, text):
-        pt = [FastFraction.parse(token) for token in text.strip().strip('()').split(',')]
+        pt = [Rational(token) for token in text.strip().strip('()').split(',')]
         return cls(pt)
 
     def std(self):
-        Half = FastFraction(1, 2)
-        new = [pj if pj <= Half else pj.one_complement for pj in self]
+        Half = Rational(1, 2)
+        new = [pj if pj <= Half else Rational(1) - pj for pj in self]
         new.sort()
         return type(self)(new)
 
@@ -126,7 +127,7 @@ class Point(tuple, Subset):
         return list(BaseMap.gen_constraint_fast(self, self.std()))
 
     def face_dim(self):
-        return sum(pj != FastFraction(0, 1) and pj != FastFraction(1, 1) for pj in self)
+        return sum(pj != Rational(0, 1) and pj != Rational(1, 1) for pj in self)
 
 
 class HyperFaceDivSubset(Subset):

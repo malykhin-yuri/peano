@@ -4,13 +4,14 @@ import logging
 import argparse
 import random
 
+from sympy import Rational
+
 import peano.utils as utils
 from peano.paths import PathsGenerator
 from peano.curves import PathFuzzyCurve, CurvePath
 from peano.ratio import Estimator
 from peano.gate_utils import GatesGenerator
 from peano.subsets import Gate
-from peano.fast_fractions import FastFraction
 
 
 def run_estimator(
@@ -152,6 +153,6 @@ if __name__ == "__main__":
         kwargs['gate_list'] = [gates]
 
     if args.upper_bound is not None:
-        kwargs['upper_bound'] = FastFraction.parse(args.upper_bound)
+        kwargs['upper_bound'] = Rational.parse(args.upper_bound)
 
     run_estimator(**kwargs)

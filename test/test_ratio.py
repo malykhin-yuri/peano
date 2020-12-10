@@ -1,6 +1,7 @@
 import unittest
 
-from peano.fast_fractions import FastFraction
+from sympy import Rational
+
 from peano import utils
 from peano.paths import PathsGenerator, CurvePath
 from peano.curves import PathFuzzyCurve, Proto
@@ -133,4 +134,4 @@ class TestCurve(unittest.TestCase):
         curve = estimator.estimate_ratio(pcurve, rel_tol_inv=10000, verbose=False)['curve']
         ratio = estimator.estimate_ratio(curve, rel_tol_inv=10000, use_vertex_brkline=True, verbose=False, max_depth=5)
 
-        assert ratio['lo'] == (FastFraction(408, 73)**2)
+        assert ratio['lo'] == (Rational(408, 73) ** 2)

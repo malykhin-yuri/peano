@@ -4,10 +4,11 @@ from collections.abc import Sized
 from heapq import heappop, heappush
 import logging
 
+from sympy import Rational
+
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
 
 from .base_maps import BaseMap, Spec
-from .fast_fractions import FastFraction
 from . import sat_adapters
 from .curves import Curve
 
@@ -288,7 +289,7 @@ class Estimator:
         Init Estimator instance and set some basic properties.
 
         Params:
-        ratio_func  --  function (dim, dx, dt) -> FastFraction, it is assumed to be d-uniform
+        ratio_func  --  function (dim, dx, dt) -> Rational, it is assumed to be d-uniform
         cache_max_size  --  subj for pairs bounds cache
         """
 
@@ -399,10 +400,10 @@ class Estimator:
                     lo_point = self.ratio_func(dim, dx, dt)
                     if lo_point > lo:
                         lo = lo_point
-                        x1_real = [FastFraction(x1j, mx * brk_mx) for x1j in x1_point]
-                        x2_real = [FastFraction(x2j, mx * brk_mx) for x2j in x2_point]
-                        t1_real = FastFraction(t1_point, mt * brk_mt)
-                        t2_real = FastFraction(t2_point, mt * brk_mt)
+                        x1_real = [Rational(x1j, mx * brk_mx) for x1j in x1_point]
+                        x2_real = [Rational(x2j, mx * brk_mx) for x2j in x2_point]
+                        t1_real = Rational(t1_point, mt * brk_mt)
+                        t2_real = Rational(t2_point, mt * brk_mt)
                         argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
 
         if use_cache:
@@ -510,7 +511,7 @@ class Estimator:
         if verbose:
             print('start bounds: ', curr_lo, curr_up)
 
-        tolerance = FastFraction(rel_tol_inv + 1, rel_tol_inv)
+        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         iter_no = 0
         while curr_up > curr_lo * tolerance:
             iter_no += 1
@@ -576,7 +577,7 @@ class Estimator:
         # start lower bound: it would be profitable to use good theoretical
         # bounds like 5**2 for ratio_l2_squared, dim=2, pcount=1 (?)
         if start_lower_bound is None:
-            curr_lo = FastFraction(0, 1)
+            curr_lo = Rational(0, 1)
         else:
             curr_lo = start_lower_bound
 
@@ -596,15 +597,15 @@ class Estimator:
 
         # invariant: best curve in the class is in [curr_lo, curr_up]
         # curr_curve ratio also in [curr_lo, curr_up]
-        tolerance = FastFraction(rel_tol_inv + 1, rel_tol_inv)
+        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         while curr_up > curr_lo * tolerance:
-            if curr_lo == FastFraction(0, 1):
+            if curr_lo == Rational(0, 1):
                 # optimization ?
-                new_lo = FastFraction(1, 2) * curr_up
-                new_up = FastFraction(2, 3) * curr_up
+                new_lo = Rational(1, 2) * curr_up
+                new_up = Rational(2, 3) * curr_up
             else:
-                new_lo = FastFraction(2, 3) * curr_lo + FastFraction(1, 3) * curr_up
-                new_up = FastFraction(1, 3) * curr_lo + FastFraction(2, 3) * curr_up
+                new_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
+                new_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
             stats['bisect_iter'] += 1
             logging.warning(
                 '#%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
@@ -774,7 +775,7 @@ class Estimator:
             priority = ((-lo if lo is not None else None), _inc)
             return CurveItem(priority, lo, up, curve, example, pairs_tree, path_idx)
 
-        curr_lo = FastFraction(0, 1)
+        curr_lo = Rational(0, 1)
         curr_up = upper_bound
 
         active = (get_item(curve, path_idx=idx) for idx, curve in enumerate(curves))
@@ -783,7 +784,7 @@ class Estimator:
         curr_rel_tol_inv = 1
         epoch = 0
         stats = Counter()
-        tolerance = FastFraction(rel_tol_inv + 1, rel_tol_inv)
+        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         while curr_up is None or curr_up > curr_lo * tolerance:
             curr_rel_tol_inv *= rel_tol_inv_mult
             epoch += 1
@@ -841,18 +842,18 @@ class IntegerBrokenLine:
     def __init__(self, dim, brkline):
         denoms = set()
         for x, t in brkline:
-            if isinstance(t, FastFraction):
-                denoms.add(t.d)
+            if isinstance(t, Rational):
+                denoms.add(t.q)
             for xj in x:
-                if isinstance(xj, FastFraction):
-                    denoms.add(xj.d)
+                if isinstance(xj, Rational):
+                    denoms.add(xj.q)
         lcm = get_lcm(denoms)
         mx = lcm
         mt = lcm**dim
         points = []
         for x, t in brkline:
-            xp = tuple(int(FastFraction.convert(xj) * FastFraction(mx, 1)) for xj in x)
-            tp = int(FastFraction.convert(t) * FastFraction(mt, 1))
+            xp = tuple(int(Rational(xj) * Rational(mx, 1)) for xj in x)
+            tp = int(Rational(t) * Rational(mt, 1))
             points.append((xp, tp))
         self.points = points
         self.mx = mx

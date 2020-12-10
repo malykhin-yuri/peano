@@ -1,5 +1,7 @@
 import itertools
 
+from sympy import Rational
+
 
 class BaseMap:
     """
@@ -189,8 +191,8 @@ class BaseMap:
         return tuple(mx-x[k] if b else x[k] for k, b in self.coords)
 
     def apply_x_fraction(self, x):
-        """FastFraction version."""
-        return tuple(x[k].one_complement if b else x[k] for k, b in self.coords)
+        """Rational version."""
+        return tuple(Rational(1) - x[k] if b else x[k] for k, b in self.coords)
 
     def apply_t(self, t, mt=1):
         return mt - t if self.time_rev else t
@@ -226,7 +228,7 @@ class BaseMap:
 
     @classmethod
     def gen_constraint_fast(cls, src, dst):
-        """Generate bms: bm*src == dst. Used for fast fractions."""
+        """Generate bms: bm*src == dst. Used for rationals."""
         dim = len(src)
         group_id = {}
         group_coords = []
@@ -246,8 +248,9 @@ class BaseMap:
             bvar = []
             if xj in group_id:
                 bvar.append((0, group_id[xj]))
-            if xj.one_complement in group_id:
-                bvar.append((1, group_id[xj.one_complement]))
+            xj_compl = Rational(1) - xj
+            if xj_compl in group_id:
+                bvar.append((1, group_id[xj_compl]))
             bvars.append(bvar)
 
         # TODO: try to use combinations_product

@@ -1,7 +1,8 @@
 from collections import namedtuple, defaultdict
 import itertools
 
-from .fast_fractions import FastFraction
+from sympy import Rational
+
 from .base_maps import BaseMap, Spec
 from .utils import get_periodic_sum
 from .paths import Proto, CurvePath
@@ -579,7 +580,7 @@ class Curve(FuzzyCurve):
             for cube, spec in zip(pattern.proto, pattern.specs):
                 bm = spec.base_map
                 frac_gates_rel = [bm.apply_x_fraction(point) for point in [entr[spec.pnum], exit[spec.pnum]]]
-                frac_gates = [tuple((FastFraction(c, 1) + e) * FastFraction(1, n) for c, e in zip(cube, point)) for point in frac_gates_rel]
+                frac_gates = [tuple((Rational(c, 1) + e) * Rational(1, n) for c, e in zip(cube, point)) for point in frac_gates_rel]
                 if bm.time_rev:
                     frac_gates.reverse()
                 gates.append(frac_gates)

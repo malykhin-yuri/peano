@@ -1,8 +1,9 @@
 import unittest
 
+from sympy import Rational
+
 from peano.subsets import Point
 from peano.base_maps import BaseMap
-from peano.fast_fractions import FastFraction as FF
 
 
 class TestBaseMap(unittest.TestCase):
@@ -32,20 +33,20 @@ class TestBaseMap(unittest.TestCase):
     def test_constraint_fast(self):
         pairs = [
             (
-                [FF(0, 1), FF(1, 1), FF(1, 3), FF(1, 2)],
-                [FF(0, 1), FF(1, 2), FF(1, 3), FF(0, 1)],
+                [Rational(0, 1), Rational(1, 1), Rational(1, 3), Rational(1, 2)],
+                [Rational(0, 1), Rational(1, 2), Rational(1, 3), Rational(0, 1)],
             ),
             (
-                [FF(0, 1), FF(0, 1)],
-                [FF(1, 2), FF(1, 2)],
+                [Rational(0, 1), Rational(0, 1)],
+                [Rational(1, 2), Rational(1, 2)],
             ),
             (
-                [FF(0, 1), FF(0, 1), FF(1, 2), FF(1, 2), FF(1, 4)],
-                [FF(1, 2), FF(1, 2), FF(1, 1), FF(1, 1), FF(3, 4)],
+                [Rational(0, 1), Rational(0, 1), Rational(1, 2), Rational(1, 2), Rational(1, 4)],
+                [Rational(1, 2), Rational(1, 2), Rational(1, 1), Rational(1, 1), Rational(3, 4)],
             ),
             (
-                [FF(0, 1), FF(0, 1), FF(0, 1), FF(0, 1)],
-                [FF(0, 1), FF(0, 1), FF(1, 1), FF(1, 1)],
+                [Rational(0, 1), Rational(0, 1), Rational(0, 1), Rational(0, 1)],
+                [Rational(0, 1), Rational(0, 1), Rational(1, 1), Rational(1, 1)],
             ),
         ]
         for src_coords, dst_coords in pairs:

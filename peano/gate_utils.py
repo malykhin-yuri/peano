@@ -85,8 +85,8 @@ class GatesGenerator:
 
         # curves are non-internal, so first and last cubes are on the boundary
         all_cubes = itertools.product(range(div), repeat=dim)
-        edge_cubes = (cube for cube in all_cubes if any(cj == 0 or cj == div - 1 for cj in cube))
-        edge_pairs = itertools.combinations(edge_cubes, 2)
+        face_cubes = (cube for cube in all_cubes if any(cj == 0 or cj == div - 1 for cj in cube))
+        face_pairs = itertools.combinations(face_cubes, 2)
 
         def std_pair(pair):
             def gen_all():
@@ -97,7 +97,7 @@ class GatesGenerator:
                     yield (c2, c1)
             return min(gen_all())
 
-        std_pairs = sorted(set(std_pair(pair) for pair in edge_pairs))
+        std_pairs = sorted(set(std_pair(pair) for pair in face_pairs))
 
         # as base_maps are not defined yet, we can permute pairs (i.e., assume that pairs tuple is sorted)
         # so we use combinations with replacement instead of product
