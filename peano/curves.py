@@ -239,7 +239,7 @@ class FuzzyCurve:
         if pnum is None:
             pnum = self.pnum
         start, period = self._get_cubes(pnum, 0)
-        return self._get_cube_limit(start, period)
+        return Point(self._get_cube_limit(start, period))
 
     def get_exit(self, pnum=None):
         """
@@ -250,12 +250,11 @@ class FuzzyCurve:
         if pnum is None:
             pnum = self.pnum
         start, period = self._get_cubes(pnum, self.genus-1)
-        return self._get_cube_limit(start, period)
+        return Point(self._get_cube_limit(start, period))
 
     def _get_cubes(self, pnum, cnum):
         # we found the sequence of cubes that we obtain if we take cube #cnum in each fraction
         # returns pair (non-periodic part, periodic part)
-        # возвращает пару (непериодическая часть, периодическая часть)
         cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)  # current curve = cur_spec * self
         cubes = []
         index = {}
@@ -278,8 +277,7 @@ class FuzzyCurve:
                 return cubes[0:idx], cubes[idx:]
 
     def _get_cube_limit(self, start, period):
-        # дана последовательность кубов, периодическая с некоторого момента, ищем предельную точку
-        """Get limit of sequence of nested cubes."""
+        """Get limit of nested semi-periodic sequence of cubes."""
         p = [0] * self.dim
         for j in range(self.dim):
             start_j = [x[j] for x in start]
@@ -438,7 +436,7 @@ class Curve(FuzzyCurve):
     def get_paths(self):
         # TODO: unite with check
         P = self.pcount
-        gates = {pnum: Gate(Point(self.get_entrance(pnum)), Point(self.get_exit(pnum))) for pnum in range(P)}
+        gates = {pnum: Gate(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(P)}
         paths = []
         for pnum, pattern in enumerate(self.patterns):
             pattern_gates = [spec.base_map * gates[spec.pnum] for spec in pattern.specs]
@@ -579,7 +577,7 @@ class Curve(FuzzyCurve):
 
             for cube, spec in zip(pattern.proto, pattern.specs):
                 bm = spec.base_map
-                frac_gates_rel = [bm.apply_x_fraction(point) for point in [entr[spec.pnum], exit[spec.pnum]]]
+                frac_gates_rel = [bm * point for point in [entr[spec.pnum], exit[spec.pnum]]]
                 frac_gates = [tuple((Rational(c, 1) + e) * Rational(1, n) for c, e in zip(cube, point)) for point in frac_gates_rel]
                 if bm.time_rev:
                     frac_gates.reverse()

@@ -133,8 +133,8 @@ class PathsGenerator:
         self.div = div
 
         if portals is None:
-            entrance = Point((Rational(0, 1),) * dim)
-            exit = Point((Rational(0, 1),) * (dim - hdist) + (Rational(1, 1),) * hdist)
+            entrance = Point((Rational(0),) * dim)
+            exit = Point((Rational(0),) * (dim - hdist) + (Rational(1, 1),) * hdist)
             portals = [Gate(entrance, exit)]
         self.portals = portals
 

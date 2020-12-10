@@ -168,11 +168,11 @@ class GatesGenerator:
 
         gates = []
         for pnum in range(pcount):
-            entr = Point(curve.get_entrance(pnum))
+            entr = curve.get_entrance(pnum)
             if (self.hyper and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
                 return
 
-            exit = Point(curve.get_exit(pnum))
+            exit = curve.get_exit(pnum)
             if (self.hyper and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
                 return
 

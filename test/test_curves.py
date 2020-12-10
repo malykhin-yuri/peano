@@ -170,7 +170,7 @@ class TestCurve(unittest.TestCase):
         ]
         for data in known:
             curve = data['curve']
-            gates = [Gate(Point(curve.get_entrance(pnum)), Point(curve.get_exit(pnum))) for pnum in range(curve.pcount)]
+            gates = [Gate(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.pcount)]
             true_gates = [data['gate']] if 'gate' in data else data['gates']
             self.assertEqual(gates, true_gates)
 

@@ -577,7 +577,7 @@ class Estimator:
         # start lower bound: it would be profitable to use good theoretical
         # bounds like 5**2 for ratio_l2_squared, dim=2, pcount=1 (?)
         if start_lower_bound is None:
-            curr_lo = Rational(0, 1)
+            curr_lo = Rational(0)
         else:
             curr_lo = start_lower_bound
 
@@ -599,7 +599,7 @@ class Estimator:
         # curr_curve ratio also in [curr_lo, curr_up]
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         while curr_up > curr_lo * tolerance:
-            if curr_lo == Rational(0, 1):
+            if curr_lo == Rational(0):
                 # optimization ?
                 new_lo = Rational(1, 2) * curr_up
                 new_up = Rational(2, 3) * curr_up
@@ -775,7 +775,7 @@ class Estimator:
             priority = ((-lo if lo is not None else None), _inc)
             return CurveItem(priority, lo, up, curve, example, pairs_tree, path_idx)
 
-        curr_lo = Rational(0, 1)
+        curr_lo = Rational(0)
         curr_up = upper_bound
 
         active = (get_item(curve, path_idx=idx) for idx, curve in enumerate(curves))

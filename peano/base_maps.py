@@ -190,10 +190,6 @@ class BaseMap:
         """Apply isometry to a point x of [0,1]^d."""
         return tuple(mx-x[k] if b else x[k] for k, b in self.coords)
 
-    def apply_x_fraction(self, x):
-        """Rational version."""
-        return tuple(Rational(1) - x[k] if b else x[k] for k, b in self.coords)
-
     def apply_t(self, t, mt=1):
         return mt - t if self.time_rev else t
 
@@ -219,12 +215,6 @@ class BaseMap:
             for flip in itertools.product([True, False], repeat=dim):
                 for time_rev in time_rev_variants:
                     yield cls(zip(perm, flip), time_rev)
-
-    @classmethod
-    def gen_constraint_cube_maps(cls, dim, points_map):
-        for bm in cls.gen_base_maps(dim, time_rev=False):
-            if all(bm.apply_x_fraction(src) == dst for src, dst in points_map.items()):
-                yield bm
 
     @classmethod
     def gen_constraint_fast(cls, src, dst):
@@ -287,7 +277,7 @@ class BaseMap:
         dim = len(x)
         minx, minbm = None, None
         for bm in cls.gen_base_maps(dim, time_rev=False):
-            bmx = bm.apply_x_fraction(x)
+            bmx = bm * x
             if minx is None or bmx < minx:
                 minx = bmx
                 minbm = bm

@@ -105,9 +105,8 @@ class Point(tuple, Subset):
             rngs.append(rng)
         yield from itertools.product(*rngs)
 
-    def __rmul__(self, base_map):
-        new_coords = base_map.apply_x_fraction(self)
-        return type(self)(new_coords)
+    def __rmul__(self, bm):
+        return type(self)(Rational(1) - self[k] if b else self[k] for k, b in bm.coords)
 
     def __str__(self):
         return '(' + ','.join([str(pj) for pj in self]) + ')'
@@ -127,7 +126,7 @@ class Point(tuple, Subset):
         return list(BaseMap.gen_constraint_fast(self, self.std()))
 
     def face_dim(self):
-        return sum(pj != Rational(0, 1) and pj != Rational(1, 1) for pj in self)
+        return sum(pj != Rational(0) and pj != Rational(1) for pj in self)
 
 
 class HyperFaceDivSubset(Subset):
