@@ -19,7 +19,7 @@ def run_estimator(
         ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None, 
         gate_list=None, hyper=False, max_cdist=None,
         upper_bound=None, 
-        output_gates=False, output_stats=False, shuffle=False,
+        group_by_gates=False, output_gates=False, output_stats=False,
         finish_max_count=None,
     ):
 
@@ -28,8 +28,8 @@ def run_estimator(
     else:
         gates_generator = GatesGenerator(dim, div, pcount, hyper=hyper).gen_gates()
 
-    def gen_pcurves():
-        for gates_idx, gates in enumerate(gates_generator):
+    def gen_pcurves(gates_iterable):
+        for gates_idx, gates in enumerate(gates_iterable):
             if output_gates:
                 yield gates
                 continue
@@ -56,10 +56,9 @@ def run_estimator(
                 paths = tuple(CurvePath(path.proto, path.portals) for path in paths)
                 yield PathFuzzyCurve.init_from_paths(paths)
 
-    pcurves_generator = gen_pcurves()
     if output_stats:
         scnt = 0
-        for counts in pcurves_generator:
+        for counts in gen_pcurves(gates_generator):
             prod = 1
             for cnt in counts:
                 prod *= cnt
@@ -69,26 +68,32 @@ def run_estimator(
         return
 
     if output_gates:
-        for gates in pcurves_generator:
+        for gates in gates_generator:
             print(' | '.join([str(gate) for gate in gates]))
         return
 
-    if shuffle:
-        pcurves_generator = list(pcurves_generator)
-        random.shuffle(pcurves_generator)
-
     estimator = Estimator(ratio_func, cache_max_size=2**16)
-    result = estimator.estimate_ratio_sequence(
-        pcurves_generator,
-        rel_tol_inv=rel_tol_inv,
-        rel_tol_inv_mult=rel_tol_inv_mult,
-        sat_strategy={'type': 'geometric', 'multiplier': 1.3},
-        upper_bound=upper_bound,
-    )
-    print(result)
-    print('======')
-    print('lower bound:', float(result['lo']))
-    print('upper bound:', float(result['up']))
+
+    if group_by_gates:
+        pcurve_gens = [(gates, gen_pcurves([gates])) for gates in gates_generator]
+    else:
+        pcurve_generator = gen_pcurves(gates_generator)
+        pcurve_gens = [('all_gates', pcurve_generator)]
+
+    for gen_id, pcurves_generator in pcurve_gens:
+        result = estimator.estimate_ratio_sequence(
+            pcurves_generator,
+            rel_tol_inv=rel_tol_inv,
+            rel_tol_inv_mult=rel_tol_inv_mult,
+            sat_strategy={'type': 'geometric', 'multiplier': 1.3},
+            upper_bound=upper_bound,
+        )
+        print('======')
+        print('GENERATOR:', gen_id)
+        print(result)
+        print('lower bound:', float(result['lo']))
+        print('upper bound:', float(result['up']))
+        print('', flush=True)
 
 
 if __name__ == "__main__":
@@ -96,8 +101,8 @@ if __name__ == "__main__":
 
     # configuration args
     argparser.add_argument('--dim', type=int, required=True)
+    argparser.add_argument('--pcount', type=int, required=True)
     argparser.add_argument('--div', type=int, required=True)
-    argparser.add_argument('--pattern-count', type=int, required=True)
     argparser.add_argument('--hyper', action='store_true', help='only hypercurves (exit/entrance on hyperfaces)')
     argparser.add_argument('--gates', type=str, help='one tuple of "|"-separated gates')
     argparser.add_argument('--gates-file', type=str)
@@ -111,9 +116,9 @@ if __name__ == "__main__":
     argparser.add_argument('--rel-tol-inv_mult', type=int, default=5, help='multiplier for rel_tol_inv in each epoch')
 
     # other
+    argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
     argparser.add_argument('--output-gates', action='store_true', help='only gates, do not estimate ratio')
     argparser.add_argument('--output-stats', action='store_true', help='only count, do not work')
-    argparser.add_argument('--shuffle', action='store_true', help='shuffle input to estimator')
     argparser.add_argument('--verbose', '-v', action='count', default=0, help='loglevel (0=warning, 1=info, 2=debug)')
 
     args = argparser.parse_args()
@@ -153,6 +158,6 @@ if __name__ == "__main__":
         kwargs['gate_list'] = [gates]
 
     if args.upper_bound is not None:
-        kwargs['upper_bound'] = Rational.parse(args.upper_bound)
+        kwargs['upper_bound'] = Rational(args.upper_bound)
 
     run_estimator(**kwargs)
