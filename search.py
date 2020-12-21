@@ -90,9 +90,12 @@ def run_estimator(
         )
         print('======')
         print('GENERATOR:', gen_id)
-        print(result)
-        print('lower bound:', float(result['lo']))
-        print('upper bound:', float(result['up']))
+        if not result:
+            print('NOT FOUND!')
+        else:
+            print(result)
+            print('lower bound:', float(result['lo']))
+            print('upper bound:', float(result['up']))
         print('', flush=True)
 
 
