@@ -31,7 +31,7 @@ class Proto(tuple):
         return type(self)(self.dim, self.div, cubes)
 
     @classmethod
-    def parse_basis(cls, chain_code):
+    def parse(cls, chain_code):
         """
         Convert chain code like 'ijK' to curve prototype.
 

@@ -65,34 +65,6 @@ class BaseMap:
 
     @classmethod
     def parse(cls, text):
-        text = text.replace(' ', '')
-        time_rev = False
-        if ';' in text:
-            space, time = text.split(';')
-            if '->' in time:
-                src_t, dst_t = time.split('->')
-                if dst_t == ('1-' + src_t):
-                    time_rev = True
-                elif src_t != dst_t:
-                    raise ValueError('Incorrect format: {}'.format(text))
-        else:
-            space = text
-
-        src, dst = space.split('->')
-        letters = src.strip('()').split(',')
-        l2idx = {l: idx for idx, l in enumerate(letters)}
-        ys = dst.strip('()').split(',')
-        assert len(letters) == len(ys)
-
-        coords = []
-        for y in ys:
-            rev, l = (True, y[2:]) if y.startswith('1-') else (False, y)
-            coords.append((l2idx[l], rev))
-
-        return cls(coords, time_rev)
-
-    @classmethod
-    def parse_basis(cls, text):
         """
         Convenient way to represent a base map.
 
@@ -314,14 +286,14 @@ class Spec:
         return hash(self._key)
 
     @classmethod
-    def parse_basis(cls, text):
+    def parse(cls, text):
         if text[0].isdigit():
             pnum = int(text[0])
             basis = text[1:]
         else:
             pnum = 0
             basis = text
-        return cls(base_map=BaseMap.parse_basis(basis), pnum=pnum)
+        return cls(base_map=BaseMap.parse(basis), pnum=pnum)
 
     def __repr__(self):
         return '{}[{}]'.format(self.base_map, self.pnum)

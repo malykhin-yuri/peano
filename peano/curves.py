@@ -11,9 +11,9 @@ from .subsets import Gate, Point
 
 class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
     @classmethod
-    def parse_basis(cls, chain, specs):
-        proto = Proto.parse_basis(chain)
-        specs = [Spec.parse_basis(c) for c in specs]
+    def parse(cls, chain, specs):
+        proto = Proto.parse(chain)
+        specs = [Spec.parse(c) for c in specs]
         return cls(proto, specs)
 
 
@@ -61,15 +61,15 @@ class FuzzyCurve:
         self.genus = div**dim
 
     @classmethod
-    def parse_basis(cls, patterns_bases):
+    def parse(cls, patterns_bases):
         """
         Convenient way to define a curve.
 
         patterns_bases is a list of pairs (chain_code, spec_bases),
-        chain_code defined protopype (see Proto.parse_basis),
-        spec_bases define specs (see Spec.parse_basis)
+        chain_code defined protopype (see Proto.parse),
+        spec_bases define specs (see Spec.parse)
         """
-        patterns = [Pattern.parse_basis(chain, spec_bases) for chain, spec_bases in patterns_bases]
+        patterns = [Pattern.parse(chain, spec_bases) for chain, spec_bases in patterns_bases]
         proto0 = patterns[0].proto
         dim, div = proto0.dim, proto0.div
         return cls(dim, div, patterns)

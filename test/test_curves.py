@@ -17,7 +17,7 @@ def get_rev_curves():
         ['Ji~','ij','ij','JI'],  # time rev at first cube
         ['ji','ij','ij','jI~'],  # time rev at last cube
     ]
-    return [Curve.parse_basis([(chain, b)]) for b in bases_list]
+    return [Curve.parse([(chain, b)]) for b in bases_list]
 
 
 class TestCommon(unittest.TestCase):
@@ -56,7 +56,7 @@ class TestCommon(unittest.TestCase):
     def test_apply_base_map_unit(self):
         """Test that the application of a sequence of base_maps with unit product does not change the curve."""
         rot_90 = BaseMap([(1,True), (0,False)])  # поворот на 90 градусов
-        rot_90_t = BaseMap.parse('(x,y)->(1-y,x);t->1-t')
+        rot_90_t = BaseMap.parse('jI~')
         bms_list = [
             [rot_90] * 3,
             [rot_90_t] * 3,

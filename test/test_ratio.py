@@ -124,7 +124,7 @@ class TestCurve(unittest.TestCase):
             (4, 2), (4, 1), (3, 1), (3, 0), (4, 0),
         ])
         # in new version we have (0,0)->(0,1) gate
-        good_proto = BaseMap.parse_basis('ji') * good_proto
+        good_proto = BaseMap.parse('ji') * good_proto
 
         paths_gen = PathsGenerator(dim=2, div=5, hdist=1, max_cdist=1)
         for paths in paths_gen.generate_paths():

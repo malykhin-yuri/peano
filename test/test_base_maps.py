@@ -13,10 +13,10 @@ class TestBaseMap(unittest.TestCase):
             self.base_maps += list(BaseMap.gen_base_maps(dim))
 
     def test_mul(self):
-        bm1 = BaseMap.parse_basis('Ij')
-        bm2 = BaseMap.parse_basis('ji')
-        self.assertEqual(bm1 * bm2, BaseMap.parse_basis('jI'))
-        self.assertEqual(bm2 * bm1, BaseMap.parse_basis('Ji'))
+        bm1 = BaseMap.parse('Ij')
+        bm2 = BaseMap.parse('ji')
+        self.assertEqual(bm1 * bm2, BaseMap.parse('jI'))
+        self.assertEqual(bm2 * bm1, BaseMap.parse('Ji'))
 
     def test_inv(self):
         for bm in self.base_maps:
