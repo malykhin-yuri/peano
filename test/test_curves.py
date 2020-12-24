@@ -105,6 +105,7 @@ class TestCurve(unittest.TestCase):
             get_ARW_Curve(),
             get_neptunus_curve(),
             get_luna_curve(),
+            get_17_curve(),
         ]
         self.curves += get_rev_curves()
 

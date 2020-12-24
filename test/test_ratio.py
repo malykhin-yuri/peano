@@ -54,6 +54,10 @@ class TestCurve(unittest.TestCase):
                 'curve': get_haverkort_curve_f(),
                 'ratio': {'l1': [89.7, 89.8], 'l2': [18,19], 'linf': 14},
             },
+            {
+                'curve': get_17_curve(),
+                'ratio': {'l2': [16.9, 17.0]},
+            },
         ]
         for data in known_bounds:
             curve = data['curve']

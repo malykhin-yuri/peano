@@ -211,3 +211,12 @@ def get_luna_curve():
     p0 = ('jkJijKJ', ['1kji','0jIK','1JIk','1iKJ','1ijk','1jKI','0JiK','1KiJ'])
     p1 = ('jkJiKjk', ['1kji','0jIK','1JIk','1iKJ','0ijk','1KjI','0kij','1jik'])
     return Curve.parse_basis([p0, p1])
+
+
+def get_17_curve():
+    """
+    3D bifractal facet-gated curve with l2-ratio <17
+    """
+    p0 = ('jkiKJkI', ['1JKI~','0jKI','1kji','0kiJ~','1KiJ','0JKi','1kJI','1IkJ'])
+    p1 = ('jiJkjIJ', ['1JKI~','0Ijk~','0jiK~','0KJI~','0Jki~','0ijK~','0IjK','1JIk'])
+    return Curve.parse_basis([p0, p1])
