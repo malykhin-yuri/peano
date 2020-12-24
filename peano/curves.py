@@ -74,6 +74,11 @@ class FuzzyCurve:
         dim, div = proto0.dim, proto0.div
         return cls(dim, div, patterns)
 
+    def __str__(self):
+        for pnum, pattern in enumerate(self.patterns):
+            print('@{}: {} | {}'.format(pnum, pattern.proto, pattern.specs))
+
+
     def get_fraction(self, cnum):
         """First-order fraction of a curve."""
         return self.specs[cnum] * self

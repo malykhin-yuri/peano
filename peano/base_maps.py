@@ -15,7 +15,6 @@ class BaseMap:
     TODO: maybe, totally cache it for dim <= 4 ?
     """
 
-    var_letters = 'xyz'
     basis_letters = 'ijklmn'
 
     _obj_cache = {}
@@ -107,16 +106,12 @@ class BaseMap:
     def __hash__(self):
         return hash(self._key)
 
-    def __repr__(self):
-        if self.dim > len(self.var_letters):
-            letters = ['x{}'.format(i) for i in range(self.dim)]
-        else:
-            letters = self.var_letters[:self.dim]
-        return '({src})->({dst}){time}'.format(
-            src=','.join(letters),
-            dst=','.join([('1-{}' if b else '{}').format(letters[k]) for k, b in self.coords]),
-            time=(';t->1-t' if self.time_rev else ''),
-        )
+    def __str__(self):
+        bases = [None] * self.dim
+        for i, (k, b) in enumerate(self.coords):  # y_i = x_k^b
+            img = self.basis_letters[i]
+            bases[k] = img.upper() if b else img
+        return ''.join(bases) + ('~' if self.time_rev else '')
 
     def __mul__(self, other):
         """

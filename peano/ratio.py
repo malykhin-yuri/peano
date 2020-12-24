@@ -758,7 +758,7 @@ class Estimator:
 
         This method relies totally on estimate_ratio_fuzzy.
         Params:
-        upper_bound  --  apriori upper bound for best ratio (undefined behaviour if violated)
+        upper_bound  --  apriori upper bound for best ratio (undefined behaviour if violated - TODO)
         rel_tol_inv  --  subj
         rel_tol_inv_mult  --  current rel_tol_inv is multiplied by this every epoch
 
@@ -832,6 +832,7 @@ class Estimator:
         return {
             'lo': curr_lo, 'up': curr_up,
             'curves': [d.curve for d in active],
+            'examples': [d.example for d in active],
             'paths': [d.path_idx for d in active],
             'stats': stats,
         }

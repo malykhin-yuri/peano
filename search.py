@@ -2,7 +2,6 @@
 
 import logging
 import argparse
-import random
 
 from sympy import Rational
 
@@ -16,11 +15,12 @@ from peano.subsets import Gate
 
 def run_estimator(
         dim, div, pcount,
-        ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None, 
+        finish_max_count=None,
+        ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None,
         gate_list=None, hyper=False, max_cdist=None,
         upper_bound=None, 
-        group_by_gates=False, output_gates=False, output_stats=False,
-        finish_max_count=None,
+        group_by_gates=False,
+        output_gates=False, output_stats=False, output_examples=None,
     ):
 
     if gate_list is not None:
@@ -96,6 +96,12 @@ def run_estimator(
             print(result)
             print('lower bound:', float(result['lo']))
             print('upper bound:', float(result['up']))
+            if output_examples:
+                for curve in result['examples']:
+                    for pnum, pattern in enumerate(curve.patterns):
+                        print('@{}'.format(pnum), pattern.proto, pattern.specs)
+                    print('')
+
         print('', flush=True)
 
 
@@ -122,6 +128,7 @@ if __name__ == "__main__":
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
     argparser.add_argument('--output-gates', action='store_true', help='only gates, do not estimate ratio')
     argparser.add_argument('--output-stats', action='store_true', help='only count, do not work')
+    argparser.add_argument('--output-examples', action='store_true', help='print curve examples')
     argparser.add_argument('--verbose', '-v', action='count', default=0, help='loglevel (0=warning, 1=info, 2=debug)')
 
     args = argparser.parse_args()

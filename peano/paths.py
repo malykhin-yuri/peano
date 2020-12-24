@@ -1,6 +1,7 @@
 from collections import defaultdict
 import logging
 import itertools
+import re
 
 from sympy import Rational
 
@@ -16,6 +17,8 @@ class Proto(tuple):
 
     We allow None-s for some of cubes, to support usage of get_entrance/get_exit methods.
     """
+
+    basis_letters = 'ijklmn'
 
     def __new__(cls, dim, div, cubes):
         cubes = tuple(tuple(cube) if cube is not None else None for cube in cubes)
@@ -34,35 +37,45 @@ class Proto(tuple):
     def parse(cls, chain_code):
         """
         Convert chain code like 'ijK' to curve prototype.
-
-        We assume that we start from zero cube!  TODO : do not assume:)
+        If proto is not facet-continuous, use groups: i(jk)J
         """
-        dim = len(set(''.join(chain_code).lower()))
+        chain_groups = [grp.strip('()') for grp in re.findall('\w|\(\w+\)', chain_code)]
+        dim = len(set(c.lower() for grp in chain_groups for c in grp))
+        assert dim <= len(cls.basis_letters)
+        l2i = {l: i for i, l in enumerate(cls.basis_letters)}
 
-        assert dim <= 6
-        letters = 'ijklmn'
+        cubes = [(0,) * dim]
+        for bases in chain_groups:
+            delta = [0] * dim
+            for basis in bases:
+                i = l2i[basis.lower()]
+                delta[i] = 1 if basis.islower() else -1
 
-        vect_dict = {}
-        for k in range(dim):
-            coord = [0]*dim
-            coord[k] = 1
-            vect_dict[letters[k]] = coord
-            vect_dict[letters[k].upper()] = [-m for m in coord]
+            next_cube = tuple(cj + dj for cj, dj in zip(cubes[-1], delta))
+            cubes.append(next_cube)
 
-        def diag_coord(vector):
-            arg = [vect_dict[k] for k in vector]
-            coord = list(map(sum,zip(*arg)))
-            return coord
+        # fix if we start not from zero cube
+        min_cube = min(cube for cube in cubes)
+        cubes = [tuple(cj - mj for cj, mj in zip(cube, min_cube)) for cube in cubes]
 
-        proto = [list(map(vect_dict.get,chain_code)) if len(chain_code) == 1 else diag_coord(m) for m in chain_code]
+        div = 1 + max(cj for cube in cubes for cj in cube)
+        return cls(dim, div, cubes)
 
-        proto = [[0] * dim] + proto
-        for l in range(len(proto)-1):
-            proto[l+1] = [c + d for c, d in zip(proto[l], proto[l+1])]
-
-        div = 1 + max(cj for cube in proto for cj in cube)
-
-        return cls(dim, div, proto)
+    def __str__(self):
+        res = []
+        for idx in range(len(self) - 1):
+            delta = tuple(nj - cj for nj, cj in zip(self[idx+1], self[idx]))
+            bases = []
+            for x, letter in zip(delta, self.basis_letters):
+                if x == 1:
+                    bases.append(letter)
+                elif x == -1:
+                    bases.append(letter.upper())
+            if len(bases) == 1:
+                res.append(bases[0])
+            else:
+                res.append('(' + ''.join(bases) + ')')
+        return ''.join(res)
 
 
 class PortalPath:

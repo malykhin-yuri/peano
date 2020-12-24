@@ -125,10 +125,10 @@ def get_ARW_Curve():
 
     See reference to Haverkort & Walderveen in get_beta_omega_curve doc
     """
-    r_pattern = (['i','Ij','i'], ['3ij','1Ji~','2jI','1iJ'])  # pnum=0
-    f_pattern = ('jiJ',          ['3ji','2Ij~','1ij','1JI'])  # pnum=1
-    p_pattern = ('jiJ',          ['0ji','1jI','0Ji','1JI'])   # pnum=2
-    g_pattern = ('jiJ',          ['0ij','2jI','0Ji','3jI~'])  # pnum=3
+    r_pattern = ('i(Ij)i', ['3ij','1Ji~','2jI','1iJ'])  # pnum=0
+    f_pattern = ('jiJ',    ['3ji','2Ij~','1ij','1JI'])  # pnum=1
+    p_pattern = ('jiJ',    ['0ji','1jI','0Ji','1JI'])   # pnum=2
+    g_pattern = ('jiJ',    ['0ij','2jI','0Ji','3jI~'])  # pnum=3
     return Curve.parse([r_pattern, f_pattern, p_pattern, g_pattern])
 
 
