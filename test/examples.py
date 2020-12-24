@@ -98,6 +98,13 @@ def get_r_curve():
     return Curve.parse([pattern])
 
 
+def get_ye_curve():
+    """YE-curve: 5*5 monofractal with l2-ratio 5 43/73."""
+    chain = 'IjijIjijIIJIjIJJiiJJIjIJ'
+    bases = '0ij,0jI~,0jI~,0IJ,0ij,0jI~,0jI~,0IJ,0ij,0ij,0ij,0Ji~,0jI~,0ij,0ij,0Ji~,0IJ,0IJ,0Ji~,0Ji~,0Ji~,0jI~,0ij,0ij,0Ji~'.split(',')
+    return Curve.parse([(chain, bases)])
+
+
 # 2D polyfractals
 
 def get_beta_omega_curve():

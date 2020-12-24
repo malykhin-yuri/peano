@@ -290,8 +290,8 @@ class Spec:
             basis = text
         return cls(base_map=BaseMap.parse(basis), pnum=pnum)
 
-    def __repr__(self):
-        return '{}[{}]'.format(self.base_map, self.pnum)
+    def __str__(self):
+        return '{}{}'.format(self.pnum, self.base_map)
 
     def __mul__(self, other):
         """

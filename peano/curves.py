@@ -75,8 +75,10 @@ class FuzzyCurve:
         return cls(dim, div, patterns)
 
     def __str__(self):
+        lines = []
         for pnum, pattern in enumerate(self.patterns):
-            print('@{}: {} | {}'.format(pnum, pattern.proto, pattern.specs))
+            lines.append('@{}: {} | {}\n'.format(pnum, pattern.proto, ','.join([str(spec) for spec in pattern.specs])))
+        return ''.join(lines)
 
 
     def get_fraction(self, cnum):

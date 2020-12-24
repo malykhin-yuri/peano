@@ -55,6 +55,10 @@ class TestCurve(unittest.TestCase):
                 'ratio': {'l1': [89.7, 89.8], 'l2': [18,19], 'linf': 14},
             },
             {
+                'curve': get_ye_curve(),
+                'ratio': {'l2': [5.588, 5.59]},
+            },
+            {
                 'curve': get_17_curve(),
                 'ratio': {'l2': [16.9, 17.0]},
             },
@@ -115,7 +119,8 @@ class TestCurve(unittest.TestCase):
                 assert float(res['up']) <= ratio_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], ratio_up)
                 assert float(res['lo']) >= ratio_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], ratio_lo)
 
-    def test_55_ratio(self):
+    def test_ye_ratio(self):
+        # TODO: use ye curve from examples ?
         good_proto = Proto(dim=2, div=5, cubes=[
             (0, 0), (0, 1), (1, 1), (1, 0), (2, 0),
             (2, 1), (2, 2), (1, 2), (0, 2), (0, 3),
