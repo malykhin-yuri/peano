@@ -13,6 +13,8 @@ class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
     @classmethod
     def parse(cls, chain, specs):
         proto = Proto.parse(chain)
+        if isinstance(specs, str):
+            specs = specs.split(',')
         specs = [Spec.parse(c) for c in specs]
         return cls(proto, specs)
 

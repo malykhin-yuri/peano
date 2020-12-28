@@ -100,8 +100,8 @@ def get_r_curve():
 
 def get_ye_curve():
     """YE-curve: 5*5 monofractal with l2-ratio 5 43/73."""
-    chain = 'IjijIjijIIJIjIJJiiJJIjIJ'
-    bases = '0ij,0jI~,0jI~,0IJ,0ij,0jI~,0jI~,0IJ,0ij,0ij,0ij,0Ji~,0jI~,0ij,0ij,0Ji~,0IJ,0IJ,0Ji~,0Ji~,0Ji~,0jI~,0ij,0ij,0Ji~'.split(',')
+    chain = 'jiJijjIIjjiJijiiJIJiJIJi'
+    bases = '0Ji~,0ij,0ij,0jI~,0Ji~,0Ji~,0Ji~,0IJ,0IJ,0Ji~,0ij,0ij,0jI~,0Ji~,0ij,0ij,0ij,0IJ,0jI~,0jI~,0ij,0IJ,0jI~,0jI~,0ij'
     return Curve.parse([(chain, bases)])
 
 
@@ -181,8 +181,8 @@ def get_tokarev_curve():
     """
     3D monofractal curve defined by Tokarev.
 
-    Definition is taken from Haverkort's inverntory,
-    Curve A26.0000 0000.0000 0000
+    Definition is taken from Haverkort's inventory,
+    Curve A26.0000 0000.0000 0000 (page 9, Fig.5(b))
     """
     p0 = ('jkJijKJ', ['jki','kij','kij','iJK','iJK','KIj','KIj','JkI'])
     return Curve.parse([p0])
@@ -224,6 +224,6 @@ def get_17_curve():
     """
     3D bifractal facet-gated curve with l2-ratio <17
     """
-    p0 = ('jkiKJkI', ['1JKI~','0jKI','1kji','0kiJ~','1KiJ','0JKi','1kJI','1IkJ'])
-    p1 = ('jiJkjIJ', ['1JKI~','0Ijk~','0jiK~','0KJI~','0Jki~','0ijK~','0IjK','1JIk'])
+    p0 = ('jikIJiK', '1KIJ~,0KIj,1kji,0Jki~,1JkI,0kIJ,1KJi,1JiK')
+    p1 = ('jkJijKJ', '1KIJ~,0ijK~,0Ikj~,0KJI~,0kiJ~,0Ijk~,0IjK,1iKJ')
     return Curve.parse([p0, p1])
