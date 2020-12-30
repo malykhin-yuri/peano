@@ -145,7 +145,7 @@ def get_ARW_Curve():
 
 def get_haverkort_curve_a26():
     """
-    3D Haverkort A26 curve, best known monofractal in l2.
+    3D Haverkort A26 curve, best monofractal in linf.
 
     Monofractal curve with time reversal.
     "An inventory of three-dimensional Hilbert space-filling curves", Herman Haverkort
