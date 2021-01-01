@@ -356,17 +356,18 @@ class FuzzyCurve:
         Returns:
             dict {vertex: visit_time}.
         """
-        return {vertex: self.get_face_touch_moment(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
+        return {vertex: self.get_face_moment(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
 
-    def get_face_touch_moment(self, face, pnum=None):
+    def get_face_moment(self, face, pnum=None, last=False):
         """
-        Moment of first face touch.
+        Moment of face touch (default: first moment).
 
         Args:
             face: a tuple of {0,1,None} defining the cube face
               {(x_0,...,x_{d-1}): x_i==0 if face[i]==0, x_i==1 if face[i]==1, or arbitrary x[i] if face[i] is None.
               E.g., tuples (0,0,0) or (0,1,1) define vertices
             pnum: select non-default pattern
+            last: get last moment instead of first
 
         Returns:
             rational number, moment of first touch
@@ -379,7 +380,7 @@ class FuzzyCurve:
         cnums = []
         index = {}
         while True:
-            cnum = curve._get_face_cnum(face)
+            cnum = curve._get_face_cnum(face, last=last)
             cnums.append(cnum)
             index[cur_spec] = len(cnums)-1
 
@@ -391,9 +392,11 @@ class FuzzyCurve:
                 period_start = index[cur_spec]
                 return get_periodic_sum(cnums[0:period_start], cnums[period_start:], self.genus)
 
-    def _get_face_cnum(self, face):
-        # First cube from prototype touching face.
-        for cnum, cube in enumerate(self.proto):
+    def _get_face_cnum(self, face, last=False):
+        data = enumerate(self.proto)
+        if last:
+            data = reversed(list(data))
+        for cnum, cube in data:
             # check that cube touches face
             touch = True
             for x, e in zip(cube, face):

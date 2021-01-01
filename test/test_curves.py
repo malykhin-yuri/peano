@@ -164,7 +164,7 @@ class TestCurve(unittest.TestCase):
         known = [
             {
                 'curve': get_haverkort_curve_f(),
-                'gate': Gate.parse('(0,1/3,1/3)->(2/3,1/3,0)'),
+                'gates': [Gate.parse('(0,1/3,1/3)->(2/3,1/3,0)')],
             },
             {
                 'curve': get_beta_omega_curve(),
@@ -182,8 +182,15 @@ class TestCurve(unittest.TestCase):
         for data in known:
             curve = data['curve']
             gates = [Gate(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.pcount)]
-            true_gates = [data['gate']] if 'gate' in data else data['gates']
-            self.assertEqual(gates, true_gates)
+            self.assertEqual(gates, data['gates'])
+
+            for pnum, gate in enumerate(gates):
+                entr_face = [1 if pj == Rational(1) else 0 if pj == Rational(0) else None for pj in gate.entrance]
+                assert curve.get_face_moment(entr_face, pnum) == Rational(0)
+
+                exit_face = [1 if pj == Rational(1) else 0 if pj == Rational(0) else None for pj in gate.exit]
+                assert curve.get_face_moment(exit_face, pnum, last=True) == Rational(1)
+
 
     def test_depth(self):
         assert get_hilbert_curve().get_depth() == 2
