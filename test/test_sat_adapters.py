@@ -6,7 +6,7 @@ from .examples import *  # TODO get rid of *
 
 
 def get_model_from_curve(adapter, curve):
-    for pnum, cnum, sp in curve.sp_info():
+    for pnum, cnum, sp in curve.gen_defined_specs():
         sp_var = adapter.get_sp_var(pnum, cnum, sp)
         adapter.append_clause({sp_var: True})
 

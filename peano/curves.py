@@ -1,3 +1,12 @@
+"""
+This module provides classes for Peano multifractal curves.
+
+Most methods are implemented for the FuzzyCurve class --
+curves with some specs undefined. E.g., if specs for
+first/last cubes are defined, then you already can
+determine entrance/exit points.
+"""
+
 from collections import namedtuple, defaultdict
 import itertools
 
@@ -10,37 +19,57 @@ from .subsets import Gate, Point
 
 
 class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
+    """
+    Pattern - one component of a multifractal, prototype + specifications.
+    """
+
     @classmethod
     def parse(cls, chain, specs):
+        """
+        Parse pattern from bases string.
+
+        Args:
+            chain: chain code, see Proto.parse
+            specs: list/csv of spec texts, see Spec.parse
+
+        Returns:
+            Pattern instance
+        """
         proto = Proto.parse(chain)
         if isinstance(specs, str):
             specs = specs.split(',')
         specs = [Spec.parse(c) for c in specs]
         return cls(proto, specs)
 
+    def __invert__(self):
+        """Time-reversed pattern."""
+        # each base_map does not change:
+        #   - pnums are the same
+        #   - if there was not time_rev, there should not be after reversal
+        #   - cube map does not change, because geometry does not change
+        return type(self)(~self.proto, tuple(reversed(self.specs)))
+
 
 class FuzzyCurve:
     """
-    Polyfractal peano curve, not fully specified.
+    Multifractal Peano curve, not fully specified.
 
     Object attributes:
-    .proto -- prototype for selected pattern
-    .specs -- specs for selected pattern
     .genus -- subj
+
+    Most methods may raise KeyError if some required specs/proto cubes are not defined
     """
 
     def __init__(self, dim, div, patterns, pnum=0):
         """
         Create FuzzyCurve instance.
 
-        Params:
-        dim -- dimension d of image [0,1]^d of the curve
-        div -- number of divisions for each of the coordinates, so genus = G = div**dim
-        patterns -- list of patterns
-                    each pattern is a tuple (proto, specs),
-                    proto -- prototype, list of cubes (with integer coords) of length G
-                    specs -- list of specs (Spec or None) of length G
-        pnum -- selected pattern, to define actual curve f:[0,1]->[0,1]^d
+        Args:
+            dim: dimension d of cube [0,1]^d (image of the curve)
+            div: number of divisions for each of the coordinates, so genus = G = div**dim
+            patterns -- list of patterns (Pattern instances)
+                some specs in patterns may be None
+            pnum: selected pattern, to pick actual curve f:[0,1]->[0,1]^d
 
         Note that we assume that each pattern has the same div.
         """
@@ -56,36 +85,40 @@ class FuzzyCurve:
 
         self.pcount = len(self.patterns)
         self.pnum = pnum
-
-        self.proto = self.patterns[pnum].proto
-        self.specs = self.patterns[pnum].specs
-
         self.genus = div**dim
+
+    @property
+    def proto(self):
+        return self.patterns[self.pnum].proto
+
+    @property
+    def specs(self):
+        return self.patterns[self.pnum].specs
 
     @classmethod
     def parse(cls, patterns_bases):
         """
         Convenient way to define a curve.
 
-        patterns_bases is a list of pairs (chain_code, spec_bases),
-        chain_code defined protopype (see Proto.parse),
-        spec_bases define specs (see Spec.parse)
+        Args:
+            patterns_bases: A list of pattern data, see Pattern.parse
+
+        Returns:
+            FuzzyCurve instance
         """
         patterns = [Pattern.parse(chain, spec_bases) for chain, spec_bases in patterns_bases]
         proto0 = patterns[0].proto
         dim, div = proto0.dim, proto0.div
         return cls(dim, div, patterns)
 
+    def __eq__(self, other):
+        return self.pcount == other.pcount and all(p1 == p2 for p1, p2 in zip(self.patterns, other.patterns))
+
     def __str__(self):
         lines = []
         for pnum, pattern in enumerate(self.patterns):
             lines.append('@{}: {} | {}\n'.format(pnum, pattern.proto, ','.join([str(spec) for spec in pattern.specs])))
         return ''.join(lines)
-
-
-    def get_fraction(self, cnum):
-        """First-order fraction of a curve."""
-        return self.specs[cnum] * self
 
     def changed(self, patterns=None, pnum=None, **kwargs):
         """Create curve with changed parameters."""
@@ -97,16 +130,9 @@ class FuzzyCurve:
             **kwargs,
         )
 
-    def reversed(self):
+    def __invert__(self):
         """Reverse time in a curve."""
-        # reversal of the curve implies reversal of all patterns
-        # sequence of specs, and proto, are reversed
-        # each base_map does not change:
-        #   - pnums are the same
-        #   - if there was not time_rev, there should not be after reversal
-        #   - cube map does not change, because geometry does not change
-        new_patterns = [(reversed(pattern.proto), reversed(pattern.specs)) for pattern in self.patterns]
-        return self.changed(patterns=new_patterns)
+        return self.changed(patterns=[~pattern for pattern in self.patterns])
 
     def apply_cube_map(self, base_map):
         """Apply cube isometry to a curve."""
@@ -139,12 +165,12 @@ class FuzzyCurve:
             base_map = other
             pnum = self.pnum
         else:
-            return NotImplemented
+            raise NotImplementedError
 
         # base_map is the composition of commutating maps: cube_map and time_map
         curve = self
         if base_map.time_rev:
-            curve = curve.reversed()
+            curve = ~curve
         curve = curve.apply_cube_map(base_map.cube_map())
 
         if curve.pnum != pnum:
@@ -152,24 +178,52 @@ class FuzzyCurve:
 
         return curve
 
-    def compose_spec(self, spec, cnum):
+    def compose_specs(self, spec, cnum):
         """
-        Returns spec X, such that: (spec * self).specs[cnum] * (spec * self) = X * self.
+        Fast spec composition without curve multiplication.
 
-        Does not require actual curve multiplication (it is slow).
+        Get spec X = C.specs[cnum] * spec, where C := spec*self,
+        i.e. this is spec such that: C.specs[cnum] * C = X * self
         Method allows to get orientations of deep fractions of a curve.
+
+        Args:
+            spec: specification defining curve C = spec*self
+            cnum: cube index in curve C for next spec
+
+        Returns:
+            composed Spec
         """
 
-        active_pattern = self.patterns[spec.pnum]
         active_cnum = spec.base_map.apply_cnum(self.genus, cnum)
-        last_spec = active_pattern.specs[active_cnum]
+        last_spec = self.patterns[spec.pnum].specs[active_cnum]
         if last_spec is None:
             raise KeyError
+        # pnum is taken from the last spec
+        # base_maps:
+        # C.specs[cnum].base_map = spec.base_map * last_spec.base_map * ~spec.base_map, see __rmul__
         return spec.base_map * last_spec
 
     def gen_allowed_specs(self, pnum, cnum):
         raise NotImplementedError("Define in child class")
 
+    def get_curve_example(self):
+        """
+        Generate a curve, compatible with self.
+
+        We use gen_allowed_specs (defined in child classes) to specify missing specs.
+
+        Returns:
+            Curve instance
+        """
+        current = self
+        for pnum in range(self.pcount):
+            for cnum in range(self.genus):
+                if current.patterns[pnum].specs[cnum] is None:
+                    spec = next(current.gen_allowed_specs(pnum=pnum, cnum=cnum))
+                    current = current.specify(pnum=pnum, cnum=cnum, spec=spec)
+        return current
+
+    # TODO: function not in prod!
     def gen_possible_curves(self):
         """
         Generate all curves, compatible with self.
@@ -195,32 +249,33 @@ class FuzzyCurve:
 
             yield Curve(dim=self.dim, div=self.div, patterns=patterns, pnum=self.pnum)
 
-    def sp_info(self):
-        """List of triples (pnum, cnum, spec) of defined specs."""
-        curve_info = []
+    def gen_defined_specs(self):
+        """Generate triples (pnum, cnum, spec) of defined specs."""
         for pnum, pattern in enumerate(self.patterns):
             for cnum, spec in enumerate(pattern.specs):
                 if spec is not None:
-                    curve_info.append((pnum, cnum, spec))
-        return curve_info
+                    yield pnum, cnum, spec
 
-    def is_specialization(self, tmpl):
-        """Check is self has all of defined specs of the given curve, and they are the same."""
-        for pnum, cnum, sp in tmpl.sp_info():
-            if self.patterns[pnum].specs[cnum] != sp:
-                return False
-        return True
-
-    def specify(self, pnum, cnum, spec, force=False):
+    def specify(self, pnum, cnum, spec):
         """
-        Check that we can set specs to spec at pnum, cnum, and return specified curve if so.
+        Check that we can set spec at pnum, cnum, and return specified curve if so.
 
-        This is the main method while dividing pairs_tree in estimators,
-        so the efficiency is important here!
+        Try to set self.patterns[pnum][cnum] = spec
+
+        Args:
+            pnum, cnum: position to specify
+            spec: value to specify
+
+        Returns:
+            new curve
+
+        Raises:
+            ValueError: if spec is not allowed
         """
-        if not force:
-            if spec not in self.gen_allowed_specs(pnum, cnum):
-                raise Exception("Can't specify curve")
+        # This is the main method while dividing pairs_tree in estimators,
+        # so the efficiency is important here!
+        if spec not in self.gen_allowed_specs(pnum, cnum):
+            raise ValueError("Can't specify curve")
 
         pattern = self.patterns[pnum]
         if pattern.specs[cnum] is not None:
@@ -236,63 +291,117 @@ class FuzzyCurve:
         return self.changed(patterns=new_patterns)
 
     #
-    # Entrance/exit - defined if beg/end proto/specs are defined
+    # Entrance/exit/moments
     #
 
     def get_entrance(self, pnum=None):
         """
         Entrance of a curve, i.e. point f(0).
 
-        If pnum is set, find the entrance of pattern pnum.
+        Args:
+            pnum: if set, find the entrance of pattern pnum (default is to use self.pnum)
+
+        Returns:
+            Point instance
         """
         if pnum is None:
             pnum = self.pnum
-        start, period = self._get_cubes(pnum, 0)
-        return Point(self._get_cube_limit(start, period))
+        return self._get_cube_limit(pnum, 0)
 
     def get_exit(self, pnum=None):
-        """
-        Exit of a curve, i.e. point f(1).
-
-        If pnum is set, find the entrance of pattern pnum.
-        """
+        """Exit of a curve, i.e. point f(1); see get_entrance."""
         if pnum is None:
             pnum = self.pnum
-        start, period = self._get_cubes(pnum, self.genus-1)
-        return Point(self._get_cube_limit(start, period))
+        return self._get_cube_limit(pnum, self.genus-1)
 
-    def _get_cubes(self, pnum, cnum):
+    def _get_cube_limit(self, pnum, cnum):
         # we found the sequence of cubes that we obtain if we take cube #cnum in each fraction
         # returns pair (non-periodic part, periodic part)
-        cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)  # current curve = cur_spec * self
+        cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
         cubes = []
         index = {}
 
         while True:
             # cur_curve = cur_spec * self
             cur_curve_proto = cur_spec.base_map * self.patterns[cur_spec.pnum].proto
-            if cur_curve_proto[cnum] is None:
-                raise Exception("Curve not specified enough to get cubes sequence!")
             cube = cur_curve_proto[cnum]
+            if cube is None:
+                raise KeyError("Curve not specified enough to get cubes sequence!")
 
             cubes.append(cube)
             index[cur_spec] = len(cubes)-1
 
             # cur_spec = cur_curve.specs[cnum] * cur_spec
-            cur_spec = self.compose_spec(cur_spec, cnum)
+            cur_spec = self.compose_specs(cur_spec, cnum)
 
             if cur_spec in index:
                 idx = index[cur_spec]
-                return cubes[0:idx], cubes[idx:]
+                start, period = cubes[0:idx], cubes[idx:]
+                break
 
-    def _get_cube_limit(self, start, period):
-        """Get limit of nested semi-periodic sequence of cubes."""
-        p = [0] * self.dim
+        pt = []
         for j in range(self.dim):
             start_j = [x[j] for x in start]
             period_j = [x[j] for x in period]
-            p[j] = get_periodic_sum(start_j, period_j, self.div)
-        return tuple(p)
+            pt.append(get_periodic_sum(start_j, period_j, self.div))
+        return Point(pt)
+
+    def get_vertex_moments(self, pnum=None):
+        """
+        Get vertex moments.
+
+        Args:
+            pnum: select non-default pattern
+
+        Returns:
+            dict {vertex: visit_time}.
+        """
+        return {vertex: self.get_face_touch_moment(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
+
+    def get_face_touch_moment(self, face, pnum=None):
+        """
+        Moment of first face touch.
+
+        Args:
+            face: a tuple of {0,1,None} defining the cube face
+              {(x_0,...,x_{d-1}): x_i==0 if face[i]==0, x_i==1 if face[i]==1, or arbitrary x[i] if face[i] is None.
+              E.g., tuples (0,0,0) or (0,1,1) define vertices
+            pnum: select non-default pattern
+
+        Returns:
+            rational number, moment of first touch
+        """
+        if pnum is None:
+            pnum = self.pnum
+
+        cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
+        curve = cur_spec * self  # invariant
+        cnums = []
+        index = {}
+        while True:
+            cnum = curve._get_face_cnum(face)
+            cnums.append(cnum)
+            index[cur_spec] = len(cnums)-1
+
+            sp = curve.specs[cnum]
+            cur_spec = sp * cur_spec
+            curve = sp * curve
+
+            if cur_spec in index:
+                period_start = index[cur_spec]
+                return get_periodic_sum(cnums[0:period_start], cnums[period_start:], self.genus)
+
+    def _get_face_cnum(self, face):
+        # First cube from prototype touching face.
+        for cnum, cube in enumerate(self.proto):
+            # check that cube touches face
+            touch = True
+            for x, e in zip(cube, face):
+                if (e == 1 and x != (self.div-1)) or (e == 0 and x != 0):
+                    touch = False
+                    break
+            if touch:
+                return cnum
 
     #
     # Junctions; see also the class Junction
@@ -456,62 +565,6 @@ class Curve(FuzzyCurve):
         """Convert curve to a fuzzy curve, saving entrance/exit and forgetting all specs."""
         return PathFuzzyCurve.init_from_paths(self.get_paths(), allow_time_rev=allow_time_rev)
 
-    def get_vertex_moments(self, pnum=None):
-        """Get dict {vertex: first_visit_time}."""
-        if pnum is None:
-            pnum = self.pnum
-        return {vertex: self.get_face_touch(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
-
-    def get_face_touch(self, face, pnum=None):
-        """
-        Moment of first face touch.
-
-        Edge is a tuple of {0,1,None} defining a set
-        {(x_0,...,x_{d-1}): x_i==0 if e[i]==0, x_i==1 if e[i]==1, or arbitrary x[i] if e[i] is None.
-        E.g., tuples (0,0,0) or (0,1,1) define vertices
-        """
-        if pnum is None:
-            pnum = self.pnum
-
-        cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
-        curve = cur_spec * self  # invariant
-        cnums = []
-        index = {}
-        while True:
-            cnum = curve._get_face_cnum(face)
-            sp = curve.specs[cnum]
-            cnums.append(cnum)
-
-            index[cur_spec] = len(cnums)-1
-
-            cur_spec = sp * cur_spec
-            curve = sp * curve
-
-            if cur_spec in index:
-                period_start = index[cur_spec]
-                break
-
-        return self._get_time_limit(cnums[0:period_start], cnums[period_start:])
-
-    def _get_face_cnum(self, face):
-        # First cube from prototype touching face.
-        N = self.div
-        for cnum, cube in enumerate(self.proto):
-            # проверяем, что куб касается грани
-            touch = True
-            for x, e in zip(cube, face):
-                if e is None:
-                    continue
-                elif (e == 1 and x != (N-1)) or (e == 0 and x != 0):
-                    touch = False
-                    break
-            if touch:
-                return cnum
-
-    def _get_time_limit(self, start, period):
-        # задана начальная и периодическая последовательность номеров кубов, считаем время
-        return get_periodic_sum(start, period, self.genus)
-
     def get_subdivision(self, k=1):
         """Get k-th subdivision of a curve."""
         N = self.div
@@ -632,7 +685,7 @@ class PathFuzzyCurve(FuzzyCurve):
                 kwargs[add_field] = getattr(self, add_field)
         return super().changed(*args, **kwargs)
 
-    def reversed(self):
+    def __invert__(self):
         # we do not change gates to keep them standard (symmetries also do not change)
         new_gates_std = {}
         for gate, data in self.gates_std.items():
@@ -643,7 +696,7 @@ class PathFuzzyCurve(FuzzyCurve):
         for reprs in self.pattern_reprs:
             new_reprs = list(reversed([bm.reversed_time() for bm in reprs]))
             new_pattern_reprs.append(new_reprs)
-        return super().reversed().changed(
+        return super().__invert__().changed(
             gates_std=new_gates_std,
             pattern_gates=new_pattern_gates,
             pattern_reprs=new_pattern_reprs,
@@ -800,5 +853,5 @@ class Junction:
     def __hash__(self):
         return self._hash
 
-    def __repr__(self):
+    def __str__(self):
         return '{} | dx={}, dt={} | {}'.format(self.spec1, self.delta_x, self.delta_t, self.spec2)

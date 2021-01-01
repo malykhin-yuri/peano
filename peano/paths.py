@@ -33,6 +33,10 @@ class Proto(tuple):
             cubes = reversed(cubes)
         return type(self)(self.dim, self.div, cubes)
 
+    def __invert__(self):
+        """Time-reversed prototype."""
+        return type(self)(self.dim, self.div, tuple(reversed(self)))
+
     @classmethod
     def parse(cls, chain_code):
         """

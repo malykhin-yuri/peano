@@ -98,8 +98,7 @@ def run_estimator(
             print('upper bound:', float(result['up']))
             if output_examples:
                 for curve in result['examples']:
-                    for pnum, pattern in enumerate(curve.patterns):
-                        print('@{}'.format(pnum), pattern.proto, pattern.specs)
+                    print(curve)
                     print('')
 
         print('', flush=True)

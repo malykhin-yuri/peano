@@ -66,7 +66,7 @@ class CurveSATAdapter:
     # добавляем условия эквивалентности
     def make_curve_var(self, curve):
         """Create variable Z, such that Z=True <=> the other curve is consistent with given one."""
-        curve_info = tuple(curve.sp_info())
+        curve_info = tuple(curve.gen_defined_specs())
         Z = ('curve', curve_info)
         if Z in self.curve_vars:
             return Z  # already initiated
@@ -114,7 +114,7 @@ class CurveSATAdapter:
     # !(J and bm1 and bm2 .. and bmk) = !J or !bm1 or !bm1 ..
     def add_forbid_clause(self, junc, curve):
         junc_var = self.get_junc_var(junc)
-        clause = {self.get_sp_var(pnum, cnum, sp): False for pnum, cnum, sp in curve.sp_info()}
+        clause = {self.get_sp_var(pnum, cnum, sp): False for pnum, cnum, sp in curve.gen_defined_specs()}
         clause[junc_var] = False
         self.append_clause(clause)
 

@@ -34,7 +34,8 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
     div = curve.div
     kws = {} if dim == 2 else {'projection': '3d'}
 
-    fig = plt.figure(figsize=plt.figaspect(0.5))
+    #fig = plt.figure(figsize=plt.figaspect(0.5))
+    fig = plt.figure()
     axs = []
     ticks = [j/div for j in range(1, div)]
     print(ticks)
@@ -74,7 +75,7 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
                 ax.grid(linestyle='dotted')
             axs.append(ax)
 
-    fig.subplots_adjust(wspace=-0.5,hspace=0.0)
+    fig.subplots_adjust(wspace=-0.0,hspace=0.0)
 
     if subdivision:
         subcurve = curve.get_subdivision(subdivision)
@@ -108,7 +109,7 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
         draw_lines(glob_ax, _get_proto_center_line(pattern.proto), arrow=True, color=proto_col, **proto_style)
 
     if output_file is not None:
-        plt.savefig(output_file, dpi=dpi)
+        plt.savefig(output_file, dpi=dpi, bbox_inches='tight')
 
 
 def get_arr(prev, curr):

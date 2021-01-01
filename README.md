@@ -11,17 +11,19 @@ Tested on python 3.5 and 3.8.
 This repo is mostly frozen, only fixes will appear.
 
 
-# User guide
+# User and developer guide
 
 Entry point is the script search.py: try it!
 
 Some examples of Peano curves are in test/examples.py
 
-# Developer guide
+Operator usage:
+b * X means action of b (usually, base_map) on object X (curve, path, etc)
+~X means inverted object: "inverted map" or "reversed curve"
 
 We prefer to use generators if possible.
 
-We use immutable hashable objects if possible.
+We use immutable hashable objects if possible (e.g., tuples intead of lists).
 
 Common names:
 * dim -- dimension of the curve image: [0,1]->[0,1]^d

@@ -1,3 +1,7 @@
+"""
+Ratio and utility functions.
+"""
+
 from collections import Counter
 from functools import lru_cache
 import itertools
@@ -73,7 +77,6 @@ def get_periodic_sum(start, period, d):
     tp = Rational(np, d_power * (dp_power - 1))
 
     return t0 + tp
-
 
 
 def get_lcm(iterable):

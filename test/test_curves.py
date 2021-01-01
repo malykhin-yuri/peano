@@ -2,7 +2,7 @@ import unittest
 
 from sympy import Rational
 
-from peano.base_maps import BaseMap
+from peano.base_maps import BaseMap, Spec
 from peano.curves import Curve
 from peano.subsets import Point, Gate
 
@@ -49,7 +49,7 @@ class TestCommon(unittest.TestCase):
     def test_rrev(self):
         """Double reverse does not change curve."""
         for curve in self.curves:
-            rrcurve = curve.reversed().reversed()
+            rrcurve = ~(~curve)
             self.assertEqual(curve.proto, rrcurve.proto)
             self.assertEqual(curve.specs, rrcurve.specs)
 
@@ -112,12 +112,12 @@ class TestCurve(unittest.TestCase):
     def test_check(self):
         for curve in self.curves:
             curve.check()
-            curve.reversed().check()
+            (~curve).check()
 
     def test_fractions(self):
         for curve in self.curves:
-            for i in range(curve.genus):
-                fraction = curve.get_fraction(i)
+            for cnum in range(curve.genus):
+                fraction = curve.specs[cnum] * curve
                 fraction.check()
 
     def test_subdivision(self):
@@ -127,6 +127,15 @@ class TestCurve(unittest.TestCase):
     def test_subsubdivision(self):
         for curve in self.curves:
             curve.get_subdivision(2).check()
+
+    def test_compose(self):
+        for curve in self.curves:
+            for bm in BaseMap.gen_base_maps(dim=curve.dim):
+                for pnum in range(curve.pcount):
+                    for cnum in range(curve.genus):
+                        spec = Spec(base_map=bm, pnum=pnum)
+                        C = spec * curve
+                        assert C.specs[cnum] * C == curve.compose_specs(spec, cnum) * curve
 
     def test_junc(self):
         for curve in self.curves:
@@ -151,6 +160,7 @@ class TestCurve(unittest.TestCase):
             self.assertSetEqual(set(d['moments']), set(moments))
 
     def test_gate(self):
+        # TODO: test using face touch!!
         known = [
             {
                 'curve': get_haverkort_curve_f(),
@@ -197,6 +207,11 @@ class TestFuzzyCurves(unittest.TestCase):
                 c.check()
 
     def test_junc(self):
+
+        def is_specialization(curve, tmpl):
+            # Check if curve has all of defined specs of the given template, and they are the same."""
+            return all(curve.patterns[pnum].specs[cnum] == sp for pnum, cnum, sp in tmpl.gen_defined_specs())
+
         for num, curve in enumerate(self.curves):
             if num == 0:
                 pcurve = curve.forget(allow_time_rev=True)
@@ -214,12 +229,12 @@ class TestFuzzyCurves(unittest.TestCase):
                 for junc in juncs:
                     if junc not in junc_info:
                         raise Exception("Unknown junc!")
-                    if not any(curve.is_specialization(tmpl) for tmpl in junc_info[junc]):
+                    if not any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]):
                         raise Exception("Can't found consistent curve!")
 
                 # проверяем, что для каждого не найденного стыка нет порождающих кривых
                 for junc, curves in junc_info.items():
                     if junc in juncs:
                         continue
-                    if any(curve.is_specialization(tmpl) for tmpl in junc_info[junc]):
+                    if any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]):
                         raise Exception("Found consistent curve for wrong junc!")

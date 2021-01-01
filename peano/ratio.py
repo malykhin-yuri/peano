@@ -3,7 +3,6 @@ from collections import Counter, namedtuple
 from collections.abc import Sized
 from heapq import heappop, heappush
 import logging
-
 from sympy import Rational
 
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
@@ -101,7 +100,7 @@ class CurvePiece:
         # in the last fraction we do not know the orientation yet!
         prev_spec = Spec(BaseMap.id_map(dim), self.pnum)
         for cnum in self.pos.cnums[:-1]:
-            prev_spec = self.curve.compose_spec(prev_spec, cnum)
+            prev_spec = self.curve.compose_specs(prev_spec, cnum)
 
         prev_curve = prev_spec * self.curve
 
@@ -583,7 +582,7 @@ class Estimator:
 
         if start_upper_bound is None:
             # got from first regular curve
-            curve0 = next(curve.gen_possible_curves())
+            curve0 = curve.get_curve_example()
             curr_up = self.estimate_ratio_regular(curve0, rel_tol_inv=rel_tol_inv)['up']
             curr_curve = curve0
         else:
