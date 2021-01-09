@@ -140,7 +140,7 @@ if __name__ == "__main__":
     if args.dim % 2 == 1 and args.metric == 'l2':
         raise ValueError("Use l2_square for odd dimension!")
 
-    print('args:', args)
+    logging.info('args: %s', args)
     gate_list = []
     kwargs = vars(args).copy()
     kwargs['ratio_func'] = funcs.get(kwargs.pop('metric'))

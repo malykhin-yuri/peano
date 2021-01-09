@@ -12,8 +12,18 @@ This repo is mostly frozen, only fixes will appear.
 # User and developer guide
 
 Entry point is the script search.py: try it!
+Examples:
+* find YE curve:
+    * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000 --output-examples
+    * time: ~3m30s, result: ye curve
+* hyper-gates search:
+    * $ ./search.py --dim 3 --pcount 2 --div 2 --hyper --output-gates
+    * time: ~20s, result: 35 gates
+* bifractal gates search:
+    * $ ./search.py --dim 2 --pcount 2 --div 2 --output-gates
+    * time: ~2m30s, result: 9 gates
 
-Some examples of Peano curves are in tests/examples.py
+Some Peano curves are in tests/examples.py
 
 Operator usage:
 b * X means action of b (usually, base_map) on object X (curve, path, etc)
