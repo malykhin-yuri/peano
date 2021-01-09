@@ -13,7 +13,7 @@ This repo is mostly frozen, only fixes will appear.
 
 Entry point is the script search.py: try it!
 
-Some examples of Peano curves are in test/examples.py
+Some examples of Peano curves are in tests/examples.py
 
 Operator usage:
 b * X means action of b (usually, base_map) on object X (curve, path, etc)
