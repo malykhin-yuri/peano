@@ -85,6 +85,7 @@ class TestCommon(unittest.TestCase):
                 self.assertEqual(orig.proto, current.proto)
                 self.assertEqual(orig.specs, current.specs)
 
+
 class TestCurve(unittest.TestCase):
     """Tests for regular curves (peano.Curve)."""
 
@@ -154,13 +155,16 @@ class TestCurve(unittest.TestCase):
                 'curve': get_haverkort_curve_f(),
                 'moments': [Rational(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
             },
+            {
+                'curve': get_tokarev_curve(),
+                'moments': [Rational(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
+            },
         ]
         for d in known_moments:
             moments = d['curve'].get_vertex_moments().values()
             self.assertSetEqual(set(d['moments']), set(moments))
 
     def test_gate(self):
-        # TODO: test using face touch!!
         known = [
             {
                 'curve': get_haverkort_curve_f(),
@@ -191,10 +195,14 @@ class TestCurve(unittest.TestCase):
                 exit_face = [1 if pj == Rational(1) else 0 if pj == Rational(0) else None for pj in gate.exit]
                 assert curve.get_face_moment(exit_face, pnum, last=True) == Rational(1)
 
-
     def test_depth(self):
-        assert get_hilbert_curve().get_depth() == 2
-        assert get_peano_curve().get_depth() == 1
+        known = [
+            {'curve': get_hilbert_curve(), 'depth': 2},
+            {'curve': get_peano_curve(), 'depth': 1},
+            {'curve': get_tokarev_curve(), 'depth': 3},
+        ]
+        for data in known:
+            assert data['curve'].get_depth() == data['depth']
 
 
 class TestFuzzyCurves(unittest.TestCase):

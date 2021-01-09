@@ -229,7 +229,7 @@ class FuzzyCurve:
         Generate all curves, compatible with self.
 
         We use gen_allowed_specs (defined in child classes) and suppose
-        that specs for different fractions are independent.
+        that specs for different fractions are independent. Required for SAT!!!!!!!
         This is very important condition, which is provided in PathFuzzyCurve class by continuity.
         """
 
@@ -290,6 +290,20 @@ class FuzzyCurve:
 
         return self.changed(patterns=new_patterns)
 
+    def specify_dict(self, spec_dict):
+        """
+        Specify many specs.
+
+        Args:
+            spec_dict: dict {(pnum, cnum): spec}
+
+        Returns, Raises: see specify
+        """
+        curve = self
+        for (pnum, cnum), spec in spec_dict.items():
+            curve = curve.specify(pnum=pnum, cnum=cnum, spec=spec)
+        return curve
+
     #
     # Entrance/exit/moments
     #
@@ -348,13 +362,16 @@ class FuzzyCurve:
 
     def get_vertex_moments(self, pnum=None):
         """
-        Get vertex moments.
+        Get all vertex moments.
+
+        Note that vertex moment, i.e. t: f(t)=v, is uniquely defined
+        because only one fraction contains given vertex.
 
         Args:
             pnum: select non-default pattern
 
         Returns:
-            dict {vertex: visit_time}.
+            dict {vertex: moment}.
         """
         return {vertex: self.get_face_moment(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
 
@@ -411,11 +428,11 @@ class FuzzyCurve:
     #
 
     def gen_auto_junctions(self):
-        for pnum in range(self.pcount):
-            yield Junction.get_auto_junc(dim=self.dim, pnum=pnum)
+        return (AutoJunction(dim=self.dim, pnum=pnum) for pnum in range(self.pcount))
 
-    def gen_junctions_from_base(self, base_juncs):
-        """Yield base junctions and their derivatives."""
+    def _gen_junctions_from_base(self, base_juncs):
+        # Yield base junctions and their derivatives
+        # provide correct derivation order (in-width) to get correct depth in Curve.gen_regular_junctions
         seen = set()
         to_derive = []
         for junc in base_juncs:
@@ -424,25 +441,26 @@ class FuzzyCurve:
             to_derive.append(junc)
 
         while to_derive:
+            # to_derive is a queue (fifo), this guarantees that depths are correct
             junc = to_derive.pop()
-            dj = self.get_derived_junction(junc)
+            dj = self._get_derived_junction(junc)
             if dj not in seen:
                 yield dj
                 seen.add(dj)
                 to_derive.append(dj)
 
-    def get_base_junction(self, pnum, cnum):
-        """Get base junction if both specs are defined"""
+    def _get_base_junction(self, pnum, cnum):
+        # Get base junction if both specs are defined
         pattern = self.patterns[pnum]
         spec1, spec2 = pattern.specs[cnum], pattern.specs[cnum + 1]
         if spec1 is None or spec2 is None:
-            raise Exception("Can't get base junction: spec is not defined!")
+            raise KeyError("Can't get base junction: spec is not defined!")
         delta_x = [c2j - c1j for c1j, c2j in zip(pattern.proto[cnum], pattern.proto[cnum + 1])]
-        return Junction.get_regular_junc(spec1, spec2, delta_x, depth=1)
+        return RegularJunction(spec1, spec2, delta_x, depth=1)
 
-    def get_derived_junction(self, junc):
-        if junc.delta_t != 1:
-            raise ValueError("Derivative is defined for dt=1 junctions!")
+    def _get_derived_junction(self, junc):
+        if not isinstance(junc, RegularJunction):
+            raise ValueError("Derivative is defined for regular junctions!")
 
         spec1 = junc.spec1
         spec2 = junc.spec2
@@ -450,17 +468,17 @@ class FuzzyCurve:
         p1 = self.patterns[spec1.pnum]
         p2 = self.patterns[spec2.pnum]
 
-        cnum1 = 0 if spec1.base_map.time_rev else -1
+        cnum1 = 0 if spec1.base_map.time_rev else -1  # cnum in self
         cnum2 = -1 if spec2.base_map.time_rev else 0
 
         if p1.specs[cnum1] is None or p2.specs[cnum2] is None:
-            raise Exception("Can't get derivative: spec not defined")
+            raise KeyError("Can't get derivative: spec not defined")
 
         cube1 = spec1.base_map.apply_cube(self.div, p1.proto[cnum1])  # spec1.base_map == id, so no need in this
         cube2 = spec2.base_map.apply_cube(self.div, p2.proto[cnum2])
         der_delta = tuple(c2j + dxj * self.div - c1j for c1j, c2j, dxj in zip(cube1, cube2, junc.delta_x))
 
-        return Junction.get_regular_junc(
+        return RegularJunction(
             spec1.base_map * p1.specs[cnum1],
             spec2.base_map * p2.specs[cnum2],
             der_delta,
@@ -469,9 +487,10 @@ class FuzzyCurve:
 
     def get_junctions_info(self):
         """
-        Info about possible junctions.
+        Get possible junctions and specs for them.
 
-        Returns dict {junc: curves} with specified curves that have given junction.
+        Returns:
+            dict {junc: curves}, with partially specified curves that have given junction.
         """
 
         # config is a tuple (pnum, cnum, curve), where in curve there are specified:
@@ -505,17 +524,12 @@ class FuzzyCurve:
                             def_specs = gate_specs.copy()
                             def_specs[pc1] = sp1
                             def_specs[pc2] = sp2
-                            curve = self
-                            for pc, spec in def_specs.items():
-                                p, c = pc
-                                curve = curve.specify(pnum=p, cnum=c, spec=spec)
-
-                            configs.append((pnum, cnum, curve))
+                            configs.append((pnum, cnum, self.specify_dict(def_specs)))
 
         junc_curves = defaultdict(list)
         for pnum, cnum, curve in configs:
-            base_junc = curve.get_base_junction(pnum=pnum, cnum=cnum)
-            for junc in curve.gen_junctions_from_base([base_junc]):
+            base_junc = curve._get_base_junction(pnum=pnum, cnum=cnum)
+            for junc in curve._gen_junctions_from_base([base_junc]):
                 # junc depths may be incorrect for fuzzy curves, because depth depends on all of curve's juncs
                 junc.depth = None
                 junc_curves[junc].append(curve)
@@ -534,19 +548,19 @@ class Curve(FuzzyCurve):
     This curve defines the continuous surjective map f:[0,1]->[0,1]^d.
     """
 
-    def gen_base_junctions(self):
-        """Generate base junctions."""
+    def _gen_base_junctions(self):
+        # junctions from first subdivision
         seen = set()
         for pnum in range(self.pcount):
             for cnum in range(self.genus - 1):
-                junc = self.get_base_junction(cnum=cnum, pnum=pnum)
+                junc = self._get_base_junction(cnum=cnum, pnum=pnum)
                 if junc not in seen:
                     yield junc
                     seen.add(junc)
 
     def gen_regular_junctions(self):
         """Generate all regular junctions for a curve."""
-        yield from self.gen_junctions_from_base(self.gen_base_junctions())
+        yield from self._gen_junctions_from_base(self._gen_base_junctions())
 
     def get_depth(self):
         return max(junc.depth for junc in self.gen_regular_junctions())
@@ -795,7 +809,7 @@ class PathFuzzyCurve(FuzzyCurve):
 
 class Junction:
     """
-    Junctions of two curve fractions.
+    Junction is a pair of two curve fractions.
 
     Attributes:
     .spec1:  first fraction is spec1 * curve
@@ -803,18 +817,6 @@ class Junction:
     .delta_x:  shift vector to get 2-nd fraction from 1-st, element of {0,1,-1}^d
     .delta_t:  time shift (=0 or 1, see below)
     .depth:  junction has depth k if it is obtained from fractions of k-th curve subdivision
-
-    Each junction if standartized:
-    - pnum1 <= pnum2
-    - first spec has cube_map = id (but possibly with time_rev - this allows to get delta_t=1)
-
-    All junctions are:
-    - auto junctions (delta_t = 0)
-    - regular junctions (delta_t = 1):
-        * base junctions
-        * derivative of base junctions
-
-    Derivative is implemented in the curve class.
     """
     def __init__(self, spec1, spec2, delta_x, delta_t, depth=None):
         self.spec1 = spec1
@@ -823,29 +825,6 @@ class Junction:
         self.delta_t = delta_t
         self._hash = hash(self._data())  # depth is just some additional information that is determined by junc
         self.depth = depth
-
-    @classmethod
-    def get_regular_junc(cls, spec1, spec2, delta_x, depth=None):
-        """Standartize and create Junction instance. For regular junctions."""
-        if spec1.pnum > spec2.pnum \
-                or (spec1.pnum == spec2.pnum and spec1.base_map.time_rev and spec2.base_map.time_rev):
-            # swap and reverse time
-            delta_x = tuple(-dj for dj in delta_x)
-            spec1, spec2 = spec2.reversed_time(), spec1.reversed_time()
-
-        bm1_cube_inv = ~spec1.base_map.cube_map()
-        return cls(
-            spec1=bm1_cube_inv * spec1,  # only possible time_rev
-            spec2=bm1_cube_inv * spec2,
-            delta_x=bm1_cube_inv.apply_vec(delta_x),
-            delta_t=1,
-            depth=depth,
-        )
-
-    @classmethod
-    def get_auto_junc(cls, dim, pnum=0):
-        spec = Spec(base_map=BaseMap.id_map(dim), pnum=pnum)
-        return cls(spec1=spec, spec2=spec, delta_x=(0,) * dim, delta_t=0, depth=0)
 
     def _data(self):
         return self.delta_x, self.spec1, self.spec2
@@ -858,3 +837,46 @@ class Junction:
 
     def __str__(self):
         return '{} | dx={}, dt={} | {}'.format(self.spec1, self.delta_x, self.delta_t, self.spec2)
+
+
+class RegularJunction(Junction):
+    """
+    Pair of adjacent curve fractions.
+
+    Junction is standartized:
+    - pnum1 <= pnum2
+    - first spec has cube_map = id (but possibly with time_rev - this allows to get delta_t=1)
+    - always delta_t = 1
+
+    Sources of regular junctions:
+    * base junctions
+    * derivatives of base junctions (derivative is implemented in the curve class)
+    """
+    def __init__(self, spec1, spec2, delta_x, depth=None):
+        if spec1.pnum > spec2.pnum \
+                or (spec1.pnum == spec2.pnum and spec1.base_map.time_rev and spec2.base_map.time_rev):
+            # swap and reverse time
+            delta_x = tuple(-dj for dj in delta_x)
+            spec1, spec2 = spec2.reversed_time(), spec1.reversed_time()
+
+        bm1_cube_inv = ~spec1.base_map.cube_map()
+        super().__init__(
+            spec1=bm1_cube_inv * spec1,  # only possible time_rev
+            spec2=bm1_cube_inv * spec2,
+            delta_x=bm1_cube_inv.apply_vec(delta_x),
+            delta_t=1,
+            depth=depth,
+        )
+
+
+class AutoJunction(Junction):
+    """
+    Auto junction: fraction with itself.
+
+    delta_x = 0, delta_t = 0
+
+    Required for correct ratio estimation
+    """
+    def __init__(self, dim, pnum=0):
+        spec = Spec(base_map=BaseMap.id_map(dim), pnum=pnum)
+        super().__init__(spec1=spec, spec2=spec, delta_x=(0,) * dim, delta_t=0, depth=0)

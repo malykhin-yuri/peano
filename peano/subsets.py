@@ -272,7 +272,8 @@ class HyperFaceDivSubset(Subset):
 
 
 class Portal(namedtuple('Portal', ['entrance', 'exit'])):
-    """Portal is defined by pair of subsets of [0,1]^d: entrance and exit subsets.
+    """
+    Portal is defined by pair of subsets of [0,1]^d: entrance and exit subsets.
 
     Portal represents the set of curves with curve.entrance in portal.entrance and curve.exit in portal.exit.
     Entrance and exit must be subsets of [0,1]^d (class Subset)
@@ -340,6 +341,11 @@ class Portal(namedtuple('Portal', ['entrance', 'exit'])):
 
 
 class Gate(Portal):
+    """
+    Gate is a pair (entrance gate, exit gate).
+
+    Gate is a portal with Point entrance/exit sets.
+    """
     @classmethod
     def parse(cls, text):
         points = [Point.parse(pt_str) for pt_str in text.split('->')]

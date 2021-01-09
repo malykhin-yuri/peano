@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  # registers something for 3d plots
 
-from peano.subsets import Gate
-
 
 def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None):
     """
@@ -16,9 +14,8 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
     """
 
     # render config
-    pattern_names     = 'abc'
-    rev_pattern_names = 'āb̄c̅'
-    colors = ['tab:cyan','orange','green']
+    pattern_names = 'abcd'
+    colors = ['tab:cyan','orange','green','pink']
     box_aspect = (1, 1, 0.9)
     sub_linewidth = 0.8
     dpi = 300
@@ -92,7 +89,9 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
         prev_line = None
         prev_color = None
         for cnum, (cube, spec) in enumerate(zip(pattern.proto, pattern.specs)):
-            pname = rev_pattern_names[spec.pnum] if spec.base_map.time_rev else pattern_names[spec.pnum]
+            pname = pattern_names[spec.pnum]
+            if spec.base_map.time_rev:
+                pname = r'$\overline{\mathrm{' + pname + '}}$'
             if curve.pcount > 1:
                 glob_ax.text(*[(cj + 0.37)/curve.div for cj in cube], s=pname, fontsize='medium', alpha=0.7)
             line = _get_proto_center_line(spec.base_map * subcurve.patterns[spec.pnum].proto)
