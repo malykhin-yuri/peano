@@ -101,8 +101,8 @@ class PortalPath:
             new_portals.reverse()
         return type(self)(base_map * self.proto, new_portals)
 
-    def reversed(self):
-        return BaseMap.id_map(self.dim).reversed_time() * self
+    def __invert__(self):
+        return ~BaseMap.id_map(self.dim) * self
 
     def _data(self):
         return self.portal, self.proto, self.portals

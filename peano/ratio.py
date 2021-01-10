@@ -111,7 +111,7 @@ class CurvePiece:
         for sp in prev_curve.gen_allowed_specs(active_pnum, active_cnum):
             # see apply_cube_map in curves.py:
             # prev_curve.specs[active_cnum] = bm  =>  orig_curve.specs[spec_cnum] = ...
-            new_spec = sp.conjugate_by(~prev_spec.base_map)
+            new_spec = sp.conjugate_by(prev_spec.base_map**(-1))
             specified_curve = curve.specify(active_pnum, spec_cnum, new_spec)
 
             # last_curve = sp * prev_curve

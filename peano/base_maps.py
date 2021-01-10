@@ -135,8 +135,8 @@ class BaseMap:
             self._mul_cache[key] = val
         return val
 
-    def __invert__(self):
-        """Inverse of base map: ~B."""
+    def get_inverse(self):
+        """Inverse of base map B: such X that B*X=X*B=id."""
         val = self._inv_cache
         if val is None:
             # actual inversion
@@ -146,12 +146,27 @@ class BaseMap:
             self._inv_cache = val = BaseMap(coords, self.time_rev)
         return val
 
-    def reversed_time(self):
+    def __pow__(self, power):
+        if power < 0:
+            return self.get_inverse()**(-power)
+        elif power == 1:
+            return self
+        elif power % 2 == 0:
+            p1 = power // 2
+            t = self**p1
+            return t*t
+        else:
+            p1 = (power - 1) // 2
+            t = self**p1
+            return t*t*self
+
+    def __invert__(self):
+        """Time reversion, do not confuse with group inverse."""
         return BaseMap(self.coords, not self.time_rev)
 
     def conjugate_by(self, other):
         """Conjugation."""
-        return other * self * ~other
+        return other * self * other.get_inverse()
 
     def apply_x(self, x, mx=1):
         """Apply isometry to a point x of [0,1]^d."""
@@ -319,8 +334,8 @@ class Spec:
             return NotImplemented
         return Spec(other_bm * self.base_map, pnum)
 
-    def reversed_time(self):
-        return Spec(self.base_map.reversed_time(), self.pnum)
+    def __invert__(self):
+        return Spec(~self.base_map, self.pnum)
 
     def conjugate_by(self, other):
         """Conjugate by base map (not spec!)."""

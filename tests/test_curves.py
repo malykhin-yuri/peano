@@ -73,7 +73,7 @@ class TestCommon(unittest.TestCase):
             # will make bms[0] * bms[1] * ... * bms[-1] * last_map = id <=> last_map = bms[-1]^{-1} * ... * bms[0]^{-1}
             last_map = BaseMap.id_map(dim=bms[0].dim)
             for bm in bms:
-                last_map = ~bm * last_map
+                last_map = bm**(-1) * last_map
 
             for curve in self.curves:
                 if curve.dim != bms[0].dim:

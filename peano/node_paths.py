@@ -37,7 +37,7 @@ class NodePath(namedtuple('NodePath', ['head', 'len', 'prev'])):
             path = path.prev
         return list(reversed(nodes))
 
-    def reversed(self):
+    def __invert__(self):
         """Reversed path, rather inefficient."""
         curr = self.get_empty()
         for node in reversed(self.flat()):
@@ -199,7 +199,7 @@ class NodePathTree:
             if any(path.len != ends[0].len for path in ends):
                 raise Exception("All end paths must have same length (optimization)!")
 
-            finish_paths = [path.reversed() for path in ends]
+            finish_paths = [~path for path in ends]
             if finish_max_count is not None:
                 finish_paths = self.width_search(finish_paths, max_steps=max_steps, max_count=finish_max_count, reverse=True)
             if not finish_paths:

@@ -23,17 +23,14 @@ Examples:
     * $ ./search.py --dim 2 --pcount 2 --div 2 --output-gates
     * time: ~2m30s, result: 9 gates
 
-Some Peano curves are in tests/examples.py
+Some Peano curves may be found in: tests/examples.py
 
 Operator usage:
 b * X means action of b (usually, base_map) on object X (curve, path, etc)
-~X means inverted object: "inverted map" or "reversed curve"
+b**(-1) is group inverse of b, i.e. c such that b*c=c*b=id
+~X means time reversal (in base_map or curve)
 
-We prefer to use generators if possible.
-
-We use immutable hashable objects if possible (e.g., tuples intead of lists).
-
-Common names:
+Common names and notations:
 * dim -- dimension of the curve image: [0,1]->[0,1]^d
 * div -- number of divisions for each coordinate
 * pcount -- number of patterns (monofractal: 1, bifractal: 2, etc)
@@ -41,3 +38,7 @@ Common names:
 * cnum -- index of cube, ranges from 0 to genus-1
 * pnum -- index of pattern, ranges from 0 to pcount-1
 * genus = div**dim -- genus of the curve
+
+We prefer to use generators if possible.
+
+We use immutable hashable objects if possible (e.g., tuples intead of lists).

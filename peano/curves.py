@@ -706,12 +706,12 @@ class PathFuzzyCurve(FuzzyCurve):
         # we do not change gates to keep them standard (symmetries also do not change)
         new_gates_std = {}
         for gate, data in self.gates_std.items():
-            new_gates_std[gate] = {pnum: std_map.reversed_time() for pnum, std_map in data.items()}
+            new_gates_std[gate] = {pnum: ~std_map for pnum, std_map in data.items()}
 
         new_pattern_gates = [list(reversed(gates)) for gates in self.pattern_gates]
         new_pattern_reprs = []
         for reprs in self.pattern_reprs:
-            new_reprs = list(reversed([bm.reversed_time() for bm in reprs]))
+            new_reprs = list(reversed([~bm for bm in reprs]))
             new_pattern_reprs.append(new_reprs)
         return super().__invert__().changed(
             gates_std=new_gates_std,
@@ -723,7 +723,7 @@ class PathFuzzyCurve(FuzzyCurve):
         curve = super().apply_cube_map(cube_map)
         new_gates_std = {}
         for gate, data in self.gates_std.items():
-            new_gates_std[gate] = {pnum: std_map * ~cube_map for pnum, std_map in data.items()}
+            new_gates_std[gate] = {pnum: std_map * cube_map**(-1) for pnum, std_map in data.items()}
 
         new_pattern_reprs = []
         for reprs in self.pattern_reprs:
@@ -857,9 +857,9 @@ class RegularJunction(Junction):
                 or (spec1.pnum == spec2.pnum and spec1.base_map.time_rev and spec2.base_map.time_rev):
             # swap and reverse time
             delta_x = tuple(-dj for dj in delta_x)
-            spec1, spec2 = spec2.reversed_time(), spec1.reversed_time()
+            spec1, spec2 = ~spec2, ~spec1
 
-        bm1_cube_inv = ~spec1.base_map.cube_map()
+        bm1_cube_inv = spec1.base_map.cube_map()**(-1)
         super().__init__(
             spec1=bm1_cube_inv * spec1,  # only possible time_rev
             spec2=bm1_cube_inv * spec2,

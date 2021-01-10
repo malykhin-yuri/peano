@@ -20,15 +20,15 @@ class TestBaseMap(unittest.TestCase):
 
     def test_inv(self):
         for bm in self.base_maps:
-            self.assertEqual(bm * ~bm, BaseMap.id_map(dim=bm.dim))
-            self.assertEqual(~bm * bm, BaseMap.id_map(dim=bm.dim))
+            self.assertEqual(bm * bm**(-1), BaseMap.id_map(dim=bm.dim))
+            self.assertEqual(bm**(-1) * bm, BaseMap.id_map(dim=bm.dim))
 
     def test_conj(self):
         dim3 = [bm for bm in self.base_maps if bm.dim == 3]
         for bm1 in dim3:
             for bm2 in dim3:
                 # TODO - правилен ли такой конжугад?
-                self.assertEqual(bm1.conjugate_by(bm2), bm2 * bm1 * ~bm2)
+                self.assertEqual(bm1.conjugate_by(bm2), bm2 * bm1 * bm2**(-1))
 
     def test_constraint_fast(self):
         pairs = [

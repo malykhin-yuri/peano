@@ -316,11 +316,8 @@ class Portal(namedtuple('Portal', ['entrance', 'exit'])):
             other = min(other1, other2)
         return type(self)(min_std, other)
 
-    def reversed(self):
-        return type(self)(self.exit, self.entrance)
-
     def __invert__(self):
-        return self.reversed()
+        return type(self)(self.exit, self.entrance)
 
     def __str__(self):
         return '{} -> {}'.format(self.entrance, self.exit)
@@ -337,7 +334,7 @@ class Portal(namedtuple('Portal', ['entrance', 'exit'])):
             yield bm
         bms2 = list(self.entrance.argmul_intersect(other.exit))
         for bm in self.exit.argmul_intersect(other.entrance, bms=bms2):
-            yield bm.reversed_time()
+            yield ~bm
 
 
 class Gate(Portal):
