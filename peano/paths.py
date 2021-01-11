@@ -6,7 +6,7 @@ import re
 from sympy import Rational
 
 from .base_maps import BaseMap
-from .subsets import Gate, Point, Portal
+from .subsets import Point, Link
 from .node_paths import NodePathTree
 from .utils import combinations_product
 
@@ -82,30 +82,30 @@ class Proto(tuple):
         return ''.join(res)
 
 
-class PortalPath:
-    """Prototype + portals."""
+class Path:
+    """Prototype + links."""
 
-    def __init__(self, proto, portals):
+    def __init__(self, proto, links):
         self.proto = proto
         self.dim = proto.dim
         self.div = proto.div
-        self.portals = tuple(portals)
+        self.links = tuple(links)
 
-        entr = portals[0].entrance.map_to_cube(self.div, proto[0])
-        exit = portals[-1].exit.map_to_cube(self.div, proto[-1])
-        self.portal = Portal(entr, exit)
+        entr = links[0].entrance.map_to_cube(self.div, proto[0])
+        exit = links[-1].exit.map_to_cube(self.div, proto[-1])
+        self.link = Link(entr, exit)
 
     def __rmul__(self, base_map):
-        new_portals = [base_map * portal for portal in self.portals]
+        new_links = [base_map * link for link in self.links]
         if base_map.time_rev:
-            new_portals.reverse()
-        return type(self)(base_map * self.proto, new_portals)
+            new_links.reverse()
+        return type(self)(base_map * self.proto, new_links)
 
     def __invert__(self):
         return ~BaseMap.id_map(self.dim) * self
 
     def _data(self):
-        return self.portal, self.proto, self.portals
+        return self.link, self.proto, self.links
 
     def __lt__(self, other):
         return self._data() < other._data()
@@ -117,46 +117,37 @@ class PortalPath:
         return hash(self._data())
 
 
-class CurvePath(PortalPath):
-    """Prototype + gates. Legacy. TODO: решить, оставляем или выпиливаем"""
-
-    def __init__(self, proto, gates):
-        super().__init__(proto, gates)
-        self.gate = Gate(self.portal.entrance, self.portal.exit)
-        self.gates = self.portals
-
-
 class PathsGenerator:
-    """Generate paths with given portals.
+    """Generate paths with given links.
 
-    Given a list of portals (pairs subsets of [0,1]^d),
-    generate PortalPaths, i.e. paths such that portal exit
-    in each fraction intersects (or equals) portal entrance in next fraction.
+    Given a list of links (pairs subsets of [0,1]^d),
+    generate Paths, i.e. paths such that link exit
+    in each fraction intersects (or equals) link entrance in next fraction.
     """
 
-    def __init__(self, dim, div, portals=None, hdist=None, max_cdist=None, mode='auto'):
+    def __init__(self, dim, div, links=None, hdist=None, max_cdist=None, mode='auto'):
         """
         Init paths generator.
 
         dim, div    --  subj
-        portals     --  list of portals
+        links     --  list of links
         hist        --  one gate: (0,..,0) -> (0,..,0,1,1,..,1) with k ones
         max_cdist   --  maximum l1-distance between cubes
-        mode        --  'auto'|'intersects'|'equals' - condition on portals
+        mode        --  'auto'|'intersects'|'equals' - condition on links
         TODO: mode Не используется, выпилим?
         """
 
         self.dim = dim
         self.div = div
 
-        if portals is None:
+        if links is None:
             entrance = Point((Rational(0),) * dim)
             exit = Point((Rational(0),) * (dim - hdist) + (Rational(1, 1),) * hdist)
-            portals = [Gate(entrance, exit)]
-        self.portals = portals
+            links = [Link(entrance, exit)]
+        self.links = links
 
         if mode == 'auto':
-            if all(all(isinstance(subset, Point) for subset in [portal.entrance, portal.exit]) for portal in portals):
+            if all(all(isinstance(subset, Point) for subset in [link.entrance, link.exit]) for link in links):
                 mode = 'equals'
             else:
                 mode = 'intersects'
@@ -164,9 +155,9 @@ class PathsGenerator:
 
         entr2exits = defaultdict(dict)
         for bm in BaseMap.gen_base_maps(dim, time_rev=False):
-            for portal in portals:
-                bm_entr = bm * portal.entrance
-                bm_exit = bm * portal.exit
+            for link in links:
+                bm_entr = bm * link.entrance
+                bm_exit = bm * link.exit
                 entr2exits[bm_entr][bm_exit] = 1
                 entr2exits[bm_exit][bm_entr] = 1
         self.entr2exits = entr2exits
@@ -174,7 +165,7 @@ class PathsGenerator:
 
     def gen_intersected(self, subset):
         """
-        Given a subset in [0,1]^d, find portals entrances that intersects it.
+        Given a subset in [0,1]^d, find links entrances that intersects it.
         """
         if self.mode == 'equals':
             if subset in self.entr2exits:
@@ -186,7 +177,7 @@ class PathsGenerator:
 
     def get_next_dict(self, max_cdist=None):
         """
-        Get a dict: exit_subset => [(cube_delta, new_portal), ...]
+        Get a dict: exit_subset => [(cube_delta, new_link), ...]
 
         Params:
             max_cdist:  do not allow cube changes greater than it
@@ -194,9 +185,9 @@ class PathsGenerator:
 
         # there may be too many exit sets, work with standard
         std_exits = set()
-        for portal in self.portals:
-            std_exits.add(portal.exit.std())
-            std_exits.add(portal.entrance.std())  # "no time_rev" is not supported
+        for link in self.links:
+            std_exits.add(link.exit.std())
+            std_exits.add(link.entrance.std())  # "no time_rev" is not supported
 
         result = {}
         bms = list(BaseMap.gen_base_maps(self.dim, time_rev=False))
@@ -219,7 +210,7 @@ class PathsGenerator:
                     next_cube = bm.apply_cube_start(cube, 1)  # this does not change cdist!
                     next_entr = bm * entr
                     for next_exit in self.entr2exits[next_entr]:
-                        next_pos.append((next_cube, Portal(next_entr, next_exit)))
+                        next_pos.append((next_cube, Link(next_entr, next_exit)))
 
                 result[exit] = next_pos
 
@@ -229,9 +220,9 @@ class PathsGenerator:
         """Generate one paths tuple."""
         examples = []
         if parents is None:
-            parents = (None,) * len(self.portals)
-        for portal, parent in zip(self.portals, parents):
-            path = next(self.generate_paths_generic(portal=portal, parent=parent, **kwargs), None)
+            parents = (None,) * len(self.links)
+        for link, parent in zip(self.links, parents):
+            path = next(self.generate_paths_generic(link=link, parent=parent, **kwargs), None)
             if path is None:
                 return None
             examples.append(path)
@@ -239,25 +230,25 @@ class PathsGenerator:
 
     def generate_paths(self, parents=None, std=False, **kwargs):
         """
-        Generate tuples of paths (p_1,..,p_g) for self portals.
+        Generate tuples of paths (p_1,..,p_g) for self links.
 
         parents  --  additional restriction for paths (see generic method)
         """
-        portals = self.portals
+        links = self.links
         if parents is None:
-            parents = (None,) * len(portals)
+            parents = (None,) * len(links)
         kwargs['std'] = std
 
-        # only for one portal we do not consume path into memory
-        if len(portals) == 1:
-            for path in self.generate_paths_generic(portals[0], parent=parents[0], **kwargs):
+        # only for one link we do not consume path into memory
+        if len(links) == 1:
+            for path in self.generate_paths_generic(links[0], parent=parents[0], **kwargs):
                 yield (path,)
             return
 
         paths_dict = {}
-        restrictions = list(zip(portals, parents))
-        for portal, parent in set(restrictions):
-            paths_dict[portal, parent] = list(self.generate_paths_generic(portal=portal, parent=parent, **kwargs))
+        restrictions = list(zip(links, parents))
+        for link, parent in set(restrictions):
+            paths_dict[link, parent] = list(self.generate_paths_generic(link=link, parent=parent, **kwargs))
 
         logging.info('generate_paths counts: %s', [len(paths_dict[r]) for r in restrictions])
 
@@ -268,15 +259,15 @@ class PathsGenerator:
             yield from itertools.product(*path_lists)
 
 
-    def generate_paths_generic(self, portal=None, parent=None, std=False, **kwargs):
+    def generate_paths_generic(self, link=None, parent=None, std=False, **kwargs):
         """
-        Generate PortalPath with given (global) portal using all self.portals.
+        Generate Path with given (global) link using all self.links.
 
-        This method is usually called for portal in self.portals, but this is not required.
-        parent -- PortalPath such that generated paths must be consistent with it (same proto & intersecting portals)
-        std -- try to standartize path (minimize keeping parent/portal)
+        This method is usually called for link in self.links, but this is not required.
+        parent -- Path such that generated paths must be consistent with it (same proto & intersecting links)
+        std -- try to standartize path (minimize keeping parent/link)
         """
-        # will use NodePathTree with state = portal
+        # will use NodePathTree with state = link
         start = []
         finish = []
 
@@ -286,68 +277,68 @@ class PathsGenerator:
                 return self.next_dict[node.state.exit]
 
             def gen_prev(node):
-                for delta, portal in self.next_dict[node.state.entrance]:
-                    yield delta, ~portal
+                for delta, link in self.next_dict[node.state.entrance]:
+                    yield delta, ~link
 
             tree = NodePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
 
-            for cube, cube_subset in portal.entrance.divide(self.div):
+            for cube, cube_subset in link.entrance.divide(self.div):
                 for start_entr in self.gen_intersected(cube_subset):
                     for start_exit in self.entr2exits[start_entr]:
                         logging.debug('start at %s: %s -> %s', cube, start_entr, start_exit)
-                        start.append(tree.init_path(cube, state=Portal(start_entr, start_exit)))
+                        start.append(tree.init_path(cube, state=Link(start_entr, start_exit)))
 
-            for cube, cube_subset in portal.exit.divide(self.div):
+            for cube, cube_subset in link.exit.divide(self.div):
                 for finish_entr in self.gen_intersected(cube_subset):
                     for finish_exit in self.entr2exits[finish_entr]:
                         logging.debug('finish at %s: %s -> %s', cube, finish_exit, finish_entr)
-                        finish.append(tree.init_path(cube, Portal(finish_exit, finish_entr)))
+                        finish.append(tree.init_path(cube, Link(finish_exit, finish_entr)))
         else:
-            def check_parent(cnum, cube, portal):
-                """Check that portal at given cube is consistent with parent"""
-                return cube == parent.proto[cnum] and portal.intersects(parent.portals[cnum])
+            def check_parent(cnum, cube, link):
+                """Check that link at given cube is consistent with parent"""
+                return cube == parent.proto[cnum] and link.intersects(parent.links[cnum])
 
             cube2cnum = {cube: cnum for cnum, cube in enumerate(parent.proto)}
             def gen_next(node):
                 next_cnum = cube2cnum[node.cube] + 1  # currently we are at correct cube
-                for delta, next_portal in self.next_dict[node.state.exit]:
+                for delta, next_link in self.next_dict[node.state.exit]:
                     next_cube = tuple(cj + dj for cj, dj in zip(node.cube, delta))
-                    if check_parent(next_cnum, next_cube, next_portal):
-                        yield delta, next_portal
+                    if check_parent(next_cnum, next_cube, next_link):
+                        yield delta, next_link
 
             def gen_prev(node):
                 next_cnum = cube2cnum[node.cube] - 1
-                for delta, next_portal in self.next_dict[node.state.entrance]:
+                for delta, next_link in self.next_dict[node.state.entrance]:
                     next_cube = tuple(cj + dj for cj, dj in zip(node.cube, delta))
-                    if check_parent(next_cnum, next_cube, ~next_portal):
-                        yield delta, ~next_portal
+                    if check_parent(next_cnum, next_cube, ~next_link):
+                        yield delta, ~next_link
 
             tree = NodePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
 
             start_cube = parent.proto[0]
-            for start_entr in self.gen_intersected(parent.portals[0].entrance):
+            for start_entr in self.gen_intersected(parent.links[0].entrance):
                 for start_exit in self.entr2exits[start_entr]:
-                    start_portal = Portal(start_entr, start_exit)
-                    if check_parent(0, start_cube, start_portal):
-                        start.append(tree.init_path(start_cube, start_portal))
+                    start_link = Link(start_entr, start_exit)
+                    if check_parent(0, start_cube, start_link):
+                        start.append(tree.init_path(start_cube, start_link))
 
             finish_cube = parent.proto[-1]
-            for finish_entr in self.gen_intersected(parent.portals[-1].exit):
+            for finish_entr in self.gen_intersected(parent.links[-1].exit):
                 for finish_exit in self.entr2exits[finish_entr]:
-                    finish_portal = Portal(finish_exit, finish_entr)
-                    if check_parent(-1, finish_cube, finish_portal):
-                        finish.append(tree.init_path(finish_cube, finish_portal))
+                    finish_link = Link(finish_exit, finish_entr)
+                    if check_parent(-1, finish_cube, finish_link):
+                        finish.append(tree.init_path(finish_cube, finish_link))
 
         if std:
             seen_paths = set()
             bms = BaseMap.gen_base_maps(self.dim)
-            keep = parent if parent is not None else portal
+            keep = parent if parent is not None else link
             std_bms = [bm for bm in bms if bm * keep == keep]
 
         for path_data in tree.grow(start, ends=finish, **kwargs):
-            result_path = PortalPath(
+            result_path = Path(
                 proto=Proto(self.dim, self.div, [head.cube for head in path_data]),
-                portals=[head.state for head in path_data],
+                links=[head.state for head in path_data],
             )
             if std:
                 std_path = min(bm * result_path for bm in std_bms)

@@ -4,8 +4,8 @@ from sympy import Rational
 
 from peano.base_maps import BaseMap, Spec
 from peano.curves import Curve, PathFuzzyCurve
-from peano.subsets import Point, Gate
-from peano.paths import PathsGenerator, CurvePath
+from peano.subsets import Point, Link
+from peano.paths import PathsGenerator
 
 from .examples import *
 
@@ -169,24 +169,24 @@ class TestCurve(unittest.TestCase):
         known = [
             {
                 'curve': get_haverkort_curve_f(),
-                'gates': [Gate.parse('(0,1/3,1/3)->(2/3,1/3,0)')],
+                'gates': [Link.parse_gates('(0,1/3,1/3)->(2/3,1/3,0)')],
             },
             {
                 'curve': get_beta_omega_curve(),
-                'gates': [Gate.parse('(0,1/3)->(1,1/3)'), Gate.parse('(0,1/3)->(2/3,0)')],
+                'gates': [Link.parse_gates('(0,1/3)->(1,1/3)'), Link.parse_gates('(0,1/3)->(2/3,0)')],
             },
             {
                 'curve': get_neptunus_curve(),
-                'gates': [Gate.parse('(0,0,0)->(1,0,0)'), Gate.parse('(0,0,0)->(1,1,1)')],
+                'gates': [Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
             },
             {
                 'curve': get_luna_curve(),
-                'gates': [Gate.parse('(0,0,0)->(1,0,0)'), Gate.parse('(0,0,0)->(1,1,1)')],
+                'gates': [Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
             },
         ]
         for data in known:
             curve = data['curve']
-            gates = [Gate(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.pcount)]
+            gates = [Link(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.pcount)]
             self.assertEqual(gates, data['gates'])
 
             for pnum, gate in enumerate(gates):
@@ -257,10 +257,9 @@ class TestFuzzyCurves(unittest.TestCase):
 
 class TestMisc(unittest.TestCase):
     def test_diag(self):
-       gate = Gate.parse('(0,0)->(1,1/2)')
-       pgen = PathsGenerator(dim=2, div=5, portals=[gate], max_cdist=1)
+       gate = Link.parse_gates('(0,0)->(1,1/2)')
+       pgen = PathsGenerator(dim=2, div=5, links=[gate], max_cdist=1)
        paths = next(pgen.generate_paths())
-       paths = tuple(CurvePath(path.proto, path.portals) for path in paths)
        pcurve = PathFuzzyCurve.init_from_paths(paths)
        curve = pcurve.get_curve_example()
        print(curve)

@@ -38,6 +38,8 @@ Common names and notations:
 * cnum -- index of cube, ranges from 0 to genus-1
 * pnum -- index of pattern, ranges from 0 to pcount-1
 * genus = div**dim -- genus of the curve
+* proto -- prototype (sequence of cubes)
+* path -- prototype with entrances/exits in each cube
 
 We prefer to use generators if possible.
 

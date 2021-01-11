@@ -3,9 +3,10 @@ import unittest
 from sympy import Rational
 
 from peano import utils
-from peano.paths import PathsGenerator, CurvePath
+from peano.paths import PathsGenerator
 from peano.curves import PathFuzzyCurve, Proto
 from peano.ratio import Estimator
+from peano.base_maps import BaseMap
 
 from .examples import *  # TODO get rid of "*"
 
@@ -137,7 +138,6 @@ class TestCurve(unittest.TestCase):
                 path0 = paths[0]
                 break
 
-        path0 = CurvePath(path0.proto, path0.portals)  # legacy
         pcurve = PathFuzzyCurve.init_from_paths([path0])
         estimator = Estimator(utils.ratio_l2_squared)
         curve = estimator.estimate_ratio(pcurve, rel_tol_inv=10000, verbose=False)['curve']

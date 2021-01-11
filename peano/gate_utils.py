@@ -3,7 +3,7 @@ import logging
 import itertools
 
 from .curves import FuzzyCurve
-from .subsets import Gate, Point, Portal, HyperFaceDivSubset
+from .subsets import Link, HyperFaceDivSubset
 from .paths import Proto, PathsGenerator
 from .base_maps import BaseMap, Spec
 
@@ -60,12 +60,12 @@ class GatesGenerator:
         face2 = HyperFaceDivSubset(dim=dim, div=div, face=(1, 0))  # x1=0
 
         # we either go to the opposite face, either to the neighbour face, or return to the same face
-        portal_variants = [Portal(face0, face0), Portal(face0, face1), Portal(face0, face2)]
-        portals_list = list(itertools.combinations_with_replacement(portal_variants, r=pcount))
+        link_variants = [Link(face0, face0), Link(face0, face1), Link(face0, face2)]
+        links_list = list(itertools.combinations_with_replacement(link_variants, r=pcount))
 
-        for portals_idx, portals in enumerate(portals_list):
-            logging.info('processing global portals %d of %d', portals_idx + 1, len(portals_list))
-            pg = PathsGenerator(dim=dim, div=div, portals=portals)
+        for links_idx, links in enumerate(links_list):
+            logging.info('processing global links %d of %d', links_idx + 1, len(links_list))
+            pg = PathsGenerator(dim=dim, div=div, links=links)
             plist = list(pg.generate_paths(std=True))
 
             for narrow_idx in range(narrow_steps):
@@ -131,13 +131,13 @@ class GatesGenerator:
 
     def _gen_path_gates(self, paths):
         # to determine: specs for first and last for all patterns
-        # тонкий момент: в списке path.portals мы не знаем, какой portal из какого шаблона
-        # а вот path.portal привязан именно к этому шаблону
+        # тонкий момент: в списке path.links мы не знаем, какой link из какого шаблона
+        # а вот path.link привязан именно к этому шаблону
         spec_dict = {}
         for pnum, cnum in self.pnum_cnum_list:
             specs = []
             for pn in range(self.pcount):
-                for bm in paths[pn].portal.argmul_intersect(paths[pnum].portals[cnum]):
+                for bm in paths[pn].link.argmul_intersect(paths[pnum].links[cnum]):
                     spec = Spec(bm, pnum=pn)
                     specs.append(spec)
             spec_dict[pnum, cnum] = specs
@@ -176,7 +176,7 @@ class GatesGenerator:
             if (self.hyper and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
                 return
 
-            gates.append(Gate(entr, exit))
+            gates.append(Link(entr, exit))
 
         gates = tuple(gates)
         if gates in self.seen_gates:
@@ -193,7 +193,7 @@ class GatesGenerator:
         self.stats['new_std_gate'] += 1
 
         # check that there is at least one path with given gates
-        pg = PathsGenerator(dim=dim, div=div, portals=std_gates)
+        pg = PathsGenerator(dim=dim, div=div, links=std_gates)
 
         # параметры -- дискуссионный вопрос
         if pg.get_paths_example(start_max_count=1000, finish_max_count=100000):
@@ -207,20 +207,20 @@ class GatesGenerator:
         div = paths[0].proto.div
         dim = paths[0].proto.dim
 
-        narrow_portals = []
+        narrow_links = []
         for path in paths:
-            narrow_portals.append(path.portal)
+            narrow_links.append(path.link)
 
-        npg = PathsGenerator(dim=dim, div=div, portals=narrow_portals)
+        npg = PathsGenerator(dim=dim, div=div, links=narrow_links)
         if not npg.get_paths_example(parents=paths):
             return
 
         narrows = []
-        for path, narrow_portal in zip(paths, narrow_portals):
+        for path, narrow_link in zip(paths, narrow_links):
             seen = set()
             res = []
-            for narrow_path in npg.generate_paths_generic(portal=path.portal, parent=path):
-                key = (narrow_path.portal, narrow_path.portals[0], narrow_path.portals[-1])
+            for narrow_path in npg.generate_paths_generic(link=path.link, parent=path):
+                key = (narrow_path.link, narrow_path.links[0], narrow_path.links[-1])
                 if key not in seen:
                     seen.add(key)
                     res.append(narrow_path)

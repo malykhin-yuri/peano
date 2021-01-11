@@ -7,10 +7,10 @@ from sympy import Rational
 
 import peano.utils as utils
 from peano.paths import PathsGenerator
-from peano.curves import PathFuzzyCurve, CurvePath
+from peano.curves import PathFuzzyCurve
 from peano.ratio import Estimator
 from peano.gate_utils import GatesGenerator
-from peano.subsets import Gate
+from peano.subsets import Link
 
 
 def run_estimator(
@@ -35,11 +35,11 @@ def run_estimator(
                 continue
 
             logging.info('processing gates: %d', gates_idx + 1)
-            paths_gen = PathsGenerator(dim=dim, div=div, portals=gates, max_cdist=max_cdist)
+            paths_gen = PathsGenerator(dim=dim, div=div, links=gates, max_cdist=max_cdist)
             if output_stats:
                 counts = []
                 for gate in gates:
-                    gcnt = len(list(paths_gen.generate_paths_generic(portal=gate, std=True)))
+                    gcnt = len(list(paths_gen.generate_paths_generic(link=gate, std=True)))
                     counts.append(gcnt)
                 yield counts
                 continue
@@ -53,7 +53,6 @@ def run_estimator(
 
             for paths_idx, paths in enumerate(paths_list):
                 logging.info('processing gate_paths: %d of %d', paths_idx + 1, len(paths_list))
-                paths = tuple(CurvePath(path.proto, path.portals) for path in paths)
                 yield PathFuzzyCurve.init_from_paths(paths)
 
     if output_stats:
@@ -157,13 +156,13 @@ if __name__ == "__main__":
     if gates_file is not None:
         with open(gates_file) as fh:
             for line in fh:
-                gates = [Gate.parse(token) for token in line.strip().split('|')]
+                gates = [Link.parse_gates(token) for token in line.strip().split('|')]
                 gate_list.append(gates)
         kwargs['gate_list'] = gate_list
 
     gates_str = kwargs.pop('gates')
     if gates_str is not None:
-        gates = [Gate.parse(token) for token in gates_str.strip().split('|')]
+        gates = [Link.parse_gates(token) for token in gates_str.strip().split('|')]
         kwargs['gate_list'] = [gates]
 
     if args.upper_bound is not None:

@@ -14,8 +14,8 @@ from sympy import Rational
 
 from .base_maps import BaseMap, Spec
 from .utils import get_periodic_sum
-from .paths import Proto, CurvePath
-from .subsets import Gate, Point
+from .paths import Proto, Path, Link
+from .subsets import Point
 
 
 class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
@@ -570,12 +570,11 @@ class Curve(FuzzyCurve):
 
     def get_paths(self):
         # TODO: unite with check
-        P = self.pcount
-        gates = {pnum: Gate(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(P)}
+        gate_pairs = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
         paths = []
         for pnum, pattern in enumerate(self.patterns):
-            pattern_gates = [spec.base_map * gates[spec.pnum] for spec in pattern.specs]
-            paths.append(CurvePath(pattern.proto, pattern_gates))
+            pattern_gate_pairs = [spec.base_map * gate_pairs[spec.pnum] for spec in pattern.specs]
+            paths.append(Path(pattern.proto, pattern_gate_pairs))
         return paths
 
     def forget(self, allow_time_rev=False):
@@ -676,54 +675,54 @@ class PathFuzzyCurve(FuzzyCurve):
     Fuzzy curve with fixed paths.
 
     Additional attributes:
-    Information about "standard" gates used in paths:
-    .gates_symmetries  --  dict {std_gate: symmetries} - list of bms that save std_gate (doest not change at *)
-    .gates_std  --  dict {std_gate: {pnum: std_map}}, such that std_map * pattern_global_gate = std_gate
+    Information about "standard" links used in paths:
+    .links_symmetries  --  dict {std_link: symmetries} - list of bms that save std_link (doest not change at *)
+    .links_std  --  dict {std_link: {pnum: std_map}}, such that std_map * pattern_global_link = std_link
 
     Information about patterns:
-    .pattern_gates  --  array of std_gates for each fraction of each pattern;
-    .pattern_reprs  --  array of reprs for each pattern; reprs[cnum] = bm that sends std_gate to gate of fraction
+    .pattern_links  --  array of std_links for each fraction of each pattern;
+    .pattern_reprs  --  array of reprs for each pattern; reprs[cnum] = bm that sends std_link to link of fraction
     """
 
     def __init__(self, *args, **kwargs):
-        gates_symmetries = kwargs.pop('gates_symmetries')
-        gates_std = kwargs.pop('gates_std')
-        pattern_gates = kwargs.pop('pattern_gates')
+        links_symmetries = kwargs.pop('links_symmetries')
+        links_std = kwargs.pop('links_std')
+        pattern_links = kwargs.pop('pattern_links')
         pattern_reprs = kwargs.pop('pattern_reprs')
         super().__init__(*args, **kwargs)
-        self.gates_symmetries = gates_symmetries
-        self.gates_std = gates_std
-        self.pattern_gates = pattern_gates
+        self.links_symmetries = links_symmetries
+        self.links_std = links_std
+        self.pattern_links = pattern_links
         self.pattern_reprs = pattern_reprs
 
     def changed(self, *args, **kwargs):
-        for add_field in ['gates_symmetries', 'gates_std', 'pattern_gates', 'pattern_reprs']:
+        for add_field in ['links_symmetries', 'links_std', 'pattern_links', 'pattern_reprs']:
             if add_field not in kwargs:
                 kwargs[add_field] = getattr(self, add_field)
         return super().changed(*args, **kwargs)
 
     def __invert__(self):
-        # we do not change gates to keep them standard (symmetries also do not change)
-        new_gates_std = {}
-        for gate, data in self.gates_std.items():
-            new_gates_std[gate] = {pnum: ~std_map for pnum, std_map in data.items()}
+        # we do not change links to keep them standard (symmetries also do not change)
+        new_links_std = {}
+        for link, data in self.links_std.items():
+            new_links_std[link] = {pnum: ~std_map for pnum, std_map in data.items()}
 
-        new_pattern_gates = [list(reversed(gates)) for gates in self.pattern_gates]
+        new_pattern_links = [list(reversed(links)) for links in self.pattern_links]
         new_pattern_reprs = []
         for reprs in self.pattern_reprs:
             new_reprs = list(reversed([~bm for bm in reprs]))
             new_pattern_reprs.append(new_reprs)
         return super().__invert__().changed(
-            gates_std=new_gates_std,
-            pattern_gates=new_pattern_gates,
+            links_std=new_links_std,
+            pattern_links=new_pattern_links,
             pattern_reprs=new_pattern_reprs,
         )
 
     def apply_cube_map(self, cube_map):
         curve = super().apply_cube_map(cube_map)
-        new_gates_std = {}
-        for gate, data in self.gates_std.items():
-            new_gates_std[gate] = {pnum: std_map * cube_map**(-1) for pnum, std_map in data.items()}
+        new_links_std = {}
+        for link, data in self.links_std.items():
+            new_links_std[link] = {pnum: std_map * cube_map**(-1) for pnum, std_map in data.items()}
 
         new_pattern_reprs = []
         for reprs in self.pattern_reprs:
@@ -731,7 +730,7 @@ class PathFuzzyCurve(FuzzyCurve):
             new_pattern_reprs.append(new_reprs)
 
         return curve.changed(
-            gates_std=new_gates_std,
+            links_std=new_links_std,
             pattern_reprs=new_pattern_reprs,
         )
 
@@ -741,16 +740,16 @@ class PathFuzzyCurve(FuzzyCurve):
             yield pattern.specs[cnum]
             return
 
-        gate = self.pattern_gates[pnum][cnum]
+        link = self.pattern_links[pnum][cnum]
         repr = self.pattern_reprs[pnum][cnum]
-        symmetries = self.gates_symmetries[gate]
-        std = self.gates_std[gate]
+        symmetries = self.links_symmetries[link]
+        std = self.links_std[link]
         for pnum in sorted(std.keys()):
             for symm in symmetries:
                 # how go we get fraction from a pattern:
-                # 1) map pattern gate to std_gate
-                # 2) apply symmetries for std_gate
-                # 3) apply repr to get fraction gate
+                # 1) map pattern link to std_link
+                # 2) apply symmetries for std_link
+                # 3) apply repr to get fraction link
                 yield Spec(repr * symm * std[pnum], pnum)
 
     @classmethod
@@ -761,19 +760,19 @@ class PathFuzzyCurve(FuzzyCurve):
             possible_maps = list(BaseMap.gen_base_maps(dim))
         else:
             possible_maps = list(BaseMap.gen_base_maps(dim, time_rev=False))
-        gates_symmetries = {}
-        gates_std = {}
+        links_symmetries = {}
+        links_std = {}
         for pnum, path in enumerate(paths):
             # pnum stands for path_num and also pattern_num
-            std_gate = path.gate.std()
-            std_map = next(bm for bm in possible_maps if bm * path.gate == std_gate)
-            gates_std.setdefault(std_gate, {})[pnum] = std_map
+            std_link = path.link.std()
+            std_map = next(bm for bm in possible_maps if bm * path.link == std_link)
+            links_std.setdefault(std_link, {})[pnum] = std_map
 
-        for gate in gates_std:
-            gates_symmetries[gate] = [bm for bm in possible_maps if bm * gate == gate]
+        for link in links_std:
+            links_symmetries[link] = [bm for bm in possible_maps if bm * link == link]
 
         patterns = []
-        pattern_gates = []
+        pattern_links = []
         pattern_reprs = []
         for pnum, path in enumerate(paths):
             proto = path.proto
@@ -781,28 +780,28 @@ class PathFuzzyCurve(FuzzyCurve):
             patterns.append((proto, specs))
 
             reprs = []
-            gates = []
-            for gate in path.gates:
-                repr0, gate0 = None, None
-                for std_gate in gates_std:
-                    allowed = [bm for bm in possible_maps if bm * std_gate == gate]
+            links = []
+            for link in path.links:
+                repr0, link0 = None, None
+                for std_link in links_std:
+                    allowed = [bm for bm in possible_maps if bm * std_link == link]
                     if allowed:
                         # should be exactly once!
                         repr0 = allowed[0]
-                        gate0 = std_gate
+                        link0 = std_link
                         break
-                if repr0 is None or gate0 is None:
-                    raise Exception("Can't create PathFuzzyCurve: no allowed gates")
+                if repr0 is None or link0 is None:
+                    raise Exception("Can't create PathFuzzyCurve: no allowed links")
                 reprs.append(repr0)
-                gates.append(gate0)
+                links.append(link0)
             pattern_reprs.append(reprs)
-            pattern_gates.append(gates)
+            pattern_links.append(links)
 
         return cls(
             dim=dim, div=div, patterns=patterns,
-            gates_symmetries=gates_symmetries,
-            gates_std=gates_std,
-            pattern_gates=pattern_gates,
+            links_symmetries=links_symmetries,
+            links_std=links_std,
+            pattern_links=pattern_links,
             pattern_reprs=pattern_reprs,
         )
 

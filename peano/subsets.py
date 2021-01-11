@@ -10,7 +10,7 @@ class Subset:
     """
     Abstract class for subsets in [0,1]^d (or in R^d)
 
-    Defines interface for usage of subsets in Portal class.
+    Defines interface for usage of subsets in Link class.
     """
 
     def intersects(self, other):
@@ -271,12 +271,12 @@ class HyperFaceDivSubset(Subset):
         return text
 
 
-class Portal(namedtuple('Portal', ['entrance', 'exit'])):
+class Link(namedtuple('Link', ['entrance', 'exit'])):
     """
-    Portal is defined by pair of subsets of [0,1]^d: entrance and exit subsets.
+    Link is defined by pair of subsets of [0,1]^d: entrance and exit subsets.
 
-    Portal represents the set of curves with curve.entrance in portal.entrance and curve.exit in portal.exit.
-    Entrance and exit must be subsets of [0,1]^d (class Subset)
+    Link represents the set of curves with curve.entrance in link.entrance and curve.exit in link.exit.
+    Entrance and exit must be subsets of [0,1]^d (derived from Subset)
     Instances of this class may be used in path generators.
     """
     @property
@@ -336,15 +336,9 @@ class Portal(namedtuple('Portal', ['entrance', 'exit'])):
         for bm in self.exit.argmul_intersect(other.entrance, bms=bms2):
             yield ~bm
 
-
-class Gate(Portal):
-    """
-    Gate is a pair (entrance gate, exit gate).
-
-    Gate is a portal with Point entrance/exit sets.
-    """
     @classmethod
-    def parse(cls, text):
+    def parse_gates(cls, text):
+        """Create Points Link from string, e.g., '(0,0)->(1,1/2)'"""
         points = [Point.parse(pt_str) for pt_str in text.split('->')]
         assert len(points) == 2
         return cls(*points)
