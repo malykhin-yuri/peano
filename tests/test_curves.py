@@ -37,8 +37,8 @@ class TestCommon(unittest.TestCase):
             get_haverkort_curve_a26(),
             get_haverkort_curve_f(),
 
-            get_hilbert_curve().forget(),
-            get_haverkort_curve_a26().forget(),
+            get_hilbert_curve().forget(allow_time_rev=False),
+            get_haverkort_curve_a26().forget(allow_time_rev=False),
 
             get_beta_omega_curve(),
             get_ARW_Curve(),
@@ -232,7 +232,7 @@ class TestFuzzyCurves(unittest.TestCase):
             if num == 0:
                 pcurve = curve.forget(allow_time_rev=True)
             else:
-                pcurve = curve.forget()
+                pcurve = curve.forget(allow_time_rev=False)
 
             junc_info = pcurve.get_junctions_info()
             for junc in junc_info:

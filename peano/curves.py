@@ -576,9 +576,9 @@ class Curve(FuzzyCurve):
             paths.append(Path(pattern.proto, pattern_links))
         return paths
 
-    def forget(self, allow_time_rev=False):
+    def forget(self, **kwargs):
         """Convert curve to a fuzzy curve, saving entrance/exit and forgetting all specs."""
-        return PathFuzzyCurve.init_from_paths(self.get_paths(), allow_time_rev=allow_time_rev)
+        return PathFuzzyCurve.init_from_paths(self.get_paths(), **kwargs)
 
     def get_subdivision(self, k=1):
         """Get k-th subdivision of a curve."""
