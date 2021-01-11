@@ -84,7 +84,6 @@ class Proto(tuple):
 
 class Path:
     """Prototype + links."""
-
     def __init__(self, proto, links):
         self.proto = proto
         self.dim = proto.dim
@@ -115,6 +114,22 @@ class Path:
 
     def __hash__(self):
         return hash(self._data())
+
+    def is_pointed(self):
+        return all(link.is_pointed() for link in self.links)
+
+    def is_continuous(self):
+        if not self.is_pointed():
+            raise TypeError("Continuity is defined only for pointed paths")
+        prev_cube = self.proto[0]
+        prev_link = self.links[0]
+        for cube, link in zip(self.proto[1:], self.links[1:]):
+            # check prev_link.exit ~~ link.entrance
+            shift = [cj - pj for cj, pj in zip(cube, prev_cube)]
+            if prev_link.exit != link.entrance.transform(shift=shift):
+                return False
+            prev_cube, prev_link = cube, link
+        return True
 
 
 class PathsGenerator:
@@ -147,7 +162,7 @@ class PathsGenerator:
         self.links = links
 
         if mode == 'auto':
-            if all(all(isinstance(subset, Point) for subset in [link.entrance, link.exit]) for link in links):
+            if all(link.is_pointed() for link in links):
                 mode = 'equals'
             else:
                 mode = 'intersects'

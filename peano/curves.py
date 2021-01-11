@@ -569,12 +569,11 @@ class Curve(FuzzyCurve):
         yield self.patterns[pnum].specs[cnum]
 
     def get_paths(self):
-        # TODO: unite with check
-        gate_pairs = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
+        links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
         paths = []
         for pnum, pattern in enumerate(self.patterns):
-            pattern_gate_pairs = [spec.base_map * gate_pairs[spec.pnum] for spec in pattern.specs]
-            paths.append(Path(pattern.proto, pattern_gate_pairs))
+            pattern_links = [spec.base_map * links[spec.pnum] for spec in pattern.specs]
+            paths.append(Path(pattern.proto, pattern_links))
         return paths
 
     def forget(self, allow_time_rev=False):
@@ -626,48 +625,9 @@ class Curve(FuzzyCurve):
         return current_curve
 
     def check(self):
-        # TODO а нужен ли? или в тесты его??
-        """
-        Check consistency of curve params.
-
-        Main check is the continuity of the curve.
-        It is equivalent to exit/entrance correspondence for all of the patterns
-        (there is a subtlety for non-active patterns - we check them, too).
-        """
-
-        d, n, G, P = self.dim, self.div, self.genus, self.pcount
-
-        for pattern in self.patterns:
-            assert len(pattern.proto) == self.genus, 'bad proto length'
-            for cube in pattern.proto:
-                for j in range(d):
-                    assert 0 <= cube[j] < n, 'bad cube coordinates'
-            assert len(set(pattern.proto)) == len(pattern.proto), 'non-unique cubes'
-
-        # main check - continuity - for all patterns
-        entr = {pnum: self.get_entrance(pnum) for pnum in range(P)}
-        exit = {pnum: self.get_exit(pnum) for pnum in range(P)}
-        for pnum, pattern in enumerate(self.patterns):
-            curve_entr = entr[pnum]
-            curve_exit = exit[pnum]
-
-            gates = [(None, curve_entr)]  # pairs (entr, exit) in [0,1]^d
-
-            for cube, spec in zip(pattern.proto, pattern.specs):
-                bm = spec.base_map
-                frac_gates_rel = [bm * point for point in [entr[spec.pnum], exit[spec.pnum]]]
-                frac_gates = [tuple((Rational(c, 1) + e) * Rational(1, n) for c, e in zip(cube, point)) for point in frac_gates_rel]
-                if bm.time_rev:
-                    frac_gates.reverse()
-                gates.append(frac_gates)
-
-            gates.append((curve_exit, None))
-
-            for i in range(len(gates)-1):
-                if gates[i][1] != gates[i+1][0]:
-                    msg = 'exit does not correspond to entrance at ' + str(i)
-                    print(gates)
-                    raise Exception(msg)
+        """Check that curve (all patterns) is continuous."""
+        if any(not path.is_continuous() for path in self.get_paths()):
+            raise ValueError("Not contiuous!")
 
 
 class PathFuzzyCurve(FuzzyCurve):
@@ -754,6 +714,7 @@ class PathFuzzyCurve(FuzzyCurve):
 
     @classmethod
     def init_from_paths(cls, paths, allow_time_rev=True):
+        assert all(path.is_pointed() for path in paths)
         dim = paths[0].dim
         div = paths[0].div
         if allow_time_rev:
