@@ -1,5 +1,4 @@
 from peano.curves import Curve
-from peano.base_maps import BaseMap
 
 
 #
@@ -12,15 +11,13 @@ def get_hilbert_curve():
 
     This curve has minimal known L_1 ratio (9).
     """
-    pattern = ('jiJ', ['ji','ij','ij','JI'])  # chain code + bases
+    pattern = ('jiJ', 'ji,ij,ij,JI')
     return Curve.parse([pattern])
 
 
 def get_peano_curve():
     """First example of space-filling curve due to G.Peano."""
-    chain = 'jji' + 'JJi' + 'jj'
-    bases = ['ij','Ij','ij', 'iJ','IJ','iJ', 'ij','Ij','ij']
-    pattern = (chain, bases)
+    pattern = ('jjiJJijj', 'ij,Ij,ij,iJ,IJ,iJ,ij,Ij,ij')
     return Curve.parse([pattern])
 
 
@@ -30,71 +27,39 @@ def get_scepin_bauman_curve():
 
     Proceedings of the Steklov Institute of Mathematics, 2008, Vol. 263, pp. 236--256.
     """
-    proto = (  # as in peano curve
-        (0, 0), (0, 1), (0, 2),
-        (1, 2), (1, 1), (1, 0),
-        (2, 0), (2, 1), (2, 2),
-    )
-    base_maps = [
-        BaseMap.id_map(dim=2),
-        BaseMap.parse('jI'),
-        BaseMap.parse('ji'),
-
-        BaseMap.parse('iJ'),
-        BaseMap.parse('JI'),
-        BaseMap.parse('Ji'),
-
-        BaseMap.id_map(dim=2),
-        BaseMap.parse('jI'),
-        BaseMap.parse('ji'),
-    ]
-    return Curve(dim=2, div=3, patterns=[(proto, base_maps)])
+    pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,Ji,ij,jI,ji')
+    return Curve.parse([pattern])
 
 
 def get_peano5_curve():
     """5-div analog of original Peano curve."""
-    id_map = BaseMap.id_map(2)
-    x_map = BaseMap.parse('Ij')
-    y_map = BaseMap.parse('iJ')
-    xy_map = BaseMap.parse('IJ')
-    proto = [
-        (0, 0), (0, 1), (0, 2), (0, 3), (0, 4),
-        (1, 4), (1, 3), (1, 2), (1, 1), (1, 0),
-        (2, 0), (2, 1), (2, 2), (2, 3), (2, 4),
-        (3, 4), (3, 3), (3, 2), (3, 1), (3, 0),
-        (4, 0), (4, 1), (4, 2), (4, 3), (4, 4),
-    ]
-    base_maps = [
-        id_map, x_map, id_map, x_map, id_map,
-        y_map, xy_map, y_map, xy_map, y_map,
-        id_map, x_map, id_map, x_map, id_map,
-        y_map, xy_map, y_map, xy_map, y_map,
-        id_map, x_map, id_map, x_map, id_map,
-    ]
-    return Curve(dim=2, div=5, patterns=[(proto, base_maps)])
+    chain_code = 'jjjjiJJJJijjjjiJJJJijjjj'
+    base_maps = 'ij,Ij,ij,Ij,ij, iJ,IJ,iJ,IJ,iJ, ij,Ij,ij,Ij,ij, iJ,IJ,iJ,IJ,iJ, ij,Ij,ij,Ij,ij'
+    pattern = (chain_code, base_maps)
+    return Curve.parse([pattern])
 
 
 def get_meurthe_curve():
     """Meurthe curve, equivalent to Schepin-Bauman curve."""
-    pattern = ('jjiJJijj', ['ji','jI','ij','Ji','JI','iJ','ji','jI','ij'])
+    pattern = ('jjiJJijj', 'ji,jI,ij,Ji,JI,iJ,ji,jI,ij')
     return Curve.parse([pattern])
 
     
 def get_coil_curve():
     """Coil 2D 3-div curve, see Haverkort & Walderveen."""
-    pattern = ('jjiJJijj', ['ji','jI','ji','Ji','JI','Ji','ji','jI','ji'])
+    pattern = ('jjiJJijj', 'ji,jI,ji,Ji,JI,Ji,ji,jI,ji')
     return Curve.parse([pattern])
 
 
 def get_serpentine_curve():
     """Serpentine 2D 3-div curve, see Haverkort & Walderveen."""
-    pattern = ('jjiJJijj', ['ij','jI','ji','iJ','JI','iJ','ji','jI','ij'])
+    pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,iJ,ji,jI,ij')
     return Curve.parse([pattern])
 
 
 def get_r_curve():
     """R-curve, 2D 3-div, see Haverkort & Walderveen."""
-    pattern = ('jjiiJIJi', ['ji','ji','ij','ij','ij','IJ','JI','JI','ij'])
+    pattern = ('jjiiJIJi', 'ji,ji,ij,ij,ij,IJ,JI,JI,ij')
     return Curve.parse([pattern])
 
 
@@ -121,8 +86,8 @@ def get_beta_omega_curve():
     ratio: l2=5, l1=9, linf=5
     gates: omega: (0,1/3)->(1,1/3), beta: (0,1/3)->(2/3,0)
     """
-    omega_pattern = ('jiJ', ['1iJ','1jI','1ji~','1IJ~'])
-    beta_pattern = ('jiJ', ['1iJ','1jI','1ji~','0Ji'])
+    omega_pattern = ('jiJ', '1iJ,1jI,1ji~,1IJ~')
+    beta_pattern = ('jiJ', '1iJ,1jI,1ji~,0Ji')
     return Curve.parse([omega_pattern, beta_pattern])
 
 
@@ -132,10 +97,10 @@ def get_ARW_Curve():
 
     See reference to Haverkort & Walderveen in get_beta_omega_curve doc
     """
-    r_pattern = ('i(Ij)i', ['3ij','1Ji~','2jI','1iJ'])  # pnum=0
-    f_pattern = ('jiJ',    ['3ji','2Ij~','1ij','1JI'])  # pnum=1
-    p_pattern = ('jiJ',    ['0ji','1jI','0Ji','1JI'])   # pnum=2
-    g_pattern = ('jiJ',    ['0ij','2jI','0Ji','3jI~'])  # pnum=3
+    r_pattern = ('i(Ij)i', '3ij,1Ji~,2jI,1iJ')  # pnum=0
+    f_pattern = ('jiJ',    '3ji,2Ij~,1ij,1JI')  # pnum=1
+    p_pattern = ('jiJ',    '0ji,1jI,0Ji,1JI')   # pnum=2
+    g_pattern = ('jiJ',    '0ij,2jI,0Ji,3jI~')  # pnum=3
     return Curve.parse([r_pattern, f_pattern, p_pattern, g_pattern])
 
 
@@ -156,7 +121,7 @@ def get_haverkort_curve_a26():
     ratio: linf=12.4
     gate: (0,0,0)->(1,0,0)
     """
-    pattern = ('jkJijKJ', ['Jki~', 'Kij~', 'kij', 'IKJ~', 'iKJ', 'kIj~', 'KIj', 'JIk'])
+    pattern = ('jkJijKJ', 'Jki~,Kij~,kij,IKJ~,iKJ,kIj~,KIj,JIk')
     return Curve.parse([pattern])
 
 
@@ -173,7 +138,7 @@ def get_haverkort_curve_f():
     ratio: l1=89.8, l2=18.6 (best known!)
     gate: (0,1/3,1/3)->(2/3,1/3,0)
     """
-    pattern = ('jkJijKJ', ['iKJ','jIK','jIk~','JkI','Jki~','jik','jiK~','kiJ~'])
+    pattern = ('jkJijKJ', 'iKJ,jIK,jIk~,JkI,Jki~,jik,jiK~,kiJ~')
     return Curve.parse([pattern])
 
 
@@ -184,7 +149,7 @@ def get_tokarev_curve():
     Definition is taken from Haverkort's inventory,
     Curve A26.0000 0000.0000 0000 (page 9, Fig.5(b))
     """
-    p0 = ('jkJijKJ', ['jki','kij','kij','iJK','iJK','KIj','KIj','JkI'])
+    p0 = ('jkJijKJ', 'jki,kij,kij,iJK,iJK,KIj,KIj,JkI')
     return Curve.parse([p0])
 
 
@@ -202,8 +167,8 @@ def get_neptunus_curve():
     ratio: linf=9.45, best in class of poly-Hilbert curves
     gates: (0,0,0)->(1,0,0), (0,0,0)->(1,1,1)
     """
-    p0 = ('jkJijKJ', ['1ijk','0jIK','1kJI','1JiK','1ijk','1jKI','1KJi','0JIk'])
-    p1 = ('jkJiKjk', ['1ijk','0jIK','1kJI','1JiK','0ijk','1KjI','1jki','0kIJ'])
+    p0 = ('jkJijKJ', '1ijk,0jIK,1kJI,1JiK,1ijk,1jKI,1KJi,0JIk')
+    p1 = ('jkJiKjk', '1ijk,0jIK,1kJI,1JiK,0ijk,1KjI,1jki,0kIJ')
     return Curve.parse([p0, p1])
 
 
@@ -215,8 +180,8 @@ def get_luna_curve():
 
     gates: (0,0,0)->(1,0,0), (0,0,0)->(1,1,1)
     """
-    p0 = ('jkJijKJ', ['1kji','0jIK','1JIk','1iKJ','1ijk','1jKI','0JiK','1KiJ'])
-    p1 = ('jkJiKjk', ['1kji','0jIK','1JIk','1iKJ','0ijk','1KjI','0kij','1jik'])
+    p0 = ('jkJijKJ', '1kji,0jIK,1JIk,1iKJ,1ijk,1jKI,0JiK,1KiJ')
+    p1 = ('jkJiKjk', '1kji,0jIK,1JIk,1iKJ,0ijk,1KjI,0kij,1jik')
     return Curve.parse([p0, p1])
 
 

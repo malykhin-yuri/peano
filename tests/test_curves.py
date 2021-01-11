@@ -3,8 +3,9 @@ import unittest
 from sympy import Rational
 
 from peano.base_maps import BaseMap, Spec
-from peano.curves import Curve
+from peano.curves import Curve, PathFuzzyCurve
 from peano.subsets import Point, Gate
+from peano.paths import PathsGenerator, CurvePath
 
 from .examples import *
 
@@ -253,3 +254,13 @@ class TestFuzzyCurves(unittest.TestCase):
                         continue
                     if any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]):
                         raise Exception("Found consistent curve for wrong junc!")
+
+class TestMisc(unittest.TestCase):
+    def test_diag(self):
+       gate = Gate.parse('(0,0)->(1,1/2)')
+       pgen = PathsGenerator(dim=2, div=5, portals=[gate], max_cdist=1)
+       paths = next(pgen.generate_paths())
+       paths = tuple(CurvePath(path.proto, path.portals) for path in paths)
+       pcurve = PathFuzzyCurve.init_from_paths(paths)
+       curve = pcurve.get_curve_example()
+       print(curve)

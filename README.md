@@ -26,9 +26,9 @@ Examples:
 Some Peano curves may be found in: tests/examples.py
 
 Operator usage:
-b * X means action of b (usually, base_map) on object X (curve, path, etc)
-b**(-1) is group inverse of b, i.e. c such that b*c=c*b=id
-~X means time reversal (in base_map or curve)
+* b * X means action of b (usually, base_map) on object X (curve, path, etc)
+* b**(-1) is group inverse of b, i.e. c such that b*c=c*b=id
+* ~X means time reversal (in base_map or curve)
 
 Common names and notations:
 * dim -- dimension of the curve image: [0,1]->[0,1]^d
