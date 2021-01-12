@@ -10,8 +10,6 @@ determine entrance/exit points.
 from collections import namedtuple, defaultdict
 import itertools
 
-from sympy import Rational
-
 from .base_maps import BaseMap, Spec
 from .utils import get_periodic_sum
 from .paths import Proto, Path, Link
@@ -571,7 +569,7 @@ class Curve(FuzzyCurve):
     def get_paths(self):
         links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
         paths = []
-        for pnum, pattern in enumerate(self.patterns):
+        for pattern in self.patterns:
             pattern_links = [spec.base_map * links[spec.pnum] for spec in pattern.specs]
             paths.append(Path(pattern.proto, pattern_links))
         return paths
@@ -591,29 +589,10 @@ class Curve(FuzzyCurve):
                 new_specs = []
                 for cube, spec in zip(curr_pattern.proto, curr_pattern.specs):
                     proto, specs = self.patterns[spec.pnum]  # from original curve
-
+                    new_proto += [tuple(cj*N + ncj for cj, ncj in zip(cube, c)) for c in spec.base_map * proto]
                     if spec.base_map.time_rev:
-                        proto = reversed(proto)
                         specs = reversed(specs)
-
-                    for c in proto:
-                        nc = spec.base_map.apply_cube(N, c)
-                        new_cube = [cj*N + ncj for cj, ncj in zip(cube, nc)]
-                        new_proto.append(new_cube)
-
-                    # базовые преобразования для подраздедения:
-                    # пусть (cube, spec) соответствуют i-й фракции
-                    # в ней мы взяли j-ю подфракцию (sp)
-                    # Какое преобразование переводит кривую в j-ю фракцию внутри i-й?
-                    # - сначала к исходной кривой мы применим bm, чтобы перевести её в j-ю фракцию,
-                    # - потом ко всей этой картинке применяем base_map, чтобы перевести всё в i-ю фракцию (base_map)
-                    # можно сделать наоборот:
-                    # - сначала кривую переводим в i-ю фракцию (base_map)
-                    # - применяем внутри i-й фракции преобразования для перехода в j-ю
-                    #   но там оно будет сопряженное: base_map * bm * base_map^{-1}, см. apply_base_map
-                    for sp in specs:
-                        new_specs.append(spec.base_map * sp)
-
+                    new_specs += [spec.base_map * sp for sp in specs]
                 new_patterns.append((new_proto, new_specs))
 
             current_curve = type(self)(
@@ -625,7 +604,7 @@ class Curve(FuzzyCurve):
         return current_curve
 
     def check(self):
-        """Check that curve (all patterns) is continuous."""
+        """Assert that curve (all patterns) is continuous."""
         if any(not path.is_continuous() for path in self.get_paths()):
             raise ValueError("Not contiuous!")
 
@@ -635,25 +614,25 @@ class PathFuzzyCurve(FuzzyCurve):
     Fuzzy curve with fixed paths.
 
     Additional attributes:
-    Information about "standard" links used in paths:
-    .links_symmetries  --  dict {std_link: symmetries} - list of bms that save std_link (doest not change at *)
+    We store information about "standard" links (gate pairs) used in paths:
+    .links_symmetries  --  dict {std_link: symmetries} - list of bms that save std_link
     .links_std  --  dict {std_link: {pnum: std_map}}, such that std_map * pattern_global_link = std_link
 
     Information about patterns:
     .pattern_links  --  array of std_links for each fraction of each pattern;
+                        i.e., if there are two types of links: side (0,0)->(1,0) and diag (0,0)->(1,1),
+                        we store here only "type" (side|diag) for each fraction
     .pattern_reprs  --  array of reprs for each pattern; reprs[cnum] = bm that sends std_link to link of fraction
+
+    TODO - более понятная дока
     """
 
     def __init__(self, *args, **kwargs):
-        links_symmetries = kwargs.pop('links_symmetries')
-        links_std = kwargs.pop('links_std')
-        pattern_links = kwargs.pop('pattern_links')
-        pattern_reprs = kwargs.pop('pattern_reprs')
+        self.links_symmetries = kwargs.pop('links_symmetries')
+        self.links_std = kwargs.pop('links_std')
+        self.pattern_links = kwargs.pop('pattern_links')
+        self.pattern_reprs = kwargs.pop('pattern_reprs')
         super().__init__(*args, **kwargs)
-        self.links_symmetries = links_symmetries
-        self.links_std = links_std
-        self.pattern_links = pattern_links
-        self.pattern_reprs = pattern_reprs
 
     def changed(self, *args, **kwargs):
         for add_field in ['links_symmetries', 'links_std', 'pattern_links', 'pattern_reprs']:
@@ -662,16 +641,11 @@ class PathFuzzyCurve(FuzzyCurve):
         return super().changed(*args, **kwargs)
 
     def __invert__(self):
-        # we do not change links to keep them standard (symmetries also do not change)
-        new_links_std = {}
-        for link, data in self.links_std.items():
-            new_links_std[link] = {pnum: ~std_map for pnum, std_map in data.items()}
-
+        # we do not change links to keep them standard (hence, links_symmetries also do not change)
+        new_links_std = {link: {pnum: ~std_map} for link, data in self.links_std.items() for pnum, std_map in data.items()}
         new_pattern_links = [list(reversed(links)) for links in self.pattern_links]
-        new_pattern_reprs = []
-        for reprs in self.pattern_reprs:
-            new_reprs = list(reversed([~bm for bm in reprs]))
-            new_pattern_reprs.append(new_reprs)
+        new_pattern_reprs = [[~bm for bm in reversed(reprs)] for reprs in self.pattern_reprs]
+        # after super().__invert__() the curve will be in inconsistent state:(
         return super().__invert__().changed(
             links_std=new_links_std,
             pattern_links=new_pattern_links,
@@ -679,17 +653,15 @@ class PathFuzzyCurve(FuzzyCurve):
         )
 
     def apply_cube_map(self, cube_map):
-        curve = super().apply_cube_map(cube_map)
-        new_links_std = {}
-        for link, data in self.links_std.items():
-            new_links_std[link] = {pnum: std_map * cube_map**(-1) for pnum, std_map in data.items()}
+        cube_inv = cube_map**(-1)
 
-        new_pattern_reprs = []
-        for reprs in self.pattern_reprs:
-            new_reprs = [cube_map * repr for repr in reprs]
-            new_pattern_reprs.append(new_reprs)
+        # to get std_link, revert cube_map and the apply old std_map
+        new_links_std = {link: {pnum: std_map * cube_inv} for link, data in self.links_std.items() for pnum, std_map in data.items()}
 
-        return curve.changed(
+        # to get actual link, first map std_link to get old link, the apply cube_map
+        new_pattern_reprs = [[cube_map * repr for repr in reprs] for reprs in self.pattern_reprs]
+
+        return super().apply_cube_map(cube_map).changed(
             links_std=new_links_std,
             pattern_reprs=new_pattern_reprs,
         )
@@ -697,6 +669,7 @@ class PathFuzzyCurve(FuzzyCurve):
     def gen_allowed_specs(self, pnum, cnum):
         pattern = self.patterns[pnum]
         if pattern.specs[cnum] is not None:
+            # this is the case for partially specified curves, they arise in dilation estimation
             yield pattern.specs[cnum]
             return
 
@@ -704,57 +677,53 @@ class PathFuzzyCurve(FuzzyCurve):
         repr = self.pattern_reprs[pnum][cnum]
         symmetries = self.links_symmetries[link]
         std = self.links_std[link]
-        for pnum in sorted(std.keys()):
+        for pn, std_map in std.items():
             for symm in symmetries:
                 # how go we get fraction from a pattern:
                 # 1) map pattern link to std_link
                 # 2) apply symmetries for std_link
                 # 3) apply repr to get fraction link
-                yield Spec(repr * symm * std[pnum], pnum)
+                yield Spec(repr * symm * std_map, pn)
 
     @classmethod
     def init_from_paths(cls, paths, allow_time_rev=True):
-        assert all(path.is_pointed() for path in paths)
+        """
+        Create PathFuzzyCurve from a tuple of pointed paths (Path instances).
+
+        Args:
+            allow_time_rev: boolean, allow time_reverse in curve base_maps (default: True)
+        """
+        if any(not path.is_pointed() for path in paths):
+            raise ValueError("Only pointed links (gate pairs) are supported!")
+
         dim = paths[0].dim
         div = paths[0].div
         if allow_time_rev:
-            possible_maps = list(BaseMap.gen_base_maps(dim))
+            all_bms = list(BaseMap.gen_base_maps(dim))
         else:
-            possible_maps = list(BaseMap.gen_base_maps(dim, time_rev=False))
-        links_symmetries = {}
-        links_std = {}
-        for pnum, path in enumerate(paths):
-            # pnum stands for path_num and also pattern_num
-            std_link = path.link.std()
-            std_map = next(bm for bm in possible_maps if bm * path.link == std_link)
-            links_std.setdefault(std_link, {})[pnum] = std_map
+            all_bms = list(BaseMap.gen_base_maps(dim, time_rev=False))
 
-        for link in links_std:
-            links_symmetries[link] = [bm for bm in possible_maps if bm * link == link]
+        links_std = defaultdict(dict)
+        for pnum, path in enumerate(paths):  # pnum stands for path_num and also pattern_num
+            std_link = min(bm * path.link for bm in all_bms)  # equals path.link.std() for allow_time_rev=True
+            std_map = next(bm for bm in all_bms if bm * path.link == std_link)
+            links_std[std_link][pnum] = std_map
 
-        patterns = []
-        pattern_links = []
-        pattern_reprs = []
-        for pnum, path in enumerate(paths):
-            proto = path.proto
-            specs = [None] * len(proto)  # nothing is defined
-            patterns.append((proto, specs))
+        links_symmetries = {link: [bm for bm in all_bms if bm * link == link] for link in links_std}
 
-            reprs = []
-            links = []
+        patterns, pattern_links, pattern_reprs = [], [], []
+        for path in paths:
+            specs = [None] * len(path.proto)  # nothing is defined
+            patterns.append((path.proto, specs))
+
+            reprs, links = [], []
             for link in path.links:
-                repr0, link0 = None, None
-                for std_link in links_std:
-                    allowed = [bm for bm in possible_maps if bm * std_link == link]
-                    if allowed:
-                        # should be exactly once!
-                        repr0 = allowed[0]
-                        link0 = std_link
-                        break
-                if repr0 is None or link0 is None:
-                    raise Exception("Can't create PathFuzzyCurve: no allowed links")
+                std_link = min(bm * link for bm in all_bms)
+                if std_link not in links_std:
+                    raise KeyError("Wrong link found in path!")
+                repr0 = next(bm for bm in all_bms if bm * std_link == link)
                 reprs.append(repr0)
-                links.append(link0)
+                links.append(std_link)
             pattern_reprs.append(reprs)
             pattern_links.append(links)
 
