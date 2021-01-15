@@ -7,8 +7,7 @@ from .examples import *  # TODO get rid of *
 
 def get_model_from_curve(adapter, curve):
     for pnum, cnum, sp in curve.gen_defined_specs():
-        sp_var = adapter.get_sp_var(pnum, cnum, sp)
-        adapter.append_clause({sp_var: True})
+        adapter.add_spec_clause(pnum=pnum, cnum=cnum, spec=sp)
 
     if not adapter.solve():
         raise Exception("Can't get model, no such curve!")
@@ -25,12 +24,11 @@ class TestSAT(unittest.TestCase):
     def test_sat(self):
         for pcurve in self.curves:
             for curve in pcurve.gen_possible_curves():
-                adapter = CurveSATAdapter(dim=pcurve.dim)
-                adapter.init_curve(pcurve)
+                adapter = CurveSATAdapter(pcurve)
                 model = get_model_from_curve(adapter, curve)
                 juncs = list(curve.gen_regular_junctions())
                 for junc in juncs:
-                    junc_var = adapter.get_junc_var(junc)
+                    junc_var = adapter._get_junc_var(junc)
                     if not model[junc_var]:
                         raise Exception("Bad junc_var: False for existent junc!")
                 print('.', end='', flush=True)

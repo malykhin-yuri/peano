@@ -1,2 +1,2 @@
-sympy
-python-sat
+pip install sympy
+pip install python-sat (provides pysat module)

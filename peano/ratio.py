@@ -671,8 +671,7 @@ class Estimator:
         start_pairs_tree  --  just cache init_pairs_tree
         """
 
-        adapter = sat_adapters.CurveSATAdapter(dim=curve.dim)
-        adapter.init_curve(curve)
+        adapter = sat_adapters.CurveSATAdapter(curve)
 
         # how often should we call sat solver? default is equidistant strategy
         if sat_strategy is None:
@@ -748,7 +747,7 @@ class Estimator:
 
         model = adapter.get_model()
         result['model'] = model
-        result['curve'] = adapter.get_curve_from_model(curve, model)
+        result['curve'] = adapter.get_curve_from_model(model)
         return result
 
     def estimate_ratio_sequence(self, curves, rel_tol_inv, rel_tol_inv_mult=2, upper_bound=None, **kwargs):
