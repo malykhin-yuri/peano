@@ -613,6 +613,10 @@ class PathFuzzyCurve(FuzzyCurve):
     """
     Fuzzy curve with fixed paths.
 
+    We fix only paths: prototypes and entrance/exit gates (links) and allow
+    the curve to have any specs that are consistent with them.
+    Note that specs choice is independent in each fraction, it is used in SAT-adaptation.
+
     Additional attributes:
     We store information about "standard" links (gate pairs) used in paths:
     .links_symmetries  --  dict {std_link: symmetries} - list of bms that save std_link
@@ -623,8 +627,6 @@ class PathFuzzyCurve(FuzzyCurve):
                         i.e., if there are two types of links: side (0,0)->(1,0) and diag (0,0)->(1,1),
                         we store here only "type" (side|diag) for each fraction
     .pattern_reprs  --  array of reprs for each pattern; reprs[cnum] = bm that sends std_link to link of fraction
-
-    TODO - более понятная дока
     """
 
     def __init__(self, *args, **kwargs):
@@ -720,7 +722,8 @@ class PathFuzzyCurve(FuzzyCurve):
             for link in path.links:
                 std_link = min(bm * link for bm in all_bms)
                 if std_link not in links_std:
-                    raise KeyError("Wrong link found in path!")
+                    # all links must be allowed images of global (path.link) links!
+                    raise KeyError("Found link in path.links that does not correspond to global links!")
                 repr0 = next(bm for bm in all_bms if bm * std_link == link)
                 reprs.append(repr0)
                 links.append(std_link)

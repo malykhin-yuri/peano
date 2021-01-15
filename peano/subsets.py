@@ -278,6 +278,8 @@ class Link(namedtuple('Link', ['entrance', 'exit'])):
     Link represents the set of curves with curve.entrance in link.entrance and curve.exit in link.exit.
     Entrance and exit must be subsets of [0,1]^d (derived from Subset)
     Instances of this class may be used in path generators.
+
+    Most useful are pointed links - pairs of entrance/exit gates.
     """
     @property
     def dim(self):
@@ -337,6 +339,7 @@ class Link(namedtuple('Link', ['entrance', 'exit'])):
             yield ~bm
 
     def is_pointed(self):
+        """Pair of Points, e.g., entrance and exit gates of a curve."""
         return isinstance(self.entrance, Point) and isinstance(self.exit, Point)
 
     @classmethod

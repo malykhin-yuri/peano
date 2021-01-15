@@ -4,7 +4,7 @@ from sympy import Rational
 
 from peano.base_maps import BaseMap, Spec
 from peano.curves import Curve, PathFuzzyCurve
-from peano.subsets import Point, Link
+from peano.subsets import Link
 from peano.paths import PathsGenerator
 
 from .examples import *
@@ -14,9 +14,9 @@ from .examples import *
 def get_rev_curves():
     chain = 'jiJ'
     bases_list = [
-        ['ji','Ij~','ij','JI'],  # time rev at the middle
-        ['Ji~','ij','ij','JI'],  # time rev at first cube
-        ['ji','ij','ij','jI~'],  # time rev at last cube
+        'ji,Ij~,ij,JI',  # time rev at the middle
+        'Ji~,ij,ij,JI',  # time rev at first cube
+        'ji,ij,ij,jI~',  # time rev at last cube
     ]
     return [Curve.parse([(chain, b)]) for b in bases_list]
 
@@ -255,11 +255,12 @@ class TestFuzzyCurves(unittest.TestCase):
                     if any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]):
                         raise Exception("Found consistent curve for wrong junc!")
 
+
 class TestMisc(unittest.TestCase):
     def test_diag(self):
-       gate = Link.parse_gates('(0,0)->(1,1/2)')
-       pgen = PathsGenerator(dim=2, div=5, links=[gate], max_cdist=1)
-       paths = next(pgen.generate_paths())
-       pcurve = PathFuzzyCurve.init_from_paths(paths)
-       curve = pcurve.get_curve_example()
-       print(curve)
+        gates = Link.parse_gates('(0,0)->(1,1/2)')
+        pgen = PathsGenerator(dim=2, div=5, links=[gates], max_cdist=1)
+        paths = next(pgen.generate_paths())
+        pcurve = PathFuzzyCurve.init_from_paths(paths)
+        curve = pcurve.get_curve_example()
+        print(curve)
