@@ -13,114 +13,114 @@ from .examples import *  # TODO get rid of "*"
 
 class TestCurve(unittest.TestCase):
 
-    def test_curve_ratio(self):
+    def test_curve_dilation(self):
         known_bounds = [
             {
                 'curve': get_hilbert_curve(),
-                'ratio': { 'l2': 6, 'l1': 9, 'linf': 6},
+                'dilation': { 'l2': 6, 'l1': 9, 'linf': 6},
             },
             {
                 'curve': get_peano_curve(),
-                'ratio': {'l2': 8, 'l1': 32/3, 'linf': 8},
+                'dilation': {'l2': 8, 'l1': 32/3, 'linf': 8},
             },
             {
                 'curve': get_tokarev_curve(),
-                'ratio': {'l1': [98.2, 98.4], 'l2': [26.1, 26.3], 'linf': [24.1, 24.3]},
+                'dilation': {'l1': [98.2, 98.4], 'l2': [26.1, 26.3], 'linf': [24.1, 24.3]},
             },
             {
                 'curve': get_scepin_bauman_curve(),
-                'ratio': {'l1': (10 + 2/3), 'l2': (5 + 2/3), 'linf': (5 + 1/3)},
+                'dilation': {'l1': (10 + 2/3), 'l2': (5 + 2/3), 'linf': (5 + 1/3)},
             },
             {
                 'curve': get_meurthe_curve(),
-                'ratio': {'l1': (10 + 2/3), 'l2': (5 + 2/3), 'linf': (5 + 1/3)},
+                'dilation': {'l1': (10 + 2/3), 'l2': (5 + 2/3), 'linf': (5 + 1/3)},
             },
             {
                 'curve': get_serpentine_curve(),
-                'ratio': {'l1': 10, 'l2': 6.25, 'linf': 5.625},
+                'dilation': {'l1': 10, 'l2': 6.25, 'linf': 5.625},
             },
             {
                 'curve': get_coil_curve(),
-                'ratio': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
+                'dilation': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
             },
             {
                 'curve': get_r_curve(),
-                'ratio': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
+                'dilation': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
             },
             {   
                 'curve': get_haverkort_curve_a26(),
-                'ratio': {'l1': (99 + 5/9), 'l2': [22.7,22.9], 'linf': (12 + 4/9)},
+                'dilation': {'l1': (99 + 5/9), 'l2': [22.7,22.9], 'linf': (12 + 4/9)},
             },
             {   
                 'curve': get_haverkort_curve_f(),
-                'ratio': {'l1': [89.7, 89.8], 'l2': [18,19], 'linf': 14},
+                'dilation': {'l1': [89.7, 89.8], 'l2': [18,19], 'linf': 14},
             },
             {
                 'curve': get_ye_curve(),
-                'ratio': {'l2': [5.588, 5.59]},
+                'dilation': {'l2': [5.588, 5.59]},
             },
             {
                 'curve': get_17_curve(),
-                'ratio': {'l2': [16.9, 17.0]},
+                'dilation': {'l2': [16.9, 17.0]},
             },
         ]
         for data in known_bounds:
             curve = data['curve']
-            ratio_dict = data['ratio']
-            for metric in sorted(ratio_dict.keys()):
-                ratio = ratio_dict[metric]
-                if isinstance(ratio, list):
-                    ratio_lo, ratio_up = ratio
+            dilation_dict = data['dilation']
+            for metric in sorted(dilation_dict.keys()):
+                dilation = dilation_dict[metric]
+                if isinstance(dilation, list):
+                    dilation_lo, dilation_up = dilation
                 else:
-                    ratio_lo = ratio * 0.999
-                    ratio_up = ratio * 1.001
+                    dilation_lo = dilation * 0.999
+                    dilation_up = dilation * 1.001
 
                 if metric == 'l2':
                     func = utils.ratio_l2_squared
-                    ratio_lo, ratio_up = ratio_lo**2, ratio_up**2
+                    dilation_lo, dilation_up = dilation_lo**2, dilation_up**2
                 elif metric == 'l1':
                     func = utils.ratio_l1
                 elif metric == 'linf':
                     func = utils.ratio_linf
 
-                res = Estimator(func).estimate_ratio(curve, rel_tol_inv=10**5, verbose=False)
+                res = Estimator(func).estimate_dilation(curve, rel_tol_inv=10 ** 5, verbose=False)
                 print(res)
-                assert float(res['up']) <= ratio_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], ratio_up)
-                assert float(res['lo']) >= ratio_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], ratio_lo)
+                assert float(res['up']) <= dilation_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], dilation_up)
+                assert float(res['lo']) >= dilation_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], dilation_lo)
 
-    def test_polycurve_ratio(self):
+    def test_polycurve_dilation(self):
         known_bounds = [
             {
                 'curve': get_beta_omega_curve(),
-                'ratio': { 'l2': 5, 'l1': 9, 'linf': 5},
+                'dilation': { 'l2': 5, 'l1': 9, 'linf': 5},
             },
             {
                 'curve': get_neptunus_curve(),
-                'ratio': { 'l2': [18.2, 18.4], 'linf': [9.44, 9.46]},
+                'dilation': { 'l2': [18.2, 18.4], 'linf': [9.44, 9.46]},
             },
         ]
         for data in known_bounds:
             curve = data['curve']
-            for metric, ratio in data['ratio'].items():
-                if isinstance(ratio, list):
-                    ratio_lo, ratio_up = ratio
+            for metric, dilation in data['dilation'].items():
+                if isinstance(dilation, list):
+                    dilation_lo, dilation_up = dilation
                 else:
-                    ratio_lo = ratio * 0.999
-                    ratio_up = ratio * 1.001
+                    dilation_lo = dilation * 0.999
+                    dilation_up = dilation * 1.001
 
                 if metric == 'l2':
                     func = utils.ratio_l2_squared
-                    ratio_lo, ratio_up = ratio_lo**2, ratio_up**2
+                    dilation_lo, dilation_up = dilation_lo**2, dilation_up**2
                 elif metric == 'l1':
                     func = utils.ratio_l1
                 elif metric == 'linf':
                     func = utils.ratio_linf
 
-                res = Estimator(func).estimate_ratio(curve, rel_tol_inv=10**4)
-                assert float(res['up']) <= ratio_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], ratio_up)
-                assert float(res['lo']) >= ratio_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], ratio_lo)
+                res = Estimator(func).estimate_dilation(curve, rel_tol_inv=10 ** 4)
+                assert float(res['up']) <= dilation_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], dilation_up)
+                assert float(res['lo']) >= dilation_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], dilation_lo)
 
-    def test_ye_ratio(self):
+    def test_ye_dilation(self):
         # TODO: use ye curve from examples ?
         good_proto = Proto(dim=2, div=5, cubes=[
             (0, 0), (0, 1), (1, 1), (1, 0), (2, 0),
@@ -140,7 +140,7 @@ class TestCurve(unittest.TestCase):
 
         pcurve = PathFuzzyCurve.init_from_paths([path0])
         estimator = Estimator(utils.ratio_l2_squared)
-        curve = estimator.estimate_ratio(pcurve, rel_tol_inv=10000, verbose=False)['curve']
-        ratio = estimator.estimate_ratio(curve, rel_tol_inv=10000, use_vertex_brkline=True, verbose=False, max_depth=5)
+        curve = estimator.estimate_dilation(pcurve, rel_tol_inv=10000, verbose=False)['curve']
+        dilation = estimator.estimate_dilation(curve, rel_tol_inv=10000, use_vertex_brkline=True, verbose=False, max_depth=5)
 
-        assert ratio['lo'] == (Rational(408, 73) ** 2)
+        assert dilation['lo'] == (Rational(408, 73) ** 2)

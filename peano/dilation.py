@@ -433,11 +433,11 @@ class Estimator:
             tree.add_pair(pair, priority=priority, lo=lo, up=up, data={'argmax': argmax})
         tree.new_pairs = []
 
-    def estimate_ratio(self, curve, *args, **kwargs):
+    def estimate_dilation(self, curve, *args, **kwargs):
         if isinstance(curve, Curve):
-            return self.estimate_ratio_regular(curve, *args, **kwargs)
+            return self.estimate_dilation_regular(curve, *args, **kwargs)
         else:
-            return self.estimate_ratio_fuzzy(curve, *args, **kwargs)
+            return self.estimate_dilation_fuzzy(curve, *args, **kwargs)
 
     @staticmethod
     def get_piece_position(curve, pnum, cnum):
@@ -473,7 +473,7 @@ class Estimator:
 
         return RichPairsTree(pairs)
 
-    def estimate_ratio_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, verbose=False, max_depth=None):
+    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, verbose=False, max_depth=None):
         """
         Estimate maximal ratio for a regular peano curve (class Curve).
 
@@ -551,9 +551,9 @@ class Estimator:
 
         return res
 
-    def estimate_ratio_fuzzy(self, curve, rel_tol_inv=1000, upper_bound=None,
-                             start_lower_bound=None, start_upper_bound=None, start_curve=None, start_pairs_tree=None,
-                             max_iter=None, sat_strategy=None, verbose=False):
+    def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, upper_bound=None,
+                                start_lower_bound=None, start_upper_bound=None, start_curve=None, start_pairs_tree=None,
+                                max_iter=None, sat_strategy=None, verbose=False):
         """
         Estimate minimal ratio of a fuzzy curve.
 
@@ -566,7 +566,7 @@ class Estimator:
         start_curve  --  known curve with start_upper_bound
         start_pairs_tree  --  just init_pairs_tree
         max_iter  --  subj
-        sat_strategy  --  passed to test_ratio_fuzzy, see there (TODO: use kwargs for that)
+        sat_strategy  --  passed to test_dilation_fuzzy, see there (TODO: use kwargs for that)
         find_model  --  bool, will find Curve if set True
         verbose  --  subj
 
@@ -576,7 +576,7 @@ class Estimator:
         'curve' -- curve_example with ratio in [lo, up]
         """
 
-        # this method is simply "bisection" algorithm based on test_ratio_fuzzy
+        # this method is simply "bisection" algorithm based on test_dilation_fuzzy
 
         stats = Counter()
         # start lower bound: it would be profitable to use good theoretical
@@ -589,7 +589,7 @@ class Estimator:
         if start_upper_bound is None:
             # got from first regular curve
             curve0 = curve.get_curve_example()
-            curr_up = self.estimate_ratio_regular(curve0, rel_tol_inv=rel_tol_inv)['up']
+            curr_up = self.estimate_dilation_regular(curve0, rel_tol_inv=rel_tol_inv)['up']
             curr_curve = curve0
         else:
             curr_up = start_upper_bound
@@ -619,7 +619,7 @@ class Estimator:
             logging.debug('precise test thresholds: %s, %s', new_lo, new_up)
             try:
                 # we always ask for a model, to get actual curve with guarantees
-                test_result = self.test_ratio_fuzzy(
+                test_result = self.test_dilation_fuzzy(
                     curve,
                     bad_threshold=Threshold('>=', new_lo),
                     good_threshold=Threshold('<=', new_up),
@@ -651,9 +651,9 @@ class Estimator:
             'stats': stats,
         }
 
-    def test_ratio_fuzzy(self, curve, bad_threshold, good_threshold,
-                         max_iter=None, sat_strategy=None, verbose=False,  # TODO remove verbose
-                         start_pairs_tree=None):
+    def test_dilation_fuzzy(self, curve, bad_threshold, good_threshold,
+                            max_iter=None, sat_strategy=None, verbose=False,  # TODO remove verbose
+                            start_pairs_tree=None):
         """
         Test if there is a "good" curve.
 
@@ -702,7 +702,7 @@ class Estimator:
         # if we can't find a model, then all curves are necessarily bad
         # if there is a model, it avoids bad pairs and all other pairs are good,
         # because we grow the tree till we can
-        # (see also estimate_ratio_regular for more explanations)
+        # (see also estimate_dilation_regular for more explanations)
 
         if start_pairs_tree is None:
             pairs_tree = self.init_pairs_tree(curve)
@@ -756,17 +756,17 @@ class Estimator:
         result['curve'] = adapter.get_curve_from_model(model)
         return result
 
-    def estimate_ratio_sequence(self, curves, rel_tol_inv, rel_tol_inv_mult=2, upper_bound=None, **kwargs):
+    def estimate_dilation_sequence(self, curves, rel_tol_inv, rel_tol_inv_mult=2, upper_bound=None, **kwargs):
         """
         Estimate minimal curve ratio for sequence of fuzzy curves.
 
-        This method relies totally on estimate_ratio_fuzzy.
+        This method relies totally on estimate_dilation_fuzzy.
         Params:
         upper_bound  --  apriori upper bound for best ratio (undefined behaviour if violated - TODO)
         rel_tol_inv  --  subj
         rel_tol_inv_mult  --  current rel_tol_inv is multiplied by this every epoch
 
-        Additional kwargs are passed as is to estimate_ratio_fuzzy.
+        Additional kwargs are passed as is to estimate_dilation_fuzzy.
         Returns lo, up, and list of curve candidates.
         """
 
@@ -796,7 +796,7 @@ class Estimator:
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
                 logging.warning('E%d, curve %d / %d', epoch, cnt + 1, total)
-                res = self.estimate_ratio_fuzzy(
+                res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, upper_bound=curr_up,
                     start_lower_bound=item.lo, start_upper_bound=item.up,
                     start_curve=item.example, start_pairs_tree=item.pairs_tree,

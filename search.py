@@ -80,7 +80,7 @@ def run_estimator(
         pcurve_gens = [('all_gates', pcurve_generator)]
 
     for gen_id, pcurves_generator in pcurve_gens:
-        result = estimator.estimate_ratio_sequence(
+        result = estimator.estimate_dilation_sequence(
             pcurves_generator,
             rel_tol_inv=rel_tol_inv,
             rel_tol_inv_mult=rel_tol_inv_mult,
