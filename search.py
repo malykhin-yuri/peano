@@ -8,7 +8,7 @@ from sympy import Rational
 import peano.utils as utils
 from peano.paths import PathsGenerator
 from peano.curves import PathFuzzyCurve
-from peano.ratio import Estimator
+from peano.dilation import Estimator
 from peano.gate_utils import GatesGenerator
 from peano.subsets import Link
 

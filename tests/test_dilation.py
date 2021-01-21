@@ -5,7 +5,7 @@ from sympy import Rational
 from peano import utils
 from peano.paths import PathsGenerator
 from peano.curves import PathFuzzyCurve, Proto
-from peano.ratio import Estimator
+from peano.dilation import Estimator
 from peano.base_maps import BaseMap
 
 from .examples import *  # TODO get rid of "*"

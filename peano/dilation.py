@@ -1,3 +1,8 @@
+"""
+This module provides Estimator class to estimate
+regular curve or fuzzy curve dilation.
+SAT-solvers are used for fuzzy curves.
+"""
 import operator
 from collections import Counter, namedtuple
 from collections.abc import Sized
@@ -277,7 +282,8 @@ class RunOutOfIterationsException(Exception):
 
 class Estimator:
     """
-    Estimator - estimates curve maximal ratio.
+    Estimator - estimates curve dilation:
+    WD(gamma) := sup_{s,t} ||gamma(s)-gamma(t)||^d / |t-s|
 
     This is main class for curve ratio estimation.
     It orchestrates work of helper classes: RichPairsTree, CurveBalancedPairs and others.
@@ -288,7 +294,7 @@ class Estimator:
         Init Estimator instance and set some basic properties.
 
         Params:
-        ratio_func  --  function (dim, dx, dt) -> Rational, it is assumed to be d-uniform
+        ratio_func  --  function (dim, dx, dt) -> Rational, it is assumed to be d-uniform and coordinate-monotone
         cache_max_size  --  subj for pairs bounds cache
         """
 
