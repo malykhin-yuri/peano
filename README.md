@@ -8,7 +8,6 @@ Tested on python 3.5 and 3.8.
 
 This repo is mostly frozen, only fixes will appear.
 
-
 # User and developer guide
 
 Entry point is the script search.py: try it!
