@@ -79,13 +79,18 @@ def run_estimator(
         pcurve_generator = gen_pcurves(gates_generator)
         pcurve_gens = [('all_gates', pcurve_generator)]
 
+    estimate_kwargs = {}
+    if rel_tol_inv is not None:
+        estimate_kwargs['rel_tol_inv'] = rel_tol_inv
+    if rel_tol_inv_mult is not None:
+        estimate_kwargs['rel_tol_inv_mult'] = rel_tol_inv_mult
+
     for gen_id, pcurves_generator in pcurve_gens:
         result = estimator.estimate_dilation_sequence(
             pcurves_generator,
-            rel_tol_inv=rel_tol_inv,
-            rel_tol_inv_mult=rel_tol_inv_mult,
             sat_strategy={'type': 'geometric', 'multiplier': 1.3},
             upper_bound=upper_bound,
+            **estimate_kwargs
         )
         print('======')
         print('GENERATOR:', gen_id)
