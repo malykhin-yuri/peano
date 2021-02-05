@@ -612,7 +612,7 @@ class Estimator:
                 new_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
                 new_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
             stats['bisect_iter'] += 1
-            logging.warning(
+            logging.info(
                 '#%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
                 curr_lo, curr_up, new_lo, new_up,
             )
@@ -756,7 +756,7 @@ class Estimator:
         result['curve'] = adapter.get_curve_from_model(model)
         return result
 
-    def estimate_dilation_sequence(self, curves, rel_tol_inv, rel_tol_inv_mult=2, upper_bound=None, **kwargs):
+    def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=3, upper_bound=None, **kwargs):
         """
         Estimate minimal curve ratio for sequence of fuzzy curves.
 
@@ -795,7 +795,7 @@ class Estimator:
             total = len(active) if isinstance(active, list) else -1
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
-                logging.warning('E%d, curve %d / %d', epoch, cnt + 1, total)
+                logging.info('E%d, curve %d / %d', epoch, cnt + 1, total)
                 res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, upper_bound=curr_up,
                     start_lower_bound=item.lo, start_upper_bound=item.up,
@@ -804,7 +804,7 @@ class Estimator:
                 )
                 if curr_up is None or res['up'] < curr_up:
                     curr_up = res['up']
-                    logging.warning('new upper bound: %.3f', curr_up)
+                    logging.info('new upper bound: %.3f', curr_up)
 
                 if res['lo'] <= curr_up:
                     # have a chance to be the best
@@ -818,12 +818,12 @@ class Estimator:
                         path_idx=item.path_idx,
                     )
                     heappush(new_active, new_item)
-                    logging.warning('added new active item!')
+                    logging.info('added new active item!')
 
                 while new_active and new_active[0].lo > curr_up:  # priority = -lo
                     heappop (new_active)
 
-                logging.warning('current active: %d, stats: %s', len(new_active), res['stats'])
+                logging.info('current active: %d, stats: %s', len(new_active), res['stats'])
                 stats.update(res['stats'])
 
             active = sorted(new_active, key=lambda item: item.up)  # better to start with good curves
@@ -831,7 +831,7 @@ class Estimator:
                 # upper bound is too strong
                 return None
             curr_lo = min(item.lo for item in active)
-            logging.warning('current bounds: [%.5f, %.5f]', curr_lo, curr_up)
+            logging.info('current bounds: [%.5f, %.5f]', curr_lo, curr_up)
 
         return {
             'lo': curr_lo, 'up': curr_up,

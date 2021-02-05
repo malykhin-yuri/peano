@@ -218,7 +218,7 @@ class NodePathTree:
 
         found_count = 0
         for cnt, paths in enumerate(self.group_paths(start_paths)):
-            if (cnt + 1) % 100 == 0:
+            if (cnt + 1) % 10 == 0:
                 logging.debug('processing start: %d of approx %d, found: %d', cnt + 1, len(start_paths), found_count)
             for mid_path in self.depth_search([paths[0]], **depth_kwargs):
                 if ends is not None:

@@ -196,7 +196,7 @@ class GatesGenerator:
         pg = PathsGenerator(dim=dim, div=div, links=std_gates)
 
         # параметры -- дискуссионный вопрос
-        if pg.get_paths_example(start_max_count=1000, finish_max_count=100000):
+        if pg.get_paths_example(start_max_count=1000, finish_max_count=1000000):
             logging.debug('GOOD gates: %s', [str(g) for g in std_gates])
             self.stats['new_good_gate'] += 1
             return std_gates

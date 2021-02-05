@@ -18,7 +18,7 @@ def run_estimator(
         finish_max_count=None,
         ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None,
         gate_list=None, hyper=False, max_cdist=None,
-        upper_bound=None, 
+        upper_bound=None,
         group_by_gates=False,
         output_gates=False, output_stats=False, output_examples=None,
     ):
@@ -119,8 +119,8 @@ if __name__ == "__main__":
     # ratio estimation args
     argparser.add_argument('--metric', type=str, choices=['l1','l2','l2_squared','linf'])
     argparser.add_argument('--upper-bound', type=str, help='fractional upper bound, e.g., "11/2"')
-    argparser.add_argument('--rel-tol-inv', type=int, default=1000, help='inverted relative tolerance')
-    argparser.add_argument('--rel-tol-inv_mult', type=int, default=5, help='multiplier for rel_tol_inv in each epoch')
+    argparser.add_argument('--rel-tol-inv', type=int, help='inverted relative tolerance')
+    argparser.add_argument('--rel-tol-inv_mult', type=int, help='multiplier for rel_tol_inv in each epoch')
 
     # other
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
