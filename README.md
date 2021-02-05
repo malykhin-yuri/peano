@@ -23,6 +23,7 @@ Examples:
     * time: ~2m30s, result: 9 gates
 
 Some Peano curves may be found in: tests/examples.py
+See also YE-proof.py for a computer-assisted proof of YE curve minimality.
 
 Operator usage:
 * b * X means action of b (usually, base_map) on object X (curve, path, etc)
