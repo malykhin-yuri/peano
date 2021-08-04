@@ -201,6 +201,17 @@ class FuzzyCurve:
         # C.specs[cnum].base_map = spec.base_map * last_spec.base_map * ~spec.base_map, see __rmul__
         return spec.base_map * last_spec
 
+    def get_deep_spec(self, pnum, cnums):
+        """
+        Get spec X such that fraction = X * self.
+
+        Fraction is defined by pnum and nested sequence of cube times (cnums).
+        """
+        spec = Spec(BaseMap.id_map(self.dim), pnum)
+        for cnum in cnums:
+            spec = self.compose_specs(spec, cnum)
+        return spec
+
     def gen_allowed_specs(self, pnum, cnum):
         raise NotImplementedError("Define in child class")
 
@@ -339,13 +350,9 @@ class FuzzyCurve:
             cube = cur_curve_proto[cnum]
             if cube is None:
                 raise KeyError("Curve not specified enough to get cubes sequence!")
-
             cubes.append(cube)
             index[cur_spec] = len(cubes)-1
-
-            # cur_spec = cur_curve.specs[cnum] * cur_spec
             cur_spec = self.compose_specs(cur_spec, cnum)
-
             if cur_spec in index:
                 idx = index[cur_spec]
                 start, period = cubes[0:idx], cubes[idx:]

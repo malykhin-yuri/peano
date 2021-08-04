@@ -3,37 +3,24 @@ This module provides Estimator class to estimate
 regular curve or fuzzy curve dilation.
 SAT-solvers are used for fuzzy curves.
 """
-import operator
+
 from collections import Counter, namedtuple
 from collections.abc import Sized
 from heapq import heappop, heappush
 import logging
+
 from sympy import Rational
 
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
-
-from .base_maps import BaseMap, Spec
 from . import sat_adapters
 from .curves import Curve
 
 
-class CurvePiecePosition:
-    """
-    Information about time/space position of a fraction in a curve.
-
-    A support of the fraction is the last cube in the nested sequence of cubes.
-    """
+class _PiecePosition:
+    # Time (cnums) and space (cubes) location of a fraction in a curve.
+    # A support of the fraction is the last cube in the nested sequence of cubes.
 
     def __init__(self, dim, div, cnums, cubes):
-        """
-        Init CurvePiecePosition instance.
-        Params:
-        dim, div  --  the same as in curve
-        cnums  --  sequence of cnums of nested sequence
-        cubes  --  sequence of integer coords of nested sequence
-
-        Each cnum corresponds to the curve in the corresponding fraction.
-        """
         self.dim = dim
         self.div = div
         self.cnums = tuple(cnums)
@@ -44,7 +31,6 @@ class CurvePiecePosition:
         self.sub_genus = self.sub_div**dim
 
     def specify(self, cnum, cube):
-        """Create sub-fraction position."""
         return type(self)(
             dim=self.dim,
             div=self.div,
@@ -53,249 +39,226 @@ class CurvePiecePosition:
         )
 
     def get_int_coords(self):
-        """
-        Natural integer coordinates - time and lower-left cube vertex
-        returns l, x, t:
-        l - depth
-        x - int cube: cj <= xj <= cj+1, where abs cube: cj/N^l <= xj <= (cj+1)/N^l
-        t - int time: [t, t+1], abs time: [t/G^l, (t+1)/G^l]
-
-        These may be viewed as coordinates in curve [0,G^l] -> [0,N^l]^d
-        """
+        # Natural integer coordinates - time and lower-left cube vertex
+        # Returns pair x, t:
+        #    x: int cube, cj <= xj <= cj+1; where abs cube: cj/N^l <= xj <= (cj+1)/N^l
+        #    t: int time, [t, t+1]; where abs time: [t/G^l, (t+1)/G^l]
+        #    These may be viewed as coordinates in curve [0,G^l] -> [0,N^l]^d
         return (
-            self.depth,
             get_int_cube_with_cache(self.dim, self.div, self.cubes),
             get_int_time_with_cache(self.dim, self.div, self.cnums),
         )
 
 
-class CurvePiece:
-    """
-    Fraction of a curve.
+class _CurvePiece(namedtuple('_CurvePiece', ['curve', 'pnum', 'pos'])):
+    # Fraction of a curve, defined by a fuzzy curve, pnum and _PiecePosition
+    # The specs in the curve must be specified in all cubes of the position, except last one.
+    # Helper class, used in _CurvePiecePair only.
 
-    Defined as triple (curve, pattern number, position).
-    The specs in curve must be specified in all cubes of the position, except last one.
-    """
+    def get_last_spec(self):
+        # Get spec X such that the curve on fraction equals X * self.curve.
+        # Use this for fully defined fractal curves, because in the fuzzy case
+        # the spec on the last cube is not defined.
+        return self.curve.get_deep_spec(self.pnum, self.pos.cnums)
 
-    def __init__(self, curve, pnum, pos):
-        self.curve = curve
-        self.pnum = pnum
-        self.pos = pos
-
-    # only for full fractal curves - ?? later TODO
-    def get_last_map(self):
-        curve = self.curve
-        dim, G = curve.dim, curve.genus
-        last_map = BaseMap.id_map(dim)
-        for cnum in self.pos.cnums:
-            cnum = last_map.apply_cnum(G, cnum)
-            last_map = last_map * curve.specs[cnum].base_map  # именно в таком порядке!
-        return last_map
-
-    def divide(self, max_depth=None):
-        """
-        Divide the fraction in all possible ways.
-        """
-        if (max_depth is not None) and self.pos.depth >= max_depth:
-            return
-        curve = self.curve
-        dim, div, G = curve.dim, curve.div, curve.genus
-
+    def divide(self):
+        # Divide the fraction in all possible ways.
         # define orientation of last_but_one fraction of a curve
         # in the last fraction we do not know the orientation yet!
-        prev_spec = Spec(BaseMap.id_map(dim), self.pnum)
-        for cnum in self.pos.cnums[:-1]:
-            prev_spec = self.curve.compose_specs(prev_spec, cnum)
-
+        prev_spec = self.curve.get_deep_spec(self.pnum, self.pos.cnums[:-1])
         prev_curve = prev_spec * self.curve
 
         active_pnum = prev_curve.pnum
-        active_cnum = self.pos.cnums[-1]  # the cube that will be divided
-        spec_cnum = prev_spec.base_map.apply_cnum(G, active_cnum)
+        active_cnum = self.pos.cnums[-1]  # the cube in prev_curve that will be divided
+        orig_cnum = prev_spec.base_map.apply_cnum(self.curve.genus, active_cnum)
 
         for sp in prev_curve.gen_allowed_specs(active_pnum, active_cnum):
-            # see apply_cube_map in curves.py:
-            # prev_curve.specs[active_cnum] = bm  =>  orig_curve.specs[spec_cnum] = ...
-            new_spec = sp.conjugate_by(prev_spec.base_map**(-1))
-            specified_curve = curve.specify(active_pnum, spec_cnum, new_spec)
+            # sp is spec in prev_curve, we need to restore spec in orig curve
+            # specs are conjugated, see curves.FuzzyCurve.apply_cube_map
+            orig_spec = sp.conjugate_by(prev_spec.base_map**(-1))
+            specified_curve = self.curve.specify(active_pnum, orig_cnum, orig_spec)
 
-            # last_curve = sp * prev_curve
-            # last_curve_proto = (sp * prev_curve).proto, we do not want to use multiplication
+            # last_curve = sp * prev_curve, but we do not use curve mult - optimization
+            # last_curve_proto = (sp * prev_curve).proto
             last_curve_proto = sp.base_map * prev_curve.patterns[sp.pnum].proto
             for cnum, cube in enumerate(last_curve_proto):
                 new_pos = self.pos.specify(cnum, cube)
-                new_piece = CurvePiece(specified_curve, self.pnum, new_pos)
+                new_piece = _CurvePiece(specified_curve, self.pnum, new_pos)
                 yield new_piece
 
 
-class CurvePieceBalancedPair:
-    """
-    Pair or curve fractions with almost equal depth.
+class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'pos2'])):
+    # Pair or curve fractions.
+    # curve: fuzzy curve
+    # junc: junction that defines pair
+    # pos1: position of first fraction; in the original curve, not rotated(!)
+    # pos2: the same for second fraction
 
-    We ensure that depth1 == depth2 or depth1 == depth2 + 1.
-    """
+    def _get_piece(self, piece_no):
+        pnum = self.junc.spec1.pnum if piece_no == 1 else self.junc.spec2.pnum
+        pos = self.pos1 if piece_no == 1 else self.pos2
+        return _CurvePiece(self.curve, pnum, pos)
 
-    def __init__(self, curve, junc, pos1, pos2):
-        """
-        Attributes:
-        curve, junc  --  subj
-        pos1, pos2  --  position in patterns of curve (not rotated!)
-        """
-        self.curve = curve
-        self.junc = junc
-        self.pos1 = pos1
-        self.pos2 = pos2
-        self.piece1 = CurvePiece(self.curve, junc.spec1.pnum, self.pos1)
-        self.piece2 = CurvePiece(self.curve, junc.spec2.pnum, self.pos2)
+    @classmethod
+    def init_first_order(cls, curve, junc, cnum1, cnum2):
+        # Init a pair or first-order fractions.
+        # cnum1, cnum2: cnum of the first/second fraction (in the original curve)
+        def get_pos(pnum, cnum):
+            cube = curve.patterns[pnum].proto[cnum]
+            return _PiecePosition(dim=curve.dim, div=curve.div, cnums=[cnum], cubes=[cube])
+        return cls(curve, junc, get_pos(junc.spec1.pnum, cnum1), get_pos(junc.spec2.pnum, cnum2))
 
-    def divide(self, max_depth=None):
+    def get_last_specs(self):
+        return self._get_piece(1).get_last_spec(), self._get_piece(2).get_last_spec()
+
+    def divide_balanced(self, max_depth=None):
+        # Divide one of the fractions keeping pair balanced: depth1 == depth2 or depth1 == depth2 + 1.
+        # max_depth: limit for depth; pair depth equals junc.depth + minimum position depths
+
+        if max_depth is not None:
+            # depth = junc depth + piece depth
+            if min(self.pos1.depth, self.pos2.depth) >= max_depth - self.junc.depth:
+                return
+
         # use curve from divided piece because it has specified curve
-        if max_depth is not None:  # fraction depth = junc depth + piece depth
-            piece_max_depth = max_depth - self.junc.depth
-        else:
-            piece_max_depth = None
         if self.pos1.depth > self.pos2.depth:
-            for subpiece in self.piece2.divide(piece_max_depth):
+            for subpiece in self._get_piece(2).divide():
                 yield type(self)(subpiece.curve, self.junc, self.pos1, subpiece.pos)
         else:
-            for subpiece in self.piece1.divide(piece_max_depth):
+            for subpiece in self._get_piece(1).divide():
                 yield type(self)(subpiece.curve, self.junc, subpiece.pos, self.pos2)
 
 
-class Threshold:
-    """
-    Generic thresholding.
+class _PairsTree:
+    # Collection of curve fraction pairs with lo/up bounds.
+    #
+    # This class stores "nodes" (Node) = curve fraction pairs (_CurvePiecePair)
+    # with lower (lo) and upper (up) bounds on their dilation (calculated elsewhere).
+    # Two thresholds may be set:
+    # * good - if upper bound <= good then pair is considered "good" and not added to tree
+    # * bad - if lower bound >= bad then pair is bad and it is temporarily stored
+    # Note that a pair may be good and bad simultaneously, if bad_thr <= lo <= up <= good_thr
+    # Active nodes are stored in heap with priority=up
 
-    Examples:
-    * Threshold('<', 2):  thr.check(x) <=> x < 2
-    """
-
-    def __init__(self, sign, threshold):
-        self.threshold = threshold
-        if sign == '<':
-            op = operator.lt
-        elif sign == '<=':
-            op = operator.le
-        elif sign == '>':
-            op = operator.gt
-        elif sign == '>=':
-            op = operator.ge
-        else:
-            raise Exception("Unknown comparison method")
-        self.operator = op
-
-    def check(self, x):
-        """Check if x is compliant with threshold."""
-        t = self.threshold
-        return self.operator(x, t)
-
-
-class RichPairsTree:
-    """
-    RichPairsTree - structure which holds pairs of curve fractions.
-
-    Main element occurring in algorithms for bounding curve ratio is a pair of curve fractions.
-    The pairs are represented by the class CurvePieceBalancedPair.
-    Here we hold pairs with their up/lo bounds and keep some invariants.
-
-    Attributes:
-    .nodes  -  active nodes (rich pairs), stored in a heap (priority is given externally)
-    .new_pairs  -  pairs waiting to be processed, with unknown up/lo
-    .bad_pairs  -  temporary storage for "bad" pairs with bad ratio
-    .good_threshold  -  if up < good, pair is considered "good" (hence insignificant); class Threshold
-    .bad_threshold  -  if lo > bad, pair is considered "bad"; class Threshold
-    .max_lo_node  -  node with maximal seen lo
-    """
-
-    RichPair = namedtuple('RichPair', [
-        'sort_field',  # first field, will used for comparison by heapq
-        'pair',  # CurvePieceBalancedPair
+    Node = namedtuple('Node', [
+        'key',  # first field, will used for comparison by heapq
+        'pair',  # stored item
         'up',  # upper_bound
         'lo',  # lower_bound
         'data',  # some arbitrary data
     ])
 
-    def __init__(self, pairs):
-        self.nodes = []  # use heapq algorithm for plain list
-        self.new_pairs = pairs
-        self.bad_pairs = []
-        self.good_threshold = None
-        self.bad_threshold = None
-        self.max_lo_node = None
+    def __init__(self, max_depth=None, brkline=None, keep_max_lo_node=False):
+        # max_depth and brkline are used externally
+        self._nodes = []  # use heapq algorithm for plain list
+        self._bad_pairs = []
+        self._good_threshold = None
+        self._bad_threshold = None
+
+        self._keep_max_lo_node = keep_max_lo_node
+        if self._keep_max_lo_node:
+            self.max_lo_node = None
+
+        self.max_depth = max_depth
+        if self.max_depth is not None:
+            # if max_depth is set, we also store max(up) of deep nodes
+            self.max_deep_up = None
+
+        self.brkline = brkline
         self.stats = Counter()
         self._inc = 0
 
     def set_good_threshold(self, threshold):
-        self.good_threshold = threshold
+        # If up <= good, pair is considered "good" (hence insignificant).
+        self.stats['set_good_threshold'] += 1
+        self._good_threshold = threshold
 
     def set_bad_threshold(self, threshold):
-        self.bad_threshold = threshold
+        # If lo >= bad, pair is considered "bad".
+        self.stats['set_bad_threshold'] += 1
+        self._bad_threshold = threshold
 
-    def add_pair(self, pair, lo, up, priority, data):
-        """Add node keeping the invariants."""
-        self.stats['adds'] += 1
+    def nodes_count(self):
+        return len(self._nodes)
 
-        # the order of checks may be important; as in current algorithms
-        # we add bad pairs to SAT clauses, it may be more effective to
-        # check for goodness first ...
+    def push(self, pair, lo, up, data):
+        # Add node checking the thresholds:
+        # good pair is dropped / bad pair is temporarily stored / otherwise node is added to the heap
+        self.stats['push'] += 1
 
-        if self.good_threshold is not None and self.good_threshold.check(up):
+        # the order of checks may be important
+        # currently we add bad pairs to SAT clauses, it may be more effective to
+        # check for goodness first (recall that a pair may be good and bad simultaneously)
+        if (self._good_threshold is not None) and up <= self._good_threshold:
             self.stats['good'] += 1
             return
-
-        if self.bad_threshold is not None and self.bad_threshold.check(lo):
-            self.bad_pairs.append(pair)
+        if (self._bad_threshold is not None) and lo >= self._bad_threshold:
+            self._bad_pairs.append(pair)
             self.stats['bad'] += 1
             return
 
-        self._inc += 1  # to restrict comparison in heap to 'sort_field' of RichPair
-        node = self.RichPair(sort_field=(-priority, self._inc), pair=pair, lo=lo, up=up, data=data)
+        # TODO here we can check max_depth and store max_up for them
 
-        if self.max_lo_node is None or lo > self.max_lo_node.lo:
-            self.max_lo_node = node
+        self._inc += 1  # to restrict comparison in heap to 'key' of Node
+        node = self.Node(key=(-up, self._inc), pair=pair, lo=lo, up=up, data=data)
 
-        heappush(self.nodes, node)
+        if self._keep_max_lo_node:
+            if self.max_lo_node is None or lo > self.max_lo_node.lo:
+                self.max_lo_node = node
 
-    def divide(self, max_depth=None):
-        """
-        Divide node of the tree with highest priority.
-        """
-        if self.nodes:
-            worst_node = heappop(self.nodes)
-            self.new_pairs += worst_node.pair.divide(max_depth)
+        heappush(self._nodes, node)
 
-    def copy(self):
-        assert not self.bad_pairs
-        assert self.good_threshold is None
-        assert self.bad_threshold is None
-        new_tree = RichPairsTree([])
-        new_tree.new_pairs = self.new_pairs.copy()
-        new_tree.nodes = self.nodes.copy()
-        new_tree.max_lo_node = self.max_lo_node
-        new_tree._inc = self._inc
+    def get_curr_up(self):
+        # max up for all active nodes = up for heap top
+        return self._nodes[0].up
+
+    def pop(self):
+        # Pop and return node with highest priority (up)
+        return heappop(self._nodes)
+
+    def pop_bad_pairs(self):
+        # Return bad pairs list and empty it.
+        bad_pairs = self._bad_pairs
+        self._bad_pairs = []
+        return bad_pairs
+
+    def copy(self, good_threshold=None, bad_threshold=None):
+        # copy initial tree and apply thresholds, if any
+        assert not self._bad_pairs
+        assert self._good_threshold is None
+        assert self._bad_threshold is None
+        assert self.max_depth is None
+        assert self.brkline is None
+        new_tree = _PairsTree()
+        new_tree.set_good_threshold(good_threshold)
+        new_tree.set_bad_threshold(bad_threshold)
+        for node in self._nodes:
+            new_tree.push(node.pair, node.lo, node.up, node.data)
         return new_tree
-
-
-class RunOutOfIterationsException(Exception):
-    pass
 
 
 class Estimator:
     """
-    Estimator - estimates curve dilation:
+    Estimator - estimates curve dilation.
+
+    Dilation of curve gamma: [0,1]->[0,1]^d is defined as
     WD(gamma) := sup_{s,t} ||gamma(s)-gamma(t)||^d / |t-s|
 
-    This is main class for curve ratio estimation.
-    It orchestrates work of helper classes: RichPairsTree, CurveBalancedPairs and others.
+    Attributes:
+        stats: counter of some global statistics
     """
+
+    class _RunOutOfIterationsException(Exception):
+        pass
 
     def __init__(self, ratio_func, cache_max_size=2**20):
         """
-        Init Estimator instance and set some basic properties.
+        Init Estimator instance.
 
-        Params:
-        ratio_func  --  function (dim, dx, dt) -> Rational, it is assumed to be d-uniform and coordinate-monotone
-        cache_max_size  --  subj for pairs bounds cache
+        Args:
+            ratio_func: function (dim, dx, dt) -> Rational
+              it is assumed to be d-uniform and coordinate-monotone
+            cache_max_size: subj for pairs bounds cache
         """
 
         self.ratio_func = ratio_func
@@ -303,61 +266,66 @@ class Estimator:
         self._get_bounds_cache = {}
         self._cache_max_size = cache_max_size
 
-    def get_bounds(self, pair, brkline=None):
-        """
-        Get lower and upper bounds for max ratio of given fractions pair.
+    def _get_bounds(self, pair, brkline=None):
+        # Get lower and upper bounds for max ratio of given fractions pair:
+        #   WD(f1,f2) := sup ||gamma(s)-gamma(t)||^d/|s-t|:  gamma(s) in f1, gamma(t) in f2
+        # brkline: instance of _IntegerBrokenLine class (for pcount==1 only!)
+        # Returns triple (lo, up, argmax), argmax only for brkline
 
-        brkline  --  instance of IntegerBrokenLine class
-        Return triple (lo, up, argmax), argmax only for brkline
-        """
         dim = pair.curve.dim
         N = pair.curve.div
-        G = pair.curve.genus
 
         pos1, pos2 = pair.pos1, pair.pos2
 
-        use_cache = (brkline is None)
+        use_cache = (brkline is None)  # not implemented
         if use_cache:
-            # do not use caching for brklines, maybe later
-            cache = self._get_bounds_cache
+            # note that pos pnums are not part of the key
+            # because cube time/space locations do not depend on them and dilation is not affected
+            # however, pnums are important for brkline rotation - but brkline case is not cached
             cache_key = (dim, N, pair.junc, pos1.cnums, pos1.cubes, pos2.cnums, pos2.cubes)
-            if cache_key in cache:
+            cache = self._get_bounds_cache
+            cache_value = cache.get(cache_key)
+            if cache_value is not None:
                 self.stats['get_bounds_cache_hit'] += 1
-                return cache[cache_key]
+                return cache_value
             else:
                 self.stats['get_bounds_cache_miss'] += 1
 
         # these are integer positions in original curve patterns
-        l1, x1, t1 = pos1.get_int_coords()
-        l2, x2, t2 = pos2.get_int_coords()
+        # we will transform them to absolute coords
+        x1, t1 = pos1.get_int_coords()
+        x2, t2 = pos2.get_int_coords()
 
         use_brkline = (brkline is not None)
         if use_brkline:
-            # ломаные нужно поворачивать:(
-            brk1_bm = pair.piece1.get_last_map()
-            brk2_bm = pair.piece2.get_last_map()
+            # rotations for broken lines
+            sp1, sp2 = pair.get_last_specs()
+            assert sp1.pnum == sp2.pnum == 0
+            brk1_bm, brk2_bm = sp1.base_map, sp2.base_map
 
         junc = pair.junc
 
         # junc: apply base_maps to coordinates
-        x1 = junc.spec1.base_map.apply_cube(pos1.sub_div, x1)
-        t1 = junc.spec1.base_map.apply_cnum(pos1.sub_genus, t1)
-        if use_brkline: brk1_bm = junc.spec1.base_map * brk1_bm
-
-        x2 = junc.spec2.base_map.apply_cube(pos2.sub_div, x2)
-        t2 = junc.spec2.base_map.apply_cnum(pos2.sub_genus, t2)
-        if use_brkline: brk2_bm = junc.spec2.base_map * brk2_bm
+        jbm1, jbm2 = junc.spec1.base_map, junc.spec2.base_map
+        x1 = jbm1.apply_cube(pos1.sub_div, x1)
+        t1 = jbm1.apply_cnum(pos1.sub_genus, t1)
+        x2 = jbm2.apply_cube(pos2.sub_div, x2)
+        t2 = jbm2.apply_cnum(pos2.sub_genus, t2)
+        if use_brkline:
+            brk1 = ((jbm1 * brk1_bm) * brkline).points
+            brk2 = ((jbm2 * brk2_bm) * brkline).points
 
         # common scale
-        if l1 == l2:
+        if pos1.depth == pos2.depth:
             mx2 = mt2 = 1
-        elif l1 == l2 + 1:
-            x2 = [x2j * N for x2j in x2]
-            t2 *= G
-            mx2 = N
-            mt2 = G
+        elif pos1.depth == pos2.depth + 1:
+            mx2, mt2 = N, N**dim
+            x2 = [xj * mx2 for xj in x2]
+            t2 *= mt2
+            if use_brkline:
+                brk2 = [([xj * mx2 for xj in x], t * mt2) for x, t in brk2]
         else:
-            raise Exception("Bad coordinates!")
+            raise ValueError("Unbalanced positions!")
 
         mx = pos1.sub_div
         mt = pos1.sub_genus
@@ -367,43 +335,40 @@ class Estimator:
         # cube2: x2j <= xj <= x2j + mx2  -- cube inside [0, mx2 * mx]^d, + shift junc_dx * mx
         #
         # time1: t1 <= t <= t1 + 1
-        # time2: t2 <= t <= t2 + mt2,  after shift: t2 + junc_dt * mt <= t <= t2 + mt2 + junc_dt * mt
+        # time2: t2 <= t <= t2 + mt2,  + shift junc_dt * mt
 
         # junc: shifts
         t2 += junc.delta_t * mt
-        x2 = [x2j + junc_dxj * mx for x2j, junc_dxj in zip(x2, junc.delta_x)]
+        x2 = [x2j + dxj * mx for x2j, dxj in zip(x2, junc.delta_x)]
 
         max_dx = [max(abs(x1j - x2j + 1), abs(x1j - x2j - mx2)) for x1j, x2j in zip(x1, x2)]
 
         max_dt = t2 + mt2 - t1  # max(t_2 - t_1)
         min_dt = t2 - (t1 + 1)  # min(t_2 - t_1)
 
+        # also ratio(min_dx, min_dt) is a lower bound, but inefficient
         lo = self.ratio_func(dim, max_dx, max_dt)
         up = self.ratio_func(dim, max_dx, min_dt)
 
         argmax = None
         if use_brkline:
-            brk_mx = brkline.mx
-            brk_mt = brkline.mt
-            brkline1 = [(brk1_bm.apply_x(x, mx=brk_mx), brk1_bm.apply_t(t, mt=brk_mt)) for x, t in brkline.points]
-            brkline2 = [(brk2_bm.apply_x(x, mx=brk_mx), brk2_bm.apply_t(t, mt=brk_mt)) for x, t in brkline.points]
-
-            t1 *= brk_mt
-            t2 *= brk_mt
+            brk_mx, brk_mt = brkline.mx, brkline.mt
             x1 = [xj * brk_mx for xj in x1]
             x2 = [xj * brk_mx for xj in x2]
-            for x1rel, t1rel in brkline1:
-                t1_point = t1 + t1rel
+            t1 *= brk_mt
+            t2 *= brk_mt
+            for x1rel, t1rel in brk1:
                 x1_point = [x1j + x1relj for x1j, x1relj in zip(x1, x1rel)]
-                for x2rel, t2rel in brkline2:
-                    t2_point = t2 + t2rel * mt2
-                    x2_point = [x2j + x2relj * mx2 for x2j, x2relj in zip(x2, x2rel)]
+                t1_point = t1 + t1rel
+                for x2rel, t2rel in brk2:
+                    x2_point = [x2j + x2relj for x2j, x2relj in zip(x2, x2rel)]
+                    t2_point = t2 + t2rel
 
                     dx = [x1j - x2j for x1j, x2j in zip(x1_point, x2_point)]
                     dt = t2_point - t1_point
-
                     lo_point = self.ratio_func(dim, dx, dt)
-                    if lo_point > lo:
+
+                    if lo_point > lo or argmax is None:
                         lo = lo_point
                         x1_real = [Rational(x1j, mx * brk_mx) for x1j in x1_point]
                         x2_real = [Rational(x2j, mx * brk_mx) for x2j in x2_point]
@@ -411,54 +376,27 @@ class Estimator:
                         t2_real = Rational(t2_point, mt * brk_mt)
                         argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
 
+        result = (lo, up, argmax)
         if use_cache:
-            if len(cache) == self._cache_max_size:
-                # poor man's LRU cache :( - TODO fix this
+            if len(cache) >= self._cache_max_size:
+                # poor man's LRU cache :(
                 cache.clear()
                 self.stats['get_bounds_cache_cleanup'] += 1
-            cache[cache_key] = (lo, up, None)
+            cache[cache_key] = result
 
-        return lo, up, argmax
+        return result
 
-    def bound_new_pairs(self, tree, brkline=None):
-        """
-        Process new pairs of the tree by estimating their ratio.
-
-        Here we get lo/up bounds for the ratio and define priority for a pair.
-        """
-
-        for pair in tree.new_pairs:
-            lo, up, argmax = self.get_bounds(pair, brkline=brkline)
-            priority = up
-            tree.add_pair(pair, priority=priority, lo=lo, up=up, data={'argmax': argmax})
-        tree.new_pairs = []
-
-    def estimate_dilation(self, curve, *args, **kwargs):
-        if isinstance(curve, Curve):
-            return self.estimate_dilation_regular(curve, *args, **kwargs)
-        else:
-            return self.estimate_dilation_fuzzy(curve, *args, **kwargs)
-
-    @staticmethod
-    def get_piece_position(curve, pnum, cnum):
-        return CurvePiecePosition(
-            dim=curve.dim,
-            div=curve.div,
-            cnums=[cnum],
-            cubes=[curve.patterns[pnum].proto[cnum]],
-        )
-
-    @classmethod
-    def init_pairs_tree(cls, curve):
-        """Create initial pairs tree from a curve."""
-        pairs = []
+    def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
+        # Create initial pairs tree from a curve
         G = curve.genus
+        tree = _PairsTree(**tree_kwargs)
+        tree.set_good_threshold(good_threshold)
+        tree.set_bad_threshold(bad_threshold)
         for junc in curve.gen_auto_junctions():
             for cnum1 in range(G):
                 for cnum2 in range(cnum1 + 2, G):
-                    pos1 = cls.get_piece_position(curve, junc.spec1.pnum, cnum1)
-                    pos2 = cls.get_piece_position(curve, junc.spec2.pnum, cnum2)
-                    pairs.append(CurvePieceBalancedPair(curve, junc, pos1, pos2))
+                    pair = _CurvePiecePair.init_first_order(curve, junc, cnum1, cnum2)
+                    self._push_tree(tree, pair)
 
         for junc in curve.gen_regular_junctions():
             last_cnum1 = 0 if junc.spec1.base_map.time_rev else G - 1
@@ -467,89 +405,205 @@ class Estimator:
                 for cnum2 in range(G):
                     if (cnum1, cnum2) == (last_cnum1, first_cnum2):
                         continue
-                    pos1 = cls.get_piece_position(curve, pnum=junc.spec1.pnum, cnum=cnum1)
-                    pos2 = cls.get_piece_position(curve, pnum=junc.spec2.pnum, cnum=cnum2)
-                    pairs.append(CurvePieceBalancedPair(curve, junc, pos1, pos2))
+                    pair = _CurvePiecePair.init_first_order(curve, junc, cnum1, cnum2)
+                    self._push_tree(tree, pair)
 
-        return RichPairsTree(pairs)
+        return tree
 
-    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, verbose=False, max_depth=None):
+    def _push_tree(self, tree, pair):
+        lo, up, argmax = self._get_bounds(pair, brkline=tree.brkline)
+        tree.push(pair, lo=lo, up=up, data=argmax)
+
+    def _divide_tree(self, tree):
+        # Divide node of the tree with highest priority (up)
+        if tree.nodes_count():
+            for new_pair in tree.pop().pair.divide_balanced(max_depth=tree.max_depth):
+                self._push_tree(tree, new_pair)
+
+    def estimate_dilation(self, curve, *args, **kwargs):
+        """Dispatcher method: uses estimate_dilation_regular or estimate_dilation_fuzzy"""
+        if isinstance(curve, Curve):
+            return self.estimate_dilation_regular(curve, *args, **kwargs)
+        else:
+            return self.estimate_dilation_fuzzy(curve, *args, **kwargs)
+
+    # TODO remove verbose
+    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, max_depth=None, verbose=None):
         """
-        Estimate maximal ratio for a regular peano curve (class Curve).
+        Estimate dilation for a regular peano curve (class Curve).
 
-        We maintain a tree of pairs of all non-adjacent curve fractions, for all junctions.
-        For each pair we get lower and upper bounds for maximal ratio.
-        At each iteration we divide the worst pair (with max upper bound).
+        Args:
+            curve: Curve instance, fully defined polyfractal curve
+            rel_tol_inv: inverted relative tolerance
+            max_iter: limit for subdivisions
+            use_vertex_brkline: use vertex moments (broken line) for dilation lower bounds
+            max_depth: do not consider fractions of higher order
+              note that fraction depth = junc depth + piece depth;
 
-        max_depth -- do not consider fractions of higher order (note that fraction depth = junc depth + piece depth)
-
-        Return value is the dict with keys:
-        'lo':  lower bound for the curve: ratio(curve) >= lo
-        'up':  upper bound for the curve: ratio(curve) <= up
-        'argmax':  pair of points where lo is achieved (if use_vertex_brkline is set)
+        Returns:
+            dict with keys:
+            'lo': lower bound - dilation(curve) >= lo
+            'up': upper bound - dilation(curve) <= up
+            'argmax': pair of points where lo is achieved (if use_vertex_brkline is set)
         """
+
         if use_vertex_brkline:
             if curve.pcount > 1:
                 raise NotImplementedError("Brklines for multiple patterns not implemented!")
-            vertex_brkline = [(x, t) for x, t in curve.get_vertex_moments().items()]
-            brkline = IntegerBrokenLine(curve.dim, vertex_brkline)
+            vertex_brkline = list(curve.get_vertex_moments().items())
+            brkline = _IntegerBrokenLine.init_from_rational(curve.dim, vertex_brkline)
         else:
             brkline = None
 
-        pairs_tree = self.init_pairs_tree(curve)
-        self.bound_new_pairs(pairs_tree, brkline=brkline)
+        # TODO:
+        # как работает max_depth ? не нарушаются ли инварианты? не очевидно
+        # TODO FIX MAX DEPTHkh
+
+        # This is a basic algorithm that does not require SAT-solvers.
+        # We maintain a "tree" of pairs of all non-adjacent curve fractions, for all junctions.
+        # For each pair we get lower and upper bounds for dilation (see _get_bound)
+        # At each iteration we divide the worst pair (with max upper bound)
+
+        pairs_tree = self._create_tree(curve, max_depth=max_depth, brkline=brkline, keep_max_lo_node=True)
 
         # invariant: ratio of the curve is in [curr_lo, curr_up]
 
-        # if the was a pair with lower bound lo, then lo is the bound for the whole curve
+        # if there is a pair with dilation >= lo, then lo is the bound for the whole curve
         # and we do not need to consider pairs with less-or-equal upper bound
         curr_lo = pairs_tree.max_lo_node.lo
-        argmax = pairs_tree.max_lo_node.data['argmax']
-        pairs_tree.set_good_threshold(Threshold('<=', curr_lo))
+        argmax = pairs_tree.max_lo_node.data
+        pairs_tree.set_good_threshold(curr_lo)
 
         # since the bound of the curve is attended at one of the active pairs,
         # upper bound for worst pair gives us upper bound for the curve
-        # we use here that:
-        # * pairs_tree.new_pairs is empty after bound_new_pairs, so all pairs are bounded
-        # * priority is "up" and nodes are stored in a heap, so the worst node is [0]
-        curr_up = pairs_tree.nodes[0].up
-        if verbose:
-            print('start bounds: ', curr_lo, curr_up)
+        curr_up = pairs_tree.get_curr_up()
+        logging.info('start bounds: %.5f < %.5f', curr_lo, curr_up)
 
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         iter_no = 0
         while curr_up > curr_lo * tolerance:
             iter_no += 1
-            if not pairs_tree.nodes:
+            if not pairs_tree.nodes_count():
                 break
             if max_iter is not None and iter_no > max_iter:
-                # ok, leave current estimates
                 break
 
-            pairs_tree.divide(max_depth)
-            self.bound_new_pairs(pairs_tree, brkline=brkline)
+            self._divide_tree(pairs_tree)
 
             node = pairs_tree.max_lo_node
             if node.lo > curr_lo:
                 curr_lo = node.lo
-                argmax = node.data['argmax']
-                if verbose:
-                    print('new lower bound: ', curr_lo, curr_up)
-            pairs_tree.set_good_threshold(Threshold('<=', curr_lo))
+                argmax = node.data
+                pairs_tree.set_good_threshold(curr_lo)
+                logging.info('new lower bound: %.5f < %.5f', curr_lo, curr_up)
 
-            new_up = pairs_tree.nodes[0].up
+            new_up = pairs_tree.get_curr_up()
             if new_up < curr_up:
-                if verbose:
-                    print('new upper bound: ', curr_lo, new_up)
+                logging.info('new upper bound: %.5f < %.5f', curr_lo, curr_up)
                 curr_up = new_up
 
-        if verbose:
-            print('Pairs tree stats:', pairs_tree.stats)
-        res = {'up': curr_up, 'lo': curr_lo}
+        res = {'up': curr_up, 'lo': curr_lo, 'stats': pairs_tree.stats}
         if argmax is not None:
             res['argmax'] = argmax
 
         return res
+
+    def bisect_dilation_fuzzy(self, curve, bad_threshold, good_threshold,
+                              max_iter=None, sat_strategy=None, verbose=False,  # TODO remove verbose
+                              start_pairs_tree=None):
+        """
+        Test if there is a "good" curve.
+
+        If the method returns no curve, then ratio is "bad" for all regular curves for given fuzzy curve.
+        If the method returns a curve, then it is good one.
+
+        Arguments:
+        curve  --  FuzzyCurve instance
+        _bad_threshold  --  TODO fix this
+        _good_threshold  --  TODO fix this
+                            (It is required that _bad_threshold is less than _good_threshold, so
+                            it is possible that there are good curves, but all curves are bad.
+                            It this case the return value is not specified.)
+        max_iter  --  max number of divisions; raise Exception if maximum iterations reached
+        sat_strategy  --    when do we call sat solver:
+                            strategy['type'] == 'equal': call every strategy['count'] divisions
+                            strategy['type'] == 'geometric': call on strategy['multiplier']**k iterations
+        find_model  --  subj
+        start_pairs_tree  --  just cache _create_tree
+        """
+
+        # This is the main algorithm of the whole "peano" package.
+
+        # all possible regular curves from given curve are encoded using
+        # boolean variables in sat adapter
+        #
+        # we grow the pairs tree with fixed good and bad thresholds
+        # all pairs below good threshold are forgotten
+        # all pairs above bad threshold are added to the list of forbidden configurations,
+        # i.e. a list of boolean clauses in sat adapter
+        #
+        # if we can't find a model, then all curves are necessarily bad
+        # if there is a model, it avoids bad pairs and all other pairs are good,
+        # because we grow the tree till we can
+        # (see also estimate_dilation_regular for more explanations)
+
+        adapter = sat_adapters.CurveSATAdapter(curve)
+
+        # how often should we call sat solver? default is equidistant strategy
+        if sat_strategy is None:
+            sat_strategy = {'type': 'equal', 'count': 100}
+        if sat_strategy['type'] == 'geometric':
+            sat_current_iter = 1
+
+
+        thrs = {'good_threshold': good_threshold, 'bad_threshold': bad_threshold}
+        if start_pairs_tree is None:
+            pairs_tree = self._create_tree(curve, **thrs)
+        else:
+            pairs_tree = start_pairs_tree.copy(**thrs)
+
+        for bad_pair in pairs_tree.pop_bad_pairs():
+            adapter.add_forbid_clause(bad_pair.junc, bad_pair.curve)
+
+        no_model = None
+        stats = Counter()
+        result = {'stats': stats}
+
+        while pairs_tree.nodes_count():
+            stats['divide_iter'] += 1
+            if max_iter is not None and stats['divide_iter'] > max_iter:
+                raise self._RunOutOfIterationsException()
+
+            self._divide_tree(pairs_tree)
+            for bad_pair in pairs_tree.pop_bad_pairs():
+                adapter.add_forbid_clause(bad_pair.junc, bad_pair.curve)
+
+            try_sat = False
+            if sat_strategy['type'] == 'equal':
+                if stats['divide_iter'] % sat_strategy['count'] == 0:
+                    try_sat = True
+            elif sat_strategy['type'] == 'geometric':
+                if stats['divide_iter'] >= sat_current_iter:
+                    try_sat = True
+                    sat_current_iter = int(sat_current_iter * sat_strategy['multiplier']) + 1
+
+            if try_sat:
+                logging.info('current stats: %s', result['stats'])
+                if not adapter.solve():
+                    no_model = True
+                    break
+
+        result['stats'].update({'ptree.' + k: v for k, v in pairs_tree.stats.items()})
+        result['stats'].update({'sat.' + k: v for k, v in adapter.get_stats().items()})
+
+        if no_model or not adapter.solve():
+            return result
+
+        model = adapter.get_model()
+        result['model'] = model
+        result['curve'] = adapter.get_curve_from_model(model)
+        return result
+
 
     def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, upper_bound=None,
                                 start_lower_bound=None, start_upper_bound=None, start_curve=None, start_pairs_tree=None,
@@ -564,9 +618,9 @@ class Estimator:
         start_lower_bound  --  known lo bound for ratio, start bisection with it
         start_upper_bound  --  known up bound for ratio, start bisection with it
         start_curve  --  known curve with start_upper_bound
-        start_pairs_tree  --  just init_pairs_tree
+        start_pairs_tree  --  just _create_tree
         max_iter  --  subj
-        sat_strategy  --  passed to test_dilation_fuzzy, see there (TODO: use kwargs for that)
+        sat_strategy  --  passed to bisect_dilation_fuzzy, see there (TODO: use kwargs for that)
         find_model  --  bool, will find Curve if set True
         verbose  --  subj
 
@@ -576,7 +630,7 @@ class Estimator:
         'curve' -- curve_example with ratio in [lo, up]
         """
 
-        # this method is simply "bisection" algorithm based on test_dilation_fuzzy
+        # this method is simply "bisection" algorithm based on bisect_dilation_fuzzy
 
         stats = Counter()
         # start lower bound: it would be profitable to use good theoretical
@@ -596,9 +650,9 @@ class Estimator:
             curr_curve = start_curve
 
         if start_pairs_tree is None:
-            pairs_tree = self.init_pairs_tree(curve)
+            pairs_tree = self._create_tree(curve)
         else:
-            pairs_tree = start_pairs_tree.copy()
+            pairs_tree = start_pairs_tree  # we will not modify it
 
         # invariant: best curve in the class is in [curr_lo, curr_up]
         # curr_curve ratio also in [curr_lo, curr_up]
@@ -619,17 +673,17 @@ class Estimator:
             logging.debug('precise test thresholds: %s, %s', new_lo, new_up)
             try:
                 # we always ask for a model, to get actual curve with guarantees
-                test_result = self.test_dilation_fuzzy(
+                test_result = self.bisect_dilation_fuzzy(
                     curve,
-                    bad_threshold=Threshold('>=', new_lo),
-                    good_threshold=Threshold('<=', new_up),
+                    bad_threshold=new_lo,
+                    good_threshold=new_up,
                     max_iter=max_iter,
                     sat_strategy=sat_strategy,
                     start_pairs_tree=pairs_tree,
                     verbose=verbose,
                 )
                 stats.update(test_result['stats'])
-            except RunOutOfIterationsException:
+            except self._RunOutOfIterationsException:
                 # run out of iterations
                 break
 
@@ -650,111 +704,6 @@ class Estimator:
             'up': curr_up,
             'stats': stats,
         }
-
-    def test_dilation_fuzzy(self, curve, bad_threshold, good_threshold,
-                            max_iter=None, sat_strategy=None, verbose=False,  # TODO remove verbose
-                            start_pairs_tree=None):
-        """
-        Test if there is a "good" curve.
-
-        If the method returns no curve, then ratio is "bad" for all regular curves for given fuzzy curve.
-        If the method returns a curve, then it is good one.
-
-        Arguments:
-        curve  --  FuzzyCurve instance
-        bad_threshold  --  Threshold, bad_threshold.check(ratio)==True means that curve is "bad",
-                            so it is Threshold('>', lo) or Threshold('>=', lo)
-        good_threshold  --  Threshold, good_threshold.check(ratio)==True means that curve is "good",
-                            so it is Threshold('<', up) or Threshold('<=', up)
-                            (It is required that bad_threshold is less than good_threshold, so
-                            it is possible that there are good curves, but all curves are bad.
-                            It this case the return value is not specified.)
-        max_iter  --  max number of divisions; raise Exception if maximum iterations reached
-        sat_strategy  --    when do we call sat solver:
-                            strategy['type'] == 'equal': call every strategy['count'] divisions
-                            strategy['type'] == 'geometric': call on strategy['multiplier']**k iterations
-        find_model  --  subj
-        start_pairs_tree  --  just cache init_pairs_tree
-        """
-
-        adapter = sat_adapters.CurveSATAdapter(curve)
-
-        # how often should we call sat solver? default is equidistant strategy
-        if sat_strategy is None:
-            sat_strategy = {'type': 'equal', 'count': 100}
-        if sat_strategy['type'] == 'geometric':
-            sat_current_iter = 1
-
-        # okay, we allow FastFractions as thresholds
-        if not isinstance(good_threshold, Threshold):
-            good_threshold = Threshold('<=', good_threshold)
-        if not isinstance(bad_threshold, Threshold):
-            bad_threshold = Threshold('>=', bad_threshold)
-
-        # all possible regular curves from given curve are encoded using
-        # boolean variables in sat adapter
-        #
-        # we grow the pairs tree with fixed good and bad thresholds
-        # all pairs below good threshold are forgotten
-        # all pairs above bad threshold are added to the list of forbidden configurations,
-        # i.e. a list of boolean clauses in sat adapter
-        #
-        # if we can't find a model, then all curves are necessarily bad
-        # if there is a model, it avoids bad pairs and all other pairs are good,
-        # because we grow the tree till we can
-        # (see also estimate_dilation_regular for more explanations)
-
-        if start_pairs_tree is None:
-            pairs_tree = self.init_pairs_tree(curve)
-        else:
-            pairs_tree = start_pairs_tree.copy()
-        pairs_tree.set_good_threshold(good_threshold)
-        pairs_tree.set_bad_threshold(bad_threshold)
-        self.bound_new_pairs(pairs_tree)
-        while pairs_tree.bad_pairs:
-            bad_pair = pairs_tree.bad_pairs.pop()
-            adapter.add_forbid_clause(bad_pair.junc, bad_pair.curve)
-
-        no_model = None
-        stats = Counter()
-        result = {'stats': stats}
-
-        while pairs_tree.nodes:
-            stats['divide_iter'] += 1
-            if max_iter is not None and stats['divide_iter'] > max_iter:
-                raise RunOutOfIterationsException()
-
-            pairs_tree.divide()
-            self.bound_new_pairs(pairs_tree)
-            while pairs_tree.bad_pairs:
-                bad_pair = pairs_tree.bad_pairs.pop()
-                adapter.add_forbid_clause(bad_pair.junc, bad_pair.curve)
-
-            try_sat = False
-            if sat_strategy['type'] == 'equal':
-                if stats['divide_iter'] % sat_strategy['count'] == 0:
-                    try_sat = True
-            elif sat_strategy['type'] == 'geometric':
-                if stats['divide_iter'] >= sat_current_iter:
-                    try_sat = True
-                    sat_current_iter = int(sat_current_iter * sat_strategy['multiplier']) + 1
-
-            if try_sat:
-                logging.info('current stats: %s', result['stats'])
-                if not adapter.solve():
-                    no_model = True
-                    break
-
-        result['stats'].update({'ptree_' + k: v for k, v in pairs_tree.stats.items()})
-        result['stats'].update({'sat_' + k: v for k, v in adapter.get_stats().items()})
-
-        if no_model or not adapter.solve():
-            return result
-
-        model = adapter.get_model()
-        result['model'] = model
-        result['curve'] = adapter.get_curve_from_model(model)
-        return result
 
     def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=3, upper_bound=None, **kwargs):
         """
@@ -842,9 +791,9 @@ class Estimator:
         }
 
 
-# TODO: нужно ли оптимизировать broken line, если основная работа происходит в fuzzy ???
-class IntegerBrokenLine:
-    def __init__(self, dim, brkline):
+class _IntegerBrokenLine(namedtuple('_IntegerBrokenLine', ['mx', 'mt', 'points'])):
+    @classmethod
+    def init_from_rational(cls, dim, brkline):
         denoms = set()
         for x, t in brkline:
             if isinstance(t, Rational):
@@ -857,9 +806,11 @@ class IntegerBrokenLine:
         mt = lcm**dim
         points = []
         for x, t in brkline:
-            xp = tuple(int(Rational(xj) * Rational(mx, 1)) for xj in x)
-            tp = int(Rational(t) * Rational(mt, 1))
+            xp = tuple(int(Rational(xj) * mx) for xj in x)
+            tp = int(Rational(t) * mt)
             points.append((xp, tp))
-        self.points = points
-        self.mx = mx
-        self.mt = mt
+        return cls(mx, mt, points)
+
+    def __rmul__(self, base_map):
+        points = [(base_map.apply_x(x, mx=self.mx), base_map.apply_t(t, mt=self.mt)) for x, t in self.points]
+        return type(self)(self.mx, self.mt, points)

@@ -29,21 +29,21 @@ def ratio_l2(d, dv, dt):
 
 
 @lru_cache(maxsize=2**20)
-def get_int_cube_with_cache(dim, N, cubes):
+def get_int_cube_with_cache(dim, div, cubes):
     """Integer coordinates for sequence of embedded cubes."""
     x = [0] * dim
-    Npower = 1
+    div_power = 1
     for cube in reversed(cubes):
         for j in range(dim):
-            x[j] += cube[j] * Npower
-        Npower *= N
+            x[j] += cube[j] * div_power
+        div_power *= div
     return x
 
 
 @lru_cache(maxsize=2**20)
-def get_int_time_with_cache(dim, N, cnums):
+def get_int_time_with_cache(dim, div, cnums):
     """Integer time for sequence of cnums of embedded cubes."""
-    G = N**dim
+    G = div**dim
     # multiply by G**l, l = len(cnums), i.e. depth
     # t = c0/G + c1/G**2 + ... = (c_{l-1} + c_{l-2}*G + ..) / G^l
     t = 0

@@ -92,7 +92,7 @@ def main():
     search.run_estimator(dim=2, div=3, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 4x4:')
-    search.run_estimator(dim=4, div=4, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    search.run_estimator(dim=2, div=4, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 6x6')
     print('Plain monofractal curves fall into 3 categories:')
