@@ -651,7 +651,9 @@ class PathFuzzyCurve(FuzzyCurve):
 
     def __invert__(self):
         # we do not change links to keep them standard (hence, links_symmetries also do not change)
-        new_links_std = {link: {pnum: ~std_map} for link, data in self.links_std.items() for pnum, std_map in data.items()}
+        new_links_std = {}
+        for link, data in self.links_std.items():
+            new_links_std[link] = {pnum: ~std_map for pnum, std_map in data.items()}
         new_pattern_links = [list(reversed(links)) for links in self.pattern_links]
         new_pattern_reprs = [[~bm for bm in reversed(reprs)] for reprs in self.pattern_reprs]
         # after super().__invert__() the curve will be in inconsistent state:(
@@ -665,7 +667,9 @@ class PathFuzzyCurve(FuzzyCurve):
         cube_inv = cube_map**(-1)
 
         # to get std_link, revert cube_map and the apply old std_map
-        new_links_std = {link: {pnum: std_map * cube_inv} for link, data in self.links_std.items() for pnum, std_map in data.items()}
+        new_links_std = {}
+        for link, data in self.links_std.items():
+            new_links_std[link] = {pnum: std_map * cube_inv for pnum, std_map in data.items()}
 
         # to get actual link, first map std_link to get old link, the apply cube_map
         new_pattern_reprs = [[cube_map * repr for repr in reprs] for reprs in self.pattern_reprs]
