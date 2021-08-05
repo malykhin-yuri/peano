@@ -689,8 +689,13 @@ class Estimator:
         while curr_up > curr_lo * tolerance:
             stats['bisect_iter'] += 1
 
-            test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
-            test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
+            if curr_lo == Rational(0):
+                # optimize, 0 is too rude lower bound
+                test_lo = Rational(1, 2) * curr_up
+                test_up = Rational(2, 3) * curr_up
+            else:
+                test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
+                test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
 
             logging.info(
                 'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
@@ -735,40 +740,47 @@ class Estimator:
         We estimate min_{fuzzy} min_{curve in fuzzy} WD(curve).
 
         Args:
-            upper_bound  --  apriori upper bound for best ratio (undefined behaviour if violated - TODO)
-            rel_tol_inv  --  subj
-            rel_tol_inv_mult  --  current rel_tol_inv is multiplied by this every epoch
+            curves: iterable of fuzzy curves
+            upper_bound: apriori upper bound for best ratio (may return None if violated)
+            rel_tol_inv: target tolerance
+            rel_tol_inv_mult: current rel_tol_inv is multiplied by this every epoch
             **kwargs: passed as is to estimate_dilation_fuzzy
 
         Returns:
             dict with keys:
-            'lo', 'up', and list of curve candidates.
-            TODO
+            'lo', 'up' - bounds for minimal dilation
+            'curves' - list of regular curves in [lo, up]
+            'idxs' - list of corresponding indices of input
         """
 
-        CurveItem = namedtuple('CurveItem', ['priority', 'lo', 'up', 'curve', 'example', 'init_pairs_tree', 'path_idx'])
-        _inc = 0
+        # This method is based on estimate_dilation_fuzzy.
+        # We iterate over curves many times with increasing up/lo estimation tolerance.
 
-        def get_item(curve, lo=None, up=None, example=None, init_pairs_tree=None, path_idx=None):
-            nonlocal _inc
-            _inc += 1
-            priority = ((-lo if lo is not None else None), _inc)
-            return CurveItem(priority, lo, up, curve, example, init_pairs_tree, path_idx)
+        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
+        stats = Counter()
+        max_store_pairs_tree = 200
+        CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example init_pairs_tree'.split())
+
+        def get_item(curve, idx, lo=None, up=None, example=None, init_pairs_tree=None):
+            # store idx in second field to avoid lo/up/... comparison
+            priority = -lo if lo is not None else None
+            return CurveItem(priority, idx, lo, up, curve, example, init_pairs_tree)
 
         curr_lo = Rational(0)
         curr_up = upper_bound
 
-        active = (get_item(curve, path_idx=idx) for idx, curve in enumerate(curves))
-        if isinstance(curves, Sized):
-            active = list(active)
+        # Invariants:
+        # * minimal dilation is in [curr_lo, curr_up]
+        # (curr_up will be defined after first call to estimate_dilation_fuzzy)
+        # * curve with min dilation is in active list
+
+        active = (get_item(curve, idx) for idx, curve in enumerate(curves))
         curr_rel_tol_inv = 1
         epoch = 0
-        stats = Counter()
-        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         while curr_up is None or curr_up > curr_lo * tolerance:
             curr_rel_tol_inv *= rel_tol_inv_mult
             epoch += 1
-            total = len(active) if isinstance(active, list) else -1
+            total = len(curves) if isinstance(curves, Sized) else -1
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
                 logging.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
@@ -783,37 +795,37 @@ class Estimator:
                     logging.info('new upper bound: %.3f', curr_up)
 
                 if res['lo'] <= curr_up:
-                    # have a chance to be the best
-                    if total < 0 or total > 200:
-                        # avoid memory leak
-                        res['init_pairs_tree'] = None
+                    # has a chance to be the best
+                    store_pairs_tree = (len(new_active) < max_store_pairs_tree)  # avoid memory leak
                     new_item = get_item(
+                        idx=item.idx,
                         curve=item.curve,
                         lo=res['lo'], up=res['up'],
-                        example=res['curve'], init_pairs_tree=res['init_pairs_tree'],
-                        path_idx=item.path_idx,
+                        example=res['curve'],
+                        init_pairs_tree=(res['init_pairs_tree'] if store_pairs_tree else None),
                     )
                     heappush(new_active, new_item)
                     logging.info('added new active item!')
 
+                # it is important to cleanup new_active (in first run) to reduce memory consumption
                 while new_active and new_active[0].lo > curr_up:  # priority = -lo
-                    heappop (new_active)
+                    heappop(new_active)
 
                 logging.info('current active: %d, stats: %s', len(new_active), res['stats'])
                 stats.update(res['stats'])
 
-            active = sorted(new_active, key=lambda item: item.up)  # better to start with good curves
-            if not active:
+            if not new_active:
                 # upper bound is too strong
                 return None
+
+            active = sorted(new_active, key=lambda item: item.up)  # better to start with good curves
             curr_lo = min(item.lo for item in active)
             logging.info('current bounds: [%.5f, %.5f]', curr_lo, curr_up)
 
         return {
             'lo': curr_lo, 'up': curr_up,
-            'curves': [d.curve for d in active],
-            'examples': [d.example for d in active],
-            'paths': [d.path_idx for d in active],
+            'curves': [item.example for item in active],
+            'idxs': [item.idx for item in active],
             'stats': stats,
         }
 

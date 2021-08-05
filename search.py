@@ -13,6 +13,9 @@ from peano.gate_utils import GatesGenerator
 from peano.subsets import Link
 
 
+SAT_MULTIPLIER = 1.3  # make this default?
+
+
 def run_estimator(
         dim, div, pcount,
         finish_max_count=None,
@@ -88,7 +91,7 @@ def run_estimator(
     for gen_id, pcurves_generator in pcurve_gens:
         result = estimator.estimate_dilation_sequence(
             pcurves_generator,
-            sat_strategy={'type': 'geometric', 'multiplier': 1.3},
+            sat_strategy={'type': 'geometric', 'multiplier': SAT_MULTIPLIER},
             upper_bound=upper_bound,
             **estimate_kwargs
         )
@@ -101,7 +104,7 @@ def run_estimator(
             print('lower bound:', float(result['lo']))
             print('upper bound:', float(result['up']))
             if output_examples:
-                for curve in result['examples']:
+                for curve in result['curves']:
                     print(curve)
                     print('')
 
@@ -142,9 +145,8 @@ if __name__ == "__main__":
         'linf': utils.ratio_linf,
     }
     if args.dim % 2 == 1 and args.metric == 'l2':
-        raise ValueError("Use l2_square for odd dimension!")
+        raise ValueError("Use l2_squared for odd dimension!")
 
-    logging.info('args: %s', args)
     gate_list = []
     kwargs = vars(args).copy()
     kwargs['ratio_func'] = funcs.get(kwargs.pop('metric'))
@@ -153,6 +155,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
     elif verbosity == 2:
         logging.basicConfig(level=logging.DEBUG)
+    logging.info('args: %s', args)  # call after loglevel is set!
 
     if (not args.output_stats) and (not args.output_gates) and (args.metric is None):
         raise ValueError("Define metric to estimate ratio!")
