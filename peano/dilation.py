@@ -775,12 +775,14 @@ class Estimator:
         # * curve with min dilation is in active list
 
         active = (get_item(curve, idx) for idx, curve in enumerate(curves))
+        if isinstance(curves, Sized):
+            active = list(active)
         curr_rel_tol_inv = 1
         epoch = 0
         while curr_up is None or curr_up > curr_lo * tolerance:
             curr_rel_tol_inv *= rel_tol_inv_mult
             epoch += 1
-            total = len(curves) if isinstance(curves, Sized) else -1
+            total = len(active) if isinstance(active, list) else -1
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
                 logging.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
