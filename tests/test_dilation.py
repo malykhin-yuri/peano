@@ -140,7 +140,7 @@ class TestCurve(unittest.TestCase):
 
         pcurve = PathFuzzyCurve.init_from_paths([path0])
         estimator = Estimator(utils.ratio_l2_squared)
-        curve = estimator.estimate_dilation(pcurve, rel_tol_inv=10000, verbose=False)['curve']
-        dilation = estimator.estimate_dilation(curve, rel_tol_inv=10000, use_vertex_brkline=True, verbose=False, max_depth=5)
+        curve = estimator.estimate_dilation(pcurve, rel_tol_inv=10000)['curve']
+        dilation = estimator.estimate_dilation(curve, rel_tol_inv=None, use_vertex_brkline=True, max_depth=5)
 
         assert dilation['lo'] == (Rational(408, 73) ** 2)

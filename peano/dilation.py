@@ -111,14 +111,12 @@ class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'p
     def get_last_specs(self):
         return self._get_piece(1).get_last_spec(), self._get_piece(2).get_last_spec()
 
-    def divide_balanced(self, max_depth=None):
-        # Divide one of the fractions keeping pair balanced: depth1 == depth2 or depth1 == depth2 + 1.
-        # max_depth: limit for depth; pair depth equals junc.depth + minimum position depths
+    @property
+    def depth(self):
+        return self.junc.depth + min(self.pos1.depth, self.pos2.depth)
 
-        if max_depth is not None:
-            # depth = junc depth + piece depth
-            if min(self.pos1.depth, self.pos2.depth) >= max_depth - self.junc.depth:
-                return
+    def divide_balanced(self):
+        # Divide one of the fractions keeping pair balanced: depth1 == depth2 or depth1 == depth2 + 1.
 
         # use curve from divided piece because it has specified curve
         if self.pos1.depth > self.pos2.depth:
@@ -129,111 +127,111 @@ class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'p
                 yield type(self)(subpiece.curve, self.junc, subpiece.pos, self.pos2)
 
 
-class _PairsTree:
-    # Collection of curve fraction pairs with lo/up bounds.
+class _BoundedItemsHeap:
+    # Collection of items with lower/uppper bounds on their "values" (item.lo, item.up)
     #
-    # This class stores "nodes" (Node) = curve fraction pairs (_CurvePiecePair)
-    # with lower (lo) and upper (up) bounds on their dilation (calculated elsewhere).
     # Two thresholds may be set:
-    # * good - if upper bound <= good then pair is considered "good" and not added to tree
-    # * bad - if lower bound >= bad then pair is bad and it is temporarily stored
-    # Note that a pair may be good and bad simultaneously, if bad_thr <= lo <= up <= good_thr
-    # Active nodes are stored in heap with priority=up
+    # * good - if item.up <= good then item is considered "good" and discarded
+    # * bad - if item.lo >= bad then item is "bad" and it is temporarily stored
+    # note that an item may be good and bad simultaneously, if bad_thr <= lo <= up <= good_thr
+    # in this case it is considered as "good"
+    # * otherwise item is "active", they are stored in heap with priority=up
 
-    Node = namedtuple('Node', [
-        'key',  # first field, will used for comparison by heapq
-        'pair',  # stored item
-        'up',  # upper_bound
-        'lo',  # lower_bound
-        'data',  # some arbitrary data
-    ])
-
-    def __init__(self, max_depth=None, brkline=None, keep_max_lo_node=False):
-        # max_depth and brkline are used externally
-        self._nodes = []  # use heapq algorithm for plain list
-        self._bad_pairs = []
+    def __init__(self, keep_max_lo_item=False, **kwargs):
+        # use heapq algorithm for list of tuples (priority, increment, item)
+        self._heap = []
+        self._bad_items = []
         self._good_threshold = None
         self._bad_threshold = None
 
-        self._keep_max_lo_node = keep_max_lo_node
-        if self._keep_max_lo_node:
-            self.max_lo_node = None
+        self._keep_max_lo_item = keep_max_lo_item
+        if self._keep_max_lo_item:
+            self.max_lo_item = None
 
-        self.max_depth = max_depth
-        if self.max_depth is not None:
-            # if max_depth is set, we also store max(up) of deep nodes
-            self.max_deep_up = None
-
-        self.brkline = brkline
         self.stats = Counter()
+        self.other = kwargs
         self._inc = 0
 
     def set_good_threshold(self, threshold):
-        # If up <= good, pair is considered "good" (hence insignificant).
+        # If up <= good, item is considered "good" (hence insignificant).
         self.stats['set_good_threshold'] += 1
         self._good_threshold = threshold
 
     def set_bad_threshold(self, threshold):
-        # If lo >= bad, pair is considered "bad".
+        # If lo >= bad, item is considered "bad".
         self.stats['set_bad_threshold'] += 1
         self._bad_threshold = threshold
 
-    def nodes_count(self):
-        return len(self._nodes)
+    def has_items(self):
+        return bool(self._heap)
 
-    def push(self, pair, lo, up, data):
+    def items(self):
+        # returns iterator over active items
+        return (node[-1] for node in self._heap)
+
+    def push(self, item):
         # Add node checking the thresholds:
         # good pair is dropped / bad pair is temporarily stored / otherwise node is added to the heap
         self.stats['push'] += 1
 
+        if self._keep_max_lo_item:
+            if self.max_lo_item is None or item.lo > self.max_lo_item.lo:
+                self.max_lo_item = item
+
         # the order of checks may be important
-        # currently we add bad pairs to SAT clauses, it may be more effective to
-        # check for goodness first (recall that a pair may be good and bad simultaneously)
-        if (self._good_threshold is not None) and up <= self._good_threshold:
+        # is Estimator we add bad pairs to SAT clauses, so it may be more effective to
+        # check for goodness first (recall that an item may be good and bad simultaneously)
+        if (self._good_threshold is not None) and item.up <= self._good_threshold:
             self.stats['good'] += 1
             return
-        if (self._bad_threshold is not None) and lo >= self._bad_threshold:
-            self._bad_pairs.append(pair)
+        if (self._bad_threshold is not None) and item.lo >= self._bad_threshold:
+            self._bad_items.append(item)
             self.stats['bad'] += 1
             return
 
-        # TODO here we can check max_depth and store max_up for them
+        self._inc += 1
+        node = (-item.up, self._inc, item)  # first key is priority; _inc to avoid comparing items
+        heappush(self._heap, node)
 
-        self._inc += 1  # to restrict comparison in heap to 'key' of Node
-        node = self.Node(key=(-up, self._inc), pair=pair, lo=lo, up=up, data=data)
+    def extend(self, items):
+        for item in items:
+            self.push(item)
 
-        if self._keep_max_lo_node:
-            if self.max_lo_node is None or lo > self.max_lo_node.lo:
-                self.max_lo_node = node
-
-        heappush(self._nodes, node)
-
-    def get_curr_up(self):
-        # max up for all active nodes = up for heap top
-        return self._nodes[0].up
+    def top(self):
+        # Active item with highest priority (up)
+        return self._heap[0][-1]
 
     def pop(self):
-        # Pop and return node with highest priority (up)
-        return heappop(self._nodes)
+        # Pop and return active item with highest priority (up)
+        return heappop(self._heap)[-1]
 
-    def pop_bad_pairs(self):
+    def pop_bad_items(self):
         # Return bad pairs list and empty it.
-        bad_pairs = self._bad_pairs
-        self._bad_pairs = []
-        return bad_pairs
+        bad_items = self._bad_items
+        self._bad_items = []
+        return bad_items
+
+    def can_cleanup(self):
+        # cleanup pushs <= regular pushs
+        return self.stats['cleanup_push'] <= (self.stats['push'] - self.stats['cleanup_push'])
+
+    def cleanup(self):
+        # rebuild heap with actual thresholds
+        items = list(self.items())
+        self._heap = []
+        self.extend(items)
+        self.stats['cleanup_push'] += len(items)
+        self.stats['cleanup_count'] += 1
 
     def copy(self, good_threshold=None, bad_threshold=None):
         # copy initial tree and apply thresholds, if any
-        assert not self._bad_pairs
+        assert not self._bad_items
         assert self._good_threshold is None
         assert self._bad_threshold is None
-        assert self.max_depth is None
-        assert self.brkline is None
-        new_tree = _PairsTree()
+        new_tree = type(self)()
         new_tree.set_good_threshold(good_threshold)
         new_tree.set_bad_threshold(bad_threshold)
-        for node in self._nodes:
-            new_tree.push(node.pair, node.lo, node.up, node.data)
+        new_tree.extend(self.items())
         return new_tree
 
 
@@ -258,7 +256,7 @@ class Estimator:
         Args:
             ratio_func: function (dim, dx, dt) -> Rational
               it is assumed to be d-uniform and coordinate-monotone
-            cache_max_size: subj for pairs bounds cache
+            cache_max_size: cache size for pairs bounds
         """
 
         self.ratio_func = ratio_func
@@ -389,7 +387,7 @@ class Estimator:
     def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
         # Create initial pairs tree from a curve
         G = curve.genus
-        tree = _PairsTree(**tree_kwargs)
+        tree = _BoundedItemsHeap(**tree_kwargs)
         tree.set_good_threshold(good_threshold)
         tree.set_bad_threshold(bad_threshold)
         for junc in curve.gen_auto_junctions():
@@ -410,15 +408,20 @@ class Estimator:
 
         return tree
 
+    # items for heap = pairs of curve fractions ( _CurvePiecePair)
+    # together with lo/up bounds on their dilation
+    _BoundedPair = namedtuple('_BoundedPair', ['pair', 'lo', 'up', 'argmax'])
+
     def _push_tree(self, tree, pair):
-        lo, up, argmax = self._get_bounds(pair, brkline=tree.brkline)
-        tree.push(pair, lo=lo, up=up, data=argmax)
+        lo, up, argmax = self._get_bounds(pair, brkline=tree.other.get('brkline'))
+        item = self._BoundedPair(pair, lo, up, argmax)
+        tree.push(item)
 
     def _divide_tree(self, tree):
-        # Divide node of the tree with highest priority (up)
-        if tree.nodes_count():
-            for new_pair in tree.pop().pair.divide_balanced(max_depth=tree.max_depth):
-                self._push_tree(tree, new_pair)
+        # Divide worst pair
+        worst_item = tree.pop()
+        for new_pair in worst_item.pair.divide_balanced():
+            self._push_tree(tree, new_pair)
 
     def estimate_dilation(self, curve, *args, **kwargs):
         """Dispatcher method: uses estimate_dilation_regular or estimate_dilation_fuzzy"""
@@ -434,11 +437,13 @@ class Estimator:
 
         Args:
             curve: Curve instance, fully defined polyfractal curve
-            rel_tol_inv: inverted relative tolerance
-            max_iter: limit for subdivisions
+            rel_tol_inv: inverted relative tolerance (may be set to None)
+            max_iter: limit for subdivisions iters
             use_vertex_brkline: use vertex moments (broken line) for dilation lower bounds
-            max_depth: do not consider fractions of higher order
+            max_depth: allow not to consider pairs of higher depth
               note that fraction depth = junc depth + piece depth;
+              if dilation is attained at pair of fractions of depth <= max_depth,
+              then resulting "lo" will be exact
 
         Returns:
             dict with keys:
@@ -447,57 +452,65 @@ class Estimator:
             'argmax': pair of points where lo is achieved (if use_vertex_brkline is set)
         """
 
+        tree_kwargs = {'keep_max_lo_item': True}
         if use_vertex_brkline:
             if curve.pcount > 1:
                 raise NotImplementedError("Brklines for multiple patterns not implemented!")
             vertex_brkline = list(curve.get_vertex_moments().items())
-            brkline = _IntegerBrokenLine.init_from_rational(curve.dim, vertex_brkline)
-        else:
-            brkline = None
+            tree_kwargs['brkline'] = _IntegerBrokenLine.init_from_rational(curve.dim, vertex_brkline)
 
-        # TODO:
-        # как работает max_depth ? не нарушаются ли инварианты? не очевидно
-        # TODO FIX MAX DEPTHkh
+        if rel_tol_inv is not None:
+            tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
 
         # This is a basic algorithm that does not require SAT-solvers.
-        # We maintain a "tree" of pairs of all non-adjacent curve fractions, for all junctions.
+        # We maintain a "tree" (_BoundedItemsHeap instance) of pairs (_BoundedPair)
+        # of all non-adjacent curve fractions, for all junctions.
         # For each pair we get lower and upper bounds for dilation (see _get_bound)
         # At each iteration we divide the worst pair (with max upper bound)
+        # Dilation is attended at one of the active pairs of the tree.
 
-        pairs_tree = self._create_tree(curve, max_depth=max_depth, brkline=brkline, keep_max_lo_node=True)
-
-        # invariant: ratio of the curve is in [curr_lo, curr_up]
+        pairs_tree = self._create_tree(curve, **tree_kwargs)
 
         # if there is a pair with dilation >= lo, then lo is the bound for the whole curve
         # and we do not need to consider pairs with less-or-equal upper bound
-        curr_lo = pairs_tree.max_lo_node.lo
-        argmax = pairs_tree.max_lo_node.data
+        curr_lo = pairs_tree.max_lo_item.lo
+        argmax = pairs_tree.max_lo_item.argmax
         pairs_tree.set_good_threshold(curr_lo)
 
-        # since the bound of the curve is attended at one of the active pairs,
-        # upper bound for worst pair gives us upper bound for the curve
-        curr_up = pairs_tree.get_curr_up()
+        # upper bound for worst active pair gives us upper bound for the curve
+        curr_up = pairs_tree.top().up
         logging.info('start bounds: %.5f < %.5f', curr_lo, curr_up)
 
-        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
+        # invariant: dilation of the curve is in [curr_lo, curr_up]
         iter_no = 0
-        while curr_up > curr_lo * tolerance:
+        while True:
             iter_no += 1
-            if not pairs_tree.nodes_count():
+            if (rel_tol_inv is not None) and curr_up <= curr_lo * tolerance:
                 break
-            if max_iter is not None and iter_no > max_iter:
+            if (max_iter is not None) and iter_no > max_iter:
                 break
+            if max_depth is not None:
+                # given max_depth, we proceed as usual and consider deep fractions also
+                # to obtain good up bounds and truncate tree faster;
+                # we wait till all active pairs become deep enough to ensure that
+                # all pairs with depth <= max_depth had been processed;
+                # but we have to cleanup to discard old pairs with not-so-high up
+                if pairs_tree.can_cleanup():
+                    pairs_tree.cleanup()
+                    depth = min(item.pair.depth for item in pairs_tree.items())
+                    if depth > max_depth:
+                        break
 
             self._divide_tree(pairs_tree)
 
-            node = pairs_tree.max_lo_node
-            if node.lo > curr_lo:
-                curr_lo = node.lo
-                argmax = node.data
+            item = pairs_tree.max_lo_item
+            if item.lo > curr_lo:
+                curr_lo = item.lo
+                argmax = item.argmax
                 pairs_tree.set_good_threshold(curr_lo)
                 logging.info('new lower bound: %.5f < %.5f', curr_lo, curr_up)
 
-            new_up = pairs_tree.get_curr_up()
+            new_up = pairs_tree.top().up
             if new_up < curr_up:
                 logging.info('new upper bound: %.5f < %.5f', curr_lo, curr_up)
                 curr_up = new_up
@@ -562,21 +575,21 @@ class Estimator:
         else:
             pairs_tree = start_pairs_tree.copy(**thrs)
 
-        for bad_pair in pairs_tree.pop_bad_pairs():
-            adapter.add_forbid_clause(bad_pair.junc, bad_pair.curve)
+        for bad_item in pairs_tree.pop_bad_items():
+            adapter.add_forbid_clause(bad_item.pair.junc, bad_item.pair.curve)
 
         no_model = None
         stats = Counter()
         result = {'stats': stats}
 
-        while pairs_tree.nodes_count():
+        while pairs_tree.has_items():
             stats['divide_iter'] += 1
             if max_iter is not None and stats['divide_iter'] > max_iter:
                 raise self._RunOutOfIterationsException()
 
             self._divide_tree(pairs_tree)
-            for bad_pair in pairs_tree.pop_bad_pairs():
-                adapter.add_forbid_clause(bad_pair.junc, bad_pair.curve)
+            for bad_item in pairs_tree.pop_bad_items():
+                adapter.add_forbid_clause(bad_item.pair.junc, bad_item.pair.curve)
 
             try_sat = False
             if sat_strategy['type'] == 'equal':
