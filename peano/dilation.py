@@ -615,7 +615,7 @@ class Estimator:
             if not try_sat:
                 continue
 
-            # TODO что-нибудь логировать
+            logging.info('iter %d, try SAT solver', iter_no)
             if not adapter.solve():
                 no_model = True
                 break
@@ -646,7 +646,7 @@ class Estimator:
             curve: fuzzy curve
             rel_tol_inv: inverted relative tolerance, integer
             stop_upper_bound: do not proceed if min WD is higher than this
-            init_pairs_tree: initial tree of first-order pairs, without thresholds
+            init_pairs_tree: initial tree of first-order pairs, without thresholds (optimization)
 
             start_lower_bound: known lower bound on min WD, start bisection with it
             start_upper_bound: known upper bound on min WD, start bisection with it
@@ -664,11 +664,7 @@ class Estimator:
 
         # This method is simply "bisection" algorithm based on bisect_dilation_fuzzy.
 
-        stats = Counter()
         if start_lower_bound is None:
-            # start lower bound: it would be profitable to use good theoretical
-            # bounds like 5**2 for ratio_l2_squared, dim=2, pcount=1 (?)
-            # TODO try 1
             curr_lo = Rational(0)
         else:
             curr_lo = start_lower_bound
@@ -683,24 +679,18 @@ class Estimator:
             curr_curve = start_curve
 
         if init_pairs_tree is None:
-            pairs_tree = self._create_tree(curve)
-        else:
-            pairs_tree = init_pairs_tree  # we will not modify it
+            init_pairs_tree = self._create_tree(curve)
 
         # invariants:
-        # * best curve in the class is in [curr_lo, curr_up]
+        # * minimum dilation is in [curr_lo, curr_up]
         # * curr_curve dilation also in [curr_lo, curr_up]
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
+        stats = Counter()
         while curr_up > curr_lo * tolerance:
             stats['bisect_iter'] += 1
 
-            if curr_lo == Rational(0):
-                # optimization - TODO check profit
-                test_lo = Rational(1, 2) * curr_up
-                test_up = Rational(2, 3) * curr_up
-            else:
-                test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
-                test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
+            test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
+            test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
 
             logging.info(
                 'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
@@ -713,7 +703,7 @@ class Estimator:
                     curve,
                     bad_threshold=test_lo,
                     good_threshold=test_up,
-                    init_pairs_tree=pairs_tree,
+                    init_pairs_tree=init_pairs_tree,
                     **kwargs,
                 )
                 stats.update(test_result['stats'])
@@ -723,7 +713,6 @@ class Estimator:
 
             if test_result.get('curve'):
                 curr_curve = test_result['curve']
-                # TODO try to estimate ratio for curr_curve ???
                 curr_up = test_up
             else:
                 curr_lo = test_lo
@@ -733,10 +722,10 @@ class Estimator:
 
         return {
             'curve': curr_curve,
-            'pairs_tree': pairs_tree,
             'lo': curr_lo,
             'up': curr_up,
             'stats': stats,
+            'init_pairs_tree': init_pairs_tree,
         }
 
     def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=3, upper_bound=None, **kwargs):
@@ -757,14 +746,14 @@ class Estimator:
             TODO
         """
 
-        CurveItem = namedtuple('CurveItem', ['priority', 'lo', 'up', 'curve', 'example', 'pairs_tree', 'path_idx'])
+        CurveItem = namedtuple('CurveItem', ['priority', 'lo', 'up', 'curve', 'example', 'init_pairs_tree', 'path_idx'])
         _inc = 0
 
-        def get_item(curve, lo=None, up=None, example=None, pairs_tree=None, path_idx=None):
+        def get_item(curve, lo=None, up=None, example=None, init_pairs_tree=None, path_idx=None):
             nonlocal _inc
             _inc += 1
             priority = ((-lo if lo is not None else None), _inc)
-            return CurveItem(priority, lo, up, curve, example, pairs_tree, path_idx)
+            return CurveItem(priority, lo, up, curve, example, init_pairs_tree, path_idx)
 
         curr_lo = Rational(0)
         curr_up = upper_bound
@@ -786,7 +775,7 @@ class Estimator:
                 res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, stop_upper_bound=curr_up,
                     start_lower_bound=item.lo, start_upper_bound=item.up, start_curve=item.example,
-                    init_pairs_tree=item.pairs_tree,
+                    init_pairs_tree=item.init_pairs_tree,
                     **kwargs,
                 )
                 if curr_up is None or res['up'] < curr_up:
@@ -797,11 +786,11 @@ class Estimator:
                     # have a chance to be the best
                     if total < 0 or total > 200:
                         # avoid memory leak
-                        res['pairs_tree'] = None
+                        res['init_pairs_tree'] = None
                     new_item = get_item(
                         curve=item.curve,
                         lo=res['lo'], up=res['up'],
-                        example=res['curve'], pairs_tree=res['pairs_tree'],
+                        example=res['curve'], init_pairs_tree=res['init_pairs_tree'],
                         path_idx=item.path_idx,
                     )
                     heappush(new_active, new_item)
