@@ -223,16 +223,16 @@ class _BoundedItemsHeap:
         self.stats['cleanup_push'] += len(items)
         self.stats['cleanup_count'] += 1
 
-    def copy(self, good_threshold=None, bad_threshold=None):
+    def copy_and_cleanup(self, good_threshold=None, bad_threshold=None):
         # copy initial tree and apply thresholds, if any
-        assert not self._bad_items
         assert self._good_threshold is None
         assert self._bad_threshold is None
-        new_tree = type(self)()
-        new_tree.set_good_threshold(good_threshold)
-        new_tree.set_bad_threshold(bad_threshold)
-        new_tree.extend(self.items())
-        return new_tree
+        assert not self._keep_max_lo_item
+        new_heap = _BoundedItemsHeap()
+        new_heap.set_good_threshold(good_threshold)
+        new_heap.set_bad_threshold(bad_threshold)
+        new_heap.extend(self.items())
+        return new_heap
 
 
 class Estimator:
@@ -423,6 +423,25 @@ class Estimator:
         for new_pair in worst_item.pair.divide_balanced():
             self._push_tree(tree, new_pair)
 
+    def _forbid(self, tree, adapter):
+        # forbid bad configurations and drop them from the tree
+        for item in tree.pop_bad_items():
+            adapter.add_forbid_clause(item.pair.junc, item.pair.curve)
+
+    @staticmethod
+    def _try_by_strategy(info):
+        strategy = info['strategy']
+        info.setdefault('iter', 0)
+        info['iter'] += 1
+        if strategy['type'] == 'equal':
+            if info['iter'] % strategy['count'] == 0:
+                return True
+        elif strategy['type'] == 'geometric':
+            info.setdefault('next_try_iter', 1)
+            if info['iter'] >= info['next_try_iter']:
+                info['next_try_iter'] = int(info['next_try_iter'] * strategy['multiplier']) + 1
+                return True
+
     def estimate_dilation(self, curve, *args, **kwargs):
         """Dispatcher method: uses estimate_dilation_regular or estimate_dilation_fuzzy"""
         if isinstance(curve, Curve):
@@ -430,8 +449,7 @@ class Estimator:
         else:
             return self.estimate_dilation_fuzzy(curve, *args, **kwargs)
 
-    # TODO remove verbose
-    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, max_depth=None, verbose=None):
+    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, max_depth=None):
         """
         Estimate dilation for a regular peano curve (class Curve).
 
@@ -521,134 +539,136 @@ class Estimator:
 
         return res
 
-    def bisect_dilation_fuzzy(self, curve, bad_threshold, good_threshold,
-                              max_iter=None, sat_strategy=None, verbose=False,  # TODO remove verbose
-                              start_pairs_tree=None):
+    def bisect_dilation_fuzzy(self, curve, good_threshold, bad_threshold,
+                              max_iter=None, sat_strategy=None,
+                              init_pairs_tree=None):
         """
-        Test if there is a "good" curve.
+        Decide if there is a "good" regular curve or all curves are "bad".
 
-        If the method returns no curve, then ratio is "bad" for all regular curves for given fuzzy curve.
-        If the method returns a curve, then it is good one.
+        Consider the minimal dilation WD(gamma) for all regular curves from given fuzzy curve.
+        Given two thresholds: bad_thr < good_thr, method either:
+        * finds a "good" (dilation <= good_thr) regular curve from this fuzzy curve; returns that curve
+          so, min WD <= good_thr
+        * proves that dilation is "bad" (>= bad_thr) for all curves; returns no curve
+          so, min WD >= bad_thr in this case
+        If (bad_thr <= min WD <= good_thr), both cases take place and return value is not specified,
+        so the resulting curve is guaranteed only if min WD < bad_thr.
 
-        Arguments:
-        curve  --  FuzzyCurve instance
-        _bad_threshold  --  TODO fix this
-        _good_threshold  --  TODO fix this
-                            (It is required that _bad_threshold is less than _good_threshold, so
-                            it is possible that there are good curves, but all curves are bad.
-                            It this case the return value is not specified.)
-        max_iter  --  max number of divisions; raise Exception if maximum iterations reached
-        sat_strategy  --    when do we call sat solver:
-                            strategy['type'] == 'equal': call every strategy['count'] divisions
-                            strategy['type'] == 'geometric': call on strategy['multiplier']**k iterations
-        find_model  --  subj
-        start_pairs_tree  --  just cache _create_tree
+        Args:
+            curve: FuzzyCurve instance
+            good_threshold: good curves are those with dilation <= good_thr
+            bad_threshold: bad curves are those with dilation >= bad_thr
+              It is required that bad_threshold < good_threshold
+            max_iter: max number of divisions; raise exception if maximum iterations reached
+            sat_strategy: when do we call sat solver:
+              strategy['type'] == 'equal': call every strategy['count'] divisions (default)
+              strategy['type'] == 'geometric': call on strategy['multiplier']**k iterations
+            init_pairs_tree: cached _create_tree
+
+        Returns:
+            dict with keys:
+            'curve': regular curve (if found)
+            'stats': counter with various stats
         """
 
         # This is the main algorithm of the whole "peano" package.
-
-        # all possible regular curves from given curve are encoded using
-        # boolean variables in sat adapter
         #
-        # we grow the pairs tree with fixed good and bad thresholds
-        # all pairs below good threshold are forgotten
-        # all pairs above bad threshold are added to the list of forbidden configurations,
-        # i.e. a list of boolean clauses in sat adapter
+        # All possible regular curves from given fuzzy curve are encoded using
+        # boolean variables in sat adapter.
         #
-        # if we can't find a model, then all curves are necessarily bad
-        # if there is a model, it avoids bad pairs and all other pairs are good,
-        # because we grow the tree till we can
-        # (see also estimate_dilation_regular for more explanations)
+        # We grow the pairs tree with fixed good and bad thresholds
+        # all bad pairs are added to the list of forbidden configurations,
+        # i.e. a list of boolean clauses in sat adapter.
+        #
+        # If we can't find a model, then all curves are necessarily bad
+        # (i.e., all possible configurations are forbidden)
+        # If there are no active pairs in the tree and adapter finds a model,
+        # then the corresponding curve is good because it avoids bad pairs
+        # and all other curve's pairs are good
 
         adapter = sat_adapters.CurveSATAdapter(curve)
 
         # how often should we call sat solver? default is equidistant strategy
         if sat_strategy is None:
             sat_strategy = {'type': 'equal', 'count': 100}
-        if sat_strategy['type'] == 'geometric':
-            sat_current_iter = 1
-
+        try_sat_info = {'strategy': sat_strategy}
 
         thrs = {'good_threshold': good_threshold, 'bad_threshold': bad_threshold}
-        if start_pairs_tree is None:
+        if init_pairs_tree is None:
             pairs_tree = self._create_tree(curve, **thrs)
         else:
-            pairs_tree = start_pairs_tree.copy(**thrs)
+            pairs_tree = init_pairs_tree.copy_and_cleanup(**thrs)
 
-        for bad_item in pairs_tree.pop_bad_items():
-            adapter.add_forbid_clause(bad_item.pair.junc, bad_item.pair.curve)
+        self._forbid(pairs_tree, adapter)
 
         no_model = None
-        stats = Counter()
-        result = {'stats': stats}
-
+        iter_no = 0
         while pairs_tree.has_items():
-            stats['divide_iter'] += 1
-            if max_iter is not None and stats['divide_iter'] > max_iter:
+            iter_no += 1
+            if (max_iter is not None) and iter_no > max_iter:
                 raise self._RunOutOfIterationsException()
 
             self._divide_tree(pairs_tree)
-            for bad_item in pairs_tree.pop_bad_items():
-                adapter.add_forbid_clause(bad_item.pair.junc, bad_item.pair.curve)
+            self._forbid(pairs_tree, adapter)
 
-            try_sat = False
-            if sat_strategy['type'] == 'equal':
-                if stats['divide_iter'] % sat_strategy['count'] == 0:
-                    try_sat = True
-            elif sat_strategy['type'] == 'geometric':
-                if stats['divide_iter'] >= sat_current_iter:
-                    try_sat = True
-                    sat_current_iter = int(sat_current_iter * sat_strategy['multiplier']) + 1
+            try_sat = self._try_by_strategy(try_sat_info)
+            if not try_sat:
+                continue
 
-            if try_sat:
-                logging.info('current stats: %s', result['stats'])
-                if not adapter.solve():
-                    no_model = True
-                    break
+            # TODO что-нибудь логировать
+            if not adapter.solve():
+                no_model = True
+                break
 
-        result['stats'].update({'ptree.' + k: v for k, v in pairs_tree.stats.items()})
-        result['stats'].update({'sat.' + k: v for k, v in adapter.get_stats().items()})
+        stats = Counter()
+        stats['divide_iter'] = iter_no
+        stats.update({'ptree.{}'.format(k): v for k, v in pairs_tree.stats.items()})
+        stats.update({'sat.{}'.format(k): v for k, v in adapter.get_stats().items()})
+        result = {'stats': stats}
 
         if no_model or not adapter.solve():
             return result
 
         model = adapter.get_model()
-        result['model'] = model
         result['curve'] = adapter.get_curve_from_model(model)
         return result
 
-
-    def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, upper_bound=None,
-                                start_lower_bound=None, start_upper_bound=None, start_curve=None, start_pairs_tree=None,
-                                max_iter=None, sat_strategy=None, verbose=False):
+    def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, stop_upper_bound=None,
+                                start_lower_bound=None, start_upper_bound=None, start_curve=None,
+                                init_pairs_tree=None, **kwargs):
         """
-        Estimate minimal ratio of a fuzzy curve.
+        Estimate minimal dilation of a fuzzy curve.
 
-        Arguments:
-        curve  --  fuzzy curve
-        rel_tol_inv  --  inverted relative tolerance, integer
-        upper_bound  --  do not proceed if there is ratio is higher than this
-        start_lower_bound  --  known lo bound for ratio, start bisection with it
-        start_upper_bound  --  known up bound for ratio, start bisection with it
-        start_curve  --  known curve with start_upper_bound
-        start_pairs_tree  --  just _create_tree
-        max_iter  --  subj
-        sat_strategy  --  passed to bisect_dilation_fuzzy, see there (TODO: use kwargs for that)
-        find_model  --  bool, will find Curve if set True
-        verbose  --  subj
+        We estimate min WD(gamma) for regular curves gamma from given fuzzy curve,
+        i.e., the dilation of best curve.
 
-        Return dict with keys:
-        'lo' -- lower_bound
-        'up' -- upper_bound
-        'curve' -- curve_example with ratio in [lo, up]
+        Args:
+            curve: fuzzy curve
+            rel_tol_inv: inverted relative tolerance, integer
+            stop_upper_bound: do not proceed if min WD is higher than this
+            init_pairs_tree: initial tree of first-order pairs, without thresholds
+
+            start_lower_bound: known lower bound on min WD, start bisection with it
+            start_upper_bound: known upper bound on min WD, start bisection with it
+            start_curve: known curve with start_upper_bound
+
+            **kwargs: passed to bisect_dilation_fuzzy
+
+        Returns:
+             dict with keys:
+            'lo': lower_bound
+            'up': upper_bound
+            'curve': curve_example with dilation in [lo, up]
+            'pairs_tree': initial tree to use in subsequent calls
         """
 
-        # this method is simply "bisection" algorithm based on bisect_dilation_fuzzy
+        # This method is simply "bisection" algorithm based on bisect_dilation_fuzzy.
 
         stats = Counter()
-        # start lower bound: it would be profitable to use good theoretical
-        # bounds like 5**2 for ratio_l2_squared, dim=2, pcount=1 (?)
         if start_lower_bound is None:
+            # start lower bound: it would be profitable to use good theoretical
+            # bounds like 5**2 for ratio_l2_squared, dim=2, pcount=1 (?)
+            # TODO try 1
             curr_lo = Rational(0)
         else:
             curr_lo = start_lower_bound
@@ -662,38 +682,39 @@ class Estimator:
             curr_up = start_upper_bound
             curr_curve = start_curve
 
-        if start_pairs_tree is None:
+        if init_pairs_tree is None:
             pairs_tree = self._create_tree(curve)
         else:
-            pairs_tree = start_pairs_tree  # we will not modify it
+            pairs_tree = init_pairs_tree  # we will not modify it
 
-        # invariant: best curve in the class is in [curr_lo, curr_up]
-        # curr_curve ratio also in [curr_lo, curr_up]
+        # invariants:
+        # * best curve in the class is in [curr_lo, curr_up]
+        # * curr_curve dilation also in [curr_lo, curr_up]
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
         while curr_up > curr_lo * tolerance:
-            if curr_lo == Rational(0):
-                # optimization ?
-                new_lo = Rational(1, 2) * curr_up
-                new_up = Rational(2, 3) * curr_up
-            else:
-                new_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
-                new_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
             stats['bisect_iter'] += 1
+
+            if curr_lo == Rational(0):
+                # optimization - TODO check profit
+                test_lo = Rational(1, 2) * curr_up
+                test_up = Rational(2, 3) * curr_up
+            else:
+                test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
+                test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
+
             logging.info(
-                '#%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
-                curr_lo, curr_up, new_lo, new_up,
+                'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
+                curr_lo, curr_up, test_lo, test_up,
             )
-            logging.debug('precise test thresholds: %s, %s', new_lo, new_up)
+            logging.debug('precise test thresholds: %s, %s', test_lo, test_up)
             try:
                 # we always ask for a model, to get actual curve with guarantees
                 test_result = self.bisect_dilation_fuzzy(
                     curve,
-                    bad_threshold=new_lo,
-                    good_threshold=new_up,
-                    max_iter=max_iter,
-                    sat_strategy=sat_strategy,
-                    start_pairs_tree=pairs_tree,
-                    verbose=verbose,
+                    bad_threshold=test_lo,
+                    good_threshold=test_up,
+                    init_pairs_tree=pairs_tree,
+                    **kwargs,
                 )
                 stats.update(test_result['stats'])
             except self._RunOutOfIterationsException:
@@ -702,12 +723,12 @@ class Estimator:
 
             if test_result.get('curve'):
                 curr_curve = test_result['curve']
-                # try to estimate ratio for curr_curve ???
-                curr_up = new_up
+                # TODO try to estimate ratio for curr_curve ???
+                curr_up = test_up
             else:
-                curr_lo = new_lo
+                curr_lo = test_lo
 
-            if upper_bound is not None and curr_lo > upper_bound:
+            if (stop_upper_bound is not None) and curr_lo > stop_upper_bound:
                 break
 
         return {
@@ -720,16 +741,20 @@ class Estimator:
 
     def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=3, upper_bound=None, **kwargs):
         """
-        Estimate minimal curve ratio for sequence of fuzzy curves.
+        Estimate minimal dilation for sequence of fuzzy curves.
 
-        This method relies totally on estimate_dilation_fuzzy.
-        Params:
-        upper_bound  --  apriori upper bound for best ratio (undefined behaviour if violated - TODO)
-        rel_tol_inv  --  subj
-        rel_tol_inv_mult  --  current rel_tol_inv is multiplied by this every epoch
+        We estimate min_{fuzzy} min_{curve in fuzzy} WD(curve).
 
-        Additional kwargs are passed as is to estimate_dilation_fuzzy.
-        Returns lo, up, and list of curve candidates.
+        Args:
+            upper_bound  --  apriori upper bound for best ratio (undefined behaviour if violated - TODO)
+            rel_tol_inv  --  subj
+            rel_tol_inv_mult  --  current rel_tol_inv is multiplied by this every epoch
+            **kwargs: passed as is to estimate_dilation_fuzzy
+
+        Returns:
+            dict with keys:
+            'lo', 'up', and list of curve candidates.
+            TODO
         """
 
         CurveItem = namedtuple('CurveItem', ['priority', 'lo', 'up', 'curve', 'example', 'pairs_tree', 'path_idx'])
@@ -757,11 +782,11 @@ class Estimator:
             total = len(active) if isinstance(active, list) else -1
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
-                logging.info('E%d, curve %d / %d', epoch, cnt + 1, total)
+                logging.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
                 res = self.estimate_dilation_fuzzy(
-                    item.curve, rel_tol_inv=curr_rel_tol_inv, upper_bound=curr_up,
-                    start_lower_bound=item.lo, start_upper_bound=item.up,
-                    start_curve=item.example, start_pairs_tree=item.pairs_tree,
+                    item.curve, rel_tol_inv=curr_rel_tol_inv, stop_upper_bound=curr_up,
+                    start_lower_bound=item.lo, start_upper_bound=item.up, start_curve=item.example,
+                    init_pairs_tree=item.pairs_tree,
                     **kwargs,
                 )
                 if curr_up is None or res['up'] < curr_up:
