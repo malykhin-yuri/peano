@@ -3,24 +3,25 @@ import logging
 import itertools
 
 from .curves import FuzzyCurve
-from .subsets import Link, HyperFaceDivSubset
+from .subsets import Link, FacetDivSubset
 from .paths import Proto, PathsGenerator
 from .base_maps import BaseMap, Spec
 
 
 class GatesGenerator:
-    def __init__(self, dim, div, pcount, hyper=False):
+    def __init__(self, dim, div, pcount, facet=False):
         """
-        Generate gates for given configuration, optimized for hypercurves.
+        Generate gates for given configuration, optimized for facet-gated curves
 
         Args:
-          dim, div, pcount  --  base configuration
-          hyper  --  work with hypercurves only
+          dim, div, pcount: base configuration
+          facet: work with facet-gated curves only, i.e. having entrance/exit
+            strictly on facets (hyperfaces)
         """
         self.dim = dim
         self.div = div
         self.pcount = pcount
-        self.hyper = hyper
+        self.facet = facet
         self.stats = Counter()
         self.seen_gates = set()
         self.seen_std_gates = set()
@@ -30,9 +31,6 @@ class GatesGenerator:
         """
         Generate all gates such that there is at least one path with thems.
 
-        For hyper, we consider only hypercurves (with entrance/exit strictly on hyperfaces).
-        This class is optimized for hypercurves search.
-
         Otherwise, we consider non-internal curves, i.e., curves with all gates on cube boundary.
         Indeed, if curve in internal, then only internal curves can "use" it,
         and non-internal curves use each other and have lower ratio.
@@ -41,23 +39,23 @@ class GatesGenerator:
         """
         self.seen_gates.clear()
         self.seen_std_gates.clear()
-        if self.hyper:
-            yield from self._gen_hyper_gates(**kwargs)
+        if self.facet:
+            yield from self._gen_facet_gates(**kwargs)
         else:
             yield from self._gen_possible_gates(**kwargs)
 
-    def _gen_hyper_gates(self, narrow_steps=1):
+    def _gen_facet_gates(self, narrow_steps=1):
         """
-        Generate gates for given configuration, optimized for hypercurves.
+        Generate gates for given configuration, optimized for facet-gated curves.
 
         Args:
           narrow_steps  --  TODO
         """
         dim, div, pcount = self.dim, self.div, self.pcount
 
-        face0 = HyperFaceDivSubset(dim=dim, div=div, face=(0, 0))  # x0=0
-        face1 = HyperFaceDivSubset(dim=dim, div=div, face=(0, 1))  # x0=1
-        face2 = HyperFaceDivSubset(dim=dim, div=div, face=(1, 0))  # x1=0
+        face0 = FacetDivSubset(dim=dim, div=div, face=(0, 0))  # x0=0
+        face1 = FacetDivSubset(dim=dim, div=div, face=(0, 1))  # x0=1
+        face2 = FacetDivSubset(dim=dim, div=div, face=(1, 0))  # x1=0
 
         # we either go to the opposite face, either to the neighbour face, or return to the same face
         link_variants = [Link(face0, face0), Link(face0, face1), Link(face0, face2)]
@@ -107,7 +105,7 @@ class GatesGenerator:
         # * first and last cubes in proto (for each pattern) -- will use std_pairs_list for that
         # * specs on that cubes -- see below
 
-        def touch_same_hyperface(cube1, cube2):
+        def touch_same_facet(cube1, cube2):
             return any((c1j == c2j == 0) or (c1j == c2j == div-1) for c1j, c2j in zip(cube1, cube2))
 
         for pairs_idx, pairs in enumerate(std_pairs_list):
@@ -123,7 +121,7 @@ class GatesGenerator:
                 specs = []
                 for pn in range(pcount):
                     for bm in BaseMap.gen_base_maps(dim):
-                        if touch_same_hyperface(protos[pnum][cnum], (bm * protos[pn])[cnum]):
+                        if touch_same_facet(protos[pnum][cnum], (bm * protos[pn])[cnum]):
                             spec = Spec(bm, pnum=pn)
                             specs.append(spec)
                 spec_dict[pnum, cnum] = specs
@@ -169,11 +167,11 @@ class GatesGenerator:
         gates = []
         for pnum in range(pcount):
             entr = curve.get_entrance(pnum)
-            if (self.hyper and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
+            if (self.facet and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
                 return
 
             exit = curve.get_exit(pnum)
-            if (self.hyper and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
+            if (self.facet and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
                 return
 
             gates.append(Link(entr, exit))
