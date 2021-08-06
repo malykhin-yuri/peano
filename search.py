@@ -23,7 +23,7 @@ def run_estimator(
         gate_list=None, facet_gated=False, max_cdist=None,
         upper_bound=None,
         group_by_gates=False,
-        output_gates=False, output_stats=False, output_examples=None,
+        output_gates=False, output_stats=False, output_curves=None,
     ):
 
     if gate_list is not None:
@@ -103,7 +103,7 @@ def run_estimator(
             print(result)
             print('lower bound:', float(result['lo']))
             print('upper bound:', float(result['up']))
-            if output_examples:
+            if output_curves:
                 for curve in result['curves']:
                     print(curve)
                     print('')
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
     argparser.add_argument('--output-gates', action='store_true', help='only gates, do not estimate ratio')
     argparser.add_argument('--output-stats', action='store_true', help='only count, do not work')
-    argparser.add_argument('--output-examples', action='store_true', help='print curve examples')
+    argparser.add_argument('--output-curves', action='store_true', help='print curve examples')
     argparser.add_argument('--verbose', '-v', action='count', default=0, help='loglevel (0=warning, 1=info, 2=debug)')
 
     args = argparser.parse_args()
