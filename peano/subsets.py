@@ -129,18 +129,18 @@ class Point(tuple, Subset):
         return sum(pj != Rational(0) and pj != Rational(1) for pj in self)
 
 
-class HyperFaceDivSubset(Subset):
+class FacetDivSubset(Subset):
     """
-    Nested-cubes subset of [0,1]^d cube hyperface
+    Nested-cubes subset of [0,1]^d cube facet (hyperface)
 
     Instances of this class are intended to be used in Portals for hypercurves search.
     An important property of this family: any two sets are subsets or disjoint.
 
     Examples:
-        HyperFaceDivSubset(dim=3, div=2, face=(0: 1))  -  x0=1, 0<x1<1, 0<x2<1
-        HyperFaceDivSubset(dim=3, div=2, face=(0: 1), cubes=[(1,1)])  -  x0=1, 1/2<x1<1, 1/2<x2<1
-        HyperFaceDivSubset(dim=3, div=3, face=(1: 1), cubes=[(0,1)])  -  x1=1, 0<x0<1/3, 1/3<x2<2/3
-        HyperFaceDivSubset(dim=2, div=2, face={0: 0), cubes=[(0,),(1,)])  -  x0=0, 1/4<x1<1/2
+        FacetDivSubset(dim=3, div=2, face=(0: 1))  -  x0=1, 0<x1<1, 0<x2<1
+        FacetDivSubset(dim=3, div=2, face=(0: 1), cubes=[(1,1)])  -  x0=1, 1/2<x1<1, 1/2<x2<1
+        FacetDivSubset(dim=3, div=3, face=(1: 1), cubes=[(0,1)])  -  x1=1, 0<x0<1/3, 1/3<x2<2/3
+        FacetDivSubset(dim=2, div=2, face={0: 0), cubes=[(0,),(1,)])  -  x0=0, 1/4<x1<1/2
     """
 
     def __init__(self, dim, div, face, cubes=()):

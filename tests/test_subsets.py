@@ -2,7 +2,7 @@ import unittest
 
 from sympy import Rational
 
-from peano.subsets import Point, HyperFaceDivSubset
+from peano.subsets import Point, FacetDivSubset
 from peano.base_maps import BaseMap
 
 
@@ -13,13 +13,13 @@ class TestSubset(unittest.TestCase):
         assert len(list(pt.gen_integer_cubes())) == 2
 
     def test_facediv(self):
-        oc1 = HyperFaceDivSubset(dim=2, div=3, face=(0, 0), cubes=[(2,)])  # x0=0, x1>2/3
-        oc2 = HyperFaceDivSubset(dim=2, div=3, face=(0, 1), cubes=[(2,)])
+        oc1 = FacetDivSubset(dim=2, div=3, face=(0, 0), cubes=[(2,)])  # x0=0, x1>2/3
+        oc2 = FacetDivSubset(dim=2, div=3, face=(0, 1), cubes=[(2,)])
         bms = [bm for bm in BaseMap.gen_base_maps(dim=2, time_rev=False) if bm * oc1 == oc2]
         assert len(bms) == 1
 
-        oc3 = HyperFaceDivSubset(dim=2, div=3, face=(0, 0))  # x0=0
-        oc4 = HyperFaceDivSubset(dim=2, div=3, face=(0, 1))
+        oc3 = FacetDivSubset(dim=2, div=3, face=(0, 0))  # x0=0
+        oc4 = FacetDivSubset(dim=2, div=3, face=(0, 1))
         bms = [bm for bm in BaseMap.gen_base_maps(dim=2, time_rev=False) if bm * oc3 == oc4]
         assert len(bms) == 2
 

@@ -9,7 +9,7 @@ import peano.utils as utils
 from peano.paths import PathsGenerator
 from peano.curves import PathFuzzyCurve
 from peano.dilation import Estimator
-from peano.gate_utils import GatesGenerator
+from peano.gates import GatesGenerator
 from peano.subsets import Link
 
 
@@ -20,7 +20,7 @@ def run_estimator(
         dim, div, pcount,
         finish_max_count=None,
         ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None,
-        gate_list=None, hyper=False, max_cdist=None,
+        gate_list=None, facet_gated=False, max_cdist=None,
         upper_bound=None,
         group_by_gates=False,
         output_gates=False, output_stats=False, output_examples=None,
@@ -29,7 +29,7 @@ def run_estimator(
     if gate_list is not None:
         gates_generator = gate_list
     else:
-        gates_generator = GatesGenerator(dim, div, pcount, hyper=hyper).gen_gates()
+        gates_generator = GatesGenerator(dim, div, pcount, facet=facet_gated).gen_gates()
 
     def gen_pcurves(gates_iterable):
         for gates_idx, gates in enumerate(gates_iterable):
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     argparser.add_argument('--dim', type=int, required=True)
     argparser.add_argument('--pcount', type=int, required=True)
     argparser.add_argument('--div', type=int, required=True)
-    argparser.add_argument('--hyper', action='store_true', help='only hypercurves (exit/entrance on hyperfaces)')
+    argparser.add_argument('--facet-gated', action='store_true', help='only facet-gated curves (exit/entrance on facets)')
     argparser.add_argument('--gates', type=str, help='one tuple of "|"-separated gates')
     argparser.add_argument('--gates-file', type=str)
     argparser.add_argument('--max-cdist', type=int)
