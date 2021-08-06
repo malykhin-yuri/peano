@@ -1,6 +1,6 @@
 import unittest
 
-from peano.sat_adapters import CurveSATAdapter
+from peano._sat_adapters import CurveSATAdapter
 
 from .examples import *  # TODO get rid of *
 

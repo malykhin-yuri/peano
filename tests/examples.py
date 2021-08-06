@@ -185,6 +185,11 @@ def get_luna_curve():
     return Curve.parse([p0, p1])
 
 
+def get_spring_curve():
+    """Alias."""  # TODO make this main
+    return get_17_curve()
+
+
 def get_17_curve():
     """
     3D bifractal facet-gated curve with l2-ratio <17

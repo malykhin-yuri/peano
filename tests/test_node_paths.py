@@ -1,7 +1,7 @@
 import unittest
 import itertools
 
-from peano.node_paths import NodePathTree
+from peano._node_paths import NodePathTree
 
 
 class Next:

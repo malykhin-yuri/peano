@@ -18,6 +18,9 @@ Examples:
 * hyper-gates search:
     * $ ./search.py --dim 3 --pcount 2 --div 2 --hyper --output-gates
     * time: ~20s, result: 35 gates
+* find Spring curve:
+    * $ ./search.py --dim 3 --pcount 2 --div 2 --hyper --metric l2_squared
+    * time: ~7min
 * bifractal gates search:
     * $ ./search.py --dim 2 --pcount 2 --div 2 --output-gates
     * time: ~2m30s, result: 9 gates

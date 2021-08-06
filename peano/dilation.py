@@ -12,7 +12,7 @@ import logging
 from sympy import Rational
 
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
-from . import sat_adapters
+from . import _sat_adapters
 from .curves import Curve
 
 
@@ -586,7 +586,7 @@ class Estimator:
         # then the corresponding curve is good because it avoids bad pairs
         # and all other curve's pairs are good
 
-        adapter = sat_adapters.CurveSATAdapter(curve)
+        adapter = _sat_adapters.CurveSATAdapter(curve)
 
         # how often should we call sat solver? default is equidistant strategy
         if sat_strategy is None:

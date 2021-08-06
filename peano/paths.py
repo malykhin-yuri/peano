@@ -7,7 +7,7 @@ from sympy import Rational
 
 from .base_maps import BaseMap
 from .subsets import Point, Link
-from .node_paths import NodePathTree
+from ._node_paths import NodePathTree
 from .utils import combinations_product
 
 
@@ -272,7 +272,6 @@ class PathsGenerator:
         else:
             path_lists = [paths_dict[r] for r in restrictions]
             yield from itertools.product(*path_lists)
-
 
     def generate_paths_generic(self, link=None, parent=None, std=False, **kwargs):
         """
