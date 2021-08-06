@@ -1,6 +1,8 @@
 # Description
 
 Python package "peano" implements regular peano fractal curves on d-dimensional cube.
+This code is used to obtain results described in the paper:
+https://arxiv.org/abs/2103.07344
 
 Requirements: see requirements.txt
 
@@ -25,13 +27,14 @@ Examples:
     * $ ./search.py --dim 2 --pcount 2 --div 2 --output-gates
     * time: ~2m30s, result: 9 gates
 
-Some Peano curves may be found in: tests/examples.py
+Some Peano curves may be found in: tests/examples.py.
+
 See also YE-proof.py for a computer-assisted proof of YE curve minimality.
 
 Operator usage:
 * b * X means action of b (usually, base_map) on object X (curve, path, etc)
-* b**(-1) is group inverse of b, i.e. c such that b*c=c*b=id
-* ~X means time reversal (in base_map or curve)
+* b\*\*(-1) is group inverse of b, i.e. c such that b\*c=c\*b=id
+* ~X means time reversal (in base map or curve)
 
 Common names and notations:
 * dim -- dimension of the curve image: [0,1]->[0,1]^d
