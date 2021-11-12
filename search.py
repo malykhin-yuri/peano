@@ -3,6 +3,7 @@
 import logging
 import argparse
 import pprint
+from collections import Counter
 
 from sympy import Rational
 
@@ -27,6 +28,8 @@ def run_estimator(
         output_gates=False, output_stats=False, output_curves=None,
     ):
 
+    global_stats = Counter()
+
     if gate_list is not None:
         gates_generator = gate_list
     else:
@@ -34,6 +37,7 @@ def run_estimator(
 
     def gen_pcurves(gates_iterable):
         for gates_idx, gates in enumerate(gates_iterable):
+            global_stats['seen_gates'] += 1
             if output_gates:
                 yield gates
                 continue
@@ -96,14 +100,16 @@ def run_estimator(
             upper_bound=upper_bound,
             **estimate_kwargs
         )
-        result['sum_stats'].update({'estimator.{}'.format(k): v for k, v in estimator.stats.items()})
+        result['global_stats'] = global_stats
+        result['sum_stats'] = estimator.sum_stats
+        result['max_stats'] = estimator.max_stats
 
         print('======')
         print('GENERATOR:', gen_id)
         if not result:
             print('NOT FOUND!')
         else:
-            pprint.pprint(result)
+            print(result)
             print('lower bound:', float(result['lo']))
             print('upper bound:', float(result['up']))
             if output_curves:

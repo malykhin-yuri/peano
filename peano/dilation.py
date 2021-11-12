@@ -11,7 +11,7 @@ import logging
 
 from sympy import Rational
 
-from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache, update_max_counter
+from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
 from . import _sat_adapters
 from .curves import Curve
 
@@ -235,6 +235,7 @@ class _BoundedItemsHeap:
         new_heap.set_good_threshold(good_threshold)
         new_heap.set_bad_threshold(bad_threshold)
         new_heap.extend(self.items())
+        new_heap.stats['copy_push'] += len(list(self.items()))
         return new_heap
 
 
@@ -263,7 +264,8 @@ class Estimator:
         """
 
         self.ratio_func = ratio_func
-        self.stats = Counter()
+        self.sum_stats = Counter()
+        self.max_stats = {}
         self._get_bounds_cache = {}
         self._cache_max_size = cache_max_size
 
@@ -273,12 +275,15 @@ class Estimator:
         # brkline: instance of _IntegerBrokenLine class (for pcount==1 only!)
         # Returns triple (lo, up, argmax), argmax only for brkline
 
+        self.sum_stats['get_bounds_calls'] += 1
         dim = pair.curve.dim
         N = pair.curve.div
 
         pos1, pos2 = pair.pos1, pair.pos2
+        pair_depth = max(pos1.depth, pos2.depth)  # not count junc.depth
+        self.sum_stats['pair_depth'] += pair_depth
+        self._update_max_stats({'pair_depth': pair_depth})
 
-        self.stats['get_bounds_calls'] += 1
         use_cache = (brkline is None)  # not implemented
         if use_cache:
             # note that pos pnums are not part of the key
@@ -288,10 +293,10 @@ class Estimator:
             cache = self._get_bounds_cache
             cache_value = cache.get(cache_key)
             if cache_value is not None:
-                self.stats['get_bounds_cache_hit'] += 1
+                self.sum_stats['get_bounds_cache_hit'] += 1
                 return cache_value
             else:
-                self.stats['get_bounds_cache_miss'] += 1
+                self.sum_stats['get_bounds_cache_miss'] += 1
 
         # these are integer positions in original curve patterns
         # we will transform them to absolute coords
@@ -383,7 +388,7 @@ class Estimator:
             if len(cache) >= self._cache_max_size:
                 # poor man's LRU cache :(
                 cache.clear()
-                self.stats['get_bounds_cache_cleanup'] += 1
+                self.sum_stats['get_bounds_cache_cleanup'] += 1
             cache[cache_key] = result
 
         return result
@@ -426,6 +431,17 @@ class Estimator:
         worst_item = tree.pop()
         for new_pair in worst_item.pair.divide_balanced():
             self._push_tree(tree, new_pair)
+
+    def _add_tree_stats(self, tree):
+        self.sum_stats.update({'ptree.{}'.format(k): v for k, v in tree.stats.items()})
+
+    def _update_max_stats(self, stats):
+        max_stats = self.max_stats
+        for k, v in stats.items():
+            if k in max_stats:
+                max_stats[k] = max(max_stats[k], v)
+            else:
+                max_stats[k] = v
 
     def _forbid(self, tree, adapter):
         # forbid bad configurations and drop them from the tree
@@ -537,7 +553,8 @@ class Estimator:
                 logger.info('new upper bound: %.5f < %.5f', curr_lo, curr_up)
                 curr_up = new_up
 
-        res = {'up': curr_up, 'lo': curr_lo, 'stats': pairs_tree.stats}
+        self._add_tree_stats(pairs_tree)
+        res = {'up': curr_up, 'lo': curr_lo}
         if argmax is not None:
             res['argmax'] = argmax
 
@@ -570,10 +587,7 @@ class Estimator:
             init_pairs_tree: cached _create_tree
 
         Returns:
-            dict with keys:
-            'curve': regular curve (if found)
-            'sum_stats': counter with stats that can be summated (e.g., number of calls)
-            'max_stats': counter with stats that can be max-ed (e.g., max depth of divisions)
+            curve or None (if not found)
         """
 
         # This is the main algorithm of the whole "peano" package.
@@ -616,28 +630,26 @@ class Estimator:
 
             self._divide_tree(pairs_tree)
             self._forbid(pairs_tree, adapter)
-            sum_stats['divide_iter'] += 1
+            self.sum_stats['divide_iter'] += 1
 
             try_sat = self._try_by_strategy(try_sat_info)
             if not try_sat:
                 continue
 
-            logger.info('iter %d, try SAT solver', iter_no)
+            logger.debug('iter %d, try SAT solver', iter_no)
+            self.sum_stats['sat.solve_calls'] += 1
             if not adapter.solve():
-                sum_stats['sat.solve_calls'] += 1
                 no_model = True
                 break
 
-        sum_stats.update({'ptree.{}'.format(k): v for k, v in pairs_tree.stats.items()})
-        max_stats = {'sat.problem_size': adapter.get_problem_size()}
-        result = {'sum_stats': sum_stats, 'max_stats': max_stats}
+        self._add_tree_stats(pairs_tree)
+        self._update_max_stats({'sat.problem_size': adapter.get_problem_size()})
 
         if no_model or not adapter.solve():
-            return result
+            return None
 
         model = adapter.get_model()
-        result['curve'] = adapter.get_curve_from_model(model)
-        return result
+        return adapter.get_curve_from_model(model)
 
     def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, stop_upper_bound=None,
                                 start_lower_bound=None, start_upper_bound=None, start_curve=None,
@@ -665,8 +677,7 @@ class Estimator:
             'lo': lower_bound
             'up': upper_bound
             'curve': curve_example with dilation in [lo, up]
-            'pairs_tree': initial tree to use in subsequent calls
-            'stats': TODO
+            'init_pairs_tree': initial tree to use in subsequent calls
         """
 
         # This method is simply "bisection" algorithm based on bisect_dilation_fuzzy.
@@ -687,15 +698,14 @@ class Estimator:
 
         if init_pairs_tree is None:
             init_pairs_tree = self._create_tree(curve)
+            self._add_tree_stats(init_pairs_tree)  # will not use init_pairs_tree anymore
 
         # invariants:
         # * minimum dilation is in [curr_lo, curr_up]
         # * curr_curve dilation also in [curr_lo, curr_up]
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
-        sum_stats = Counter()
-        max_stats = Counter()
         while curr_up > curr_lo * tolerance:
-            sum_stats['bisect_iter'] += 1
+            self.sum_stats['bisect_iter'] += 1
 
             if curr_lo == Rational(0):
                 # optimize, 0 is too rude lower bound
@@ -706,27 +716,25 @@ class Estimator:
                 test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
 
             logger.info(
-                'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', sum_stats['bisect_iter'],
+                'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', self.sum_stats['bisect_iter'],
                 curr_lo, curr_up, test_lo, test_up,
             )
             logger.debug('precise test thresholds: %s, %s', test_lo, test_up)
             try:
                 # we always ask for a model, to get actual curve with guarantees
-                test_result = self.bisect_dilation_fuzzy(
+                bisect_result = self.bisect_dilation_fuzzy(
                     curve,
                     bad_threshold=test_lo,
                     good_threshold=test_up,
                     init_pairs_tree=init_pairs_tree,
                     **kwargs,
                 )
-                sum_stats.update(test_result['sum_stats'])
-                update_max_counter(max_stats, test_result['max_stats'])
             except self._RunOutOfIterationsException:
                 # run out of iterations
                 break
 
-            if test_result.get('curve'):
-                curr_curve = test_result['curve']
+            if bisect_result is not None:
+                curr_curve = bisect_result
                 curr_up = test_up
             else:
                 curr_lo = test_lo
@@ -738,8 +746,6 @@ class Estimator:
             'curve': curr_curve,
             'lo': curr_lo,
             'up': curr_up,
-            'sum_stats': sum_stats,
-            'max_stats': max_stats,
             'init_pairs_tree': init_pairs_tree,
         }
 
@@ -761,14 +767,12 @@ class Estimator:
             'lo', 'up' - bounds for minimal dilation
             'curves' - list of regular curves in [lo, up]
             'idxs' - list of corresponding indices of input
-            'stats': TODO
         """
 
         # This method is based on estimate_dilation_fuzzy.
         # We iterate over curves many times with increasing up/lo estimation tolerance.
 
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
-        sum_stats, max_stats = Counter(), Counter()
         max_store_pairs_tree = 200
         CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example init_pairs_tree'.split())
 
@@ -797,7 +801,7 @@ class Estimator:
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
                 if epoch == 1:
-                    sum_stats['seen_pcurve'] += 1
+                    self.sum_stats['seen_pcurve'] += 1
                 logger.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
                 res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, stop_upper_bound=curr_up,
@@ -826,9 +830,7 @@ class Estimator:
                 while new_active and new_active[0].lo > curr_up:  # priority = -lo
                     heappop(new_active)
 
-                logger.info('current active: %d, stats: %s, %s', len(new_active), res['sum_stats'], res['max_stats'])
-                sum_stats.update(res['sum_stats'])
-                update_max_counter(max_stats, res['max_stats'])
+                logger.info('current active: %d')
 
             if not new_active:
                 # upper bound is too strong
@@ -842,8 +844,6 @@ class Estimator:
             'lo': curr_lo, 'up': curr_up,
             'curves': [item.example for item in active],
             'idxs': [item.idx for item in active],
-            'sum_stats': sum_stats,
-            'max_stats': max_stats,
         }
 
 
