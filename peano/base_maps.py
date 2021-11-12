@@ -1,6 +1,6 @@
 import itertools
 
-from sympy import Rational
+from quicktions import Fraction
 
 
 class BaseMap:
@@ -220,7 +220,7 @@ class BaseMap:
             bvar = []
             if xj in group_id:
                 bvar.append((0, group_id[xj]))
-            xj_compl = Rational(1) - xj
+            xj_compl = Fraction(1) - xj
             if xj_compl in group_id:
                 bvar.append((1, group_id[xj_compl]))
             bvars.append(bvar)

@@ -3,7 +3,7 @@ import logging
 import itertools
 import re
 
-from sympy import Rational
+from quicktions import Fraction
 
 from .base_maps import BaseMap
 from .subsets import Point, Link
@@ -159,8 +159,8 @@ class PathsGenerator:
         self.div = div
 
         if links is None:
-            entrance = Point((Rational(0),) * dim)
-            exit = Point((Rational(0),) * (dim - hdist) + (Rational(1, 1),) * hdist)
+            entrance = Point((Fraction(0),) * dim)
+            exit = Point((Fraction(0),) * (dim - hdist) + (Fraction(1, 1),) * hdist)
             links = [Link(entrance, exit)]
         self.links = links
 

@@ -1,2 +1,2 @@
-pip install sympy
+pip install quicktions
 pip install python-sat (provides pysat module)

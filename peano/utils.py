@@ -7,25 +7,25 @@ from functools import lru_cache
 import itertools
 import math
 
-from sympy import Rational
+from quicktions import Fraction
 
 
 def ratio_linf(d, dv, dt):
-    return Rational(max(abs(x) for x in dv) ** d, dt)
+    return Fraction(max(abs(x) for x in dv) ** d, dt)
 
 
 def ratio_l1(d, dv, dt):
-    return Rational(sum(abs(x) for x in dv) ** d, dt)
+    return Fraction(sum(abs(x) for x in dv) ** d, dt)
 
 
 def ratio_l2_squared(d, dv, dt):
-    return Rational(sum(x ** 2 for x in dv) ** d, dt ** 2)
+    return Fraction(sum(x ** 2 for x in dv) ** d, dt ** 2)
 
 
 def ratio_l2(d, dv, dt):
     assert d % 2 == 0
     d2 = d // 2
-    return Rational(sum(x ** 2 for x in dv) ** d2, dt)
+    return Fraction(sum(x ** 2 for x in dv) ** d2, dt)
 
 
 @lru_cache(maxsize=2**20)
@@ -67,14 +67,14 @@ def get_periodic_sum(start, period, d):
     for x in reversed(start):
         n0 += x * d_power
         d_power *= d
-    t0 = Rational(n0, d_power)
+    t0 = Fraction(n0, d_power)
 
     np = 0
     dp_power = 1
     for x in reversed(period):
         np += x * dp_power
         dp_power *= d
-    tp = Rational(np, d_power * (dp_power - 1))
+    tp = Fraction(np, d_power * (dp_power - 1))
 
     return t0 + tp
 

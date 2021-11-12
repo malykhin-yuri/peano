@@ -9,7 +9,7 @@ from collections.abc import Sized
 from heapq import heappop, heappush
 import logging
 
-from sympy import Rational
+from quicktions import Fraction
 
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
 from . import _sat_adapters
@@ -258,7 +258,7 @@ class Estimator:
         Init Estimator instance.
 
         Args:
-            ratio_func: function (dim, dx, dt) -> Rational
+            ratio_func: function (dim, dx, dt) -> Fraction
               it is assumed to be d-uniform and coordinate-monotone
             cache_max_size: cache size for pairs bounds
         """
@@ -377,10 +377,10 @@ class Estimator:
 
                     if lo_point > lo or argmax is None:
                         lo = lo_point
-                        x1_real = [Rational(x1j, mx * brk_mx) for x1j in x1_point]
-                        x2_real = [Rational(x2j, mx * brk_mx) for x2j in x2_point]
-                        t1_real = Rational(t1_point, mt * brk_mt)
-                        t2_real = Rational(t2_point, mt * brk_mt)
+                        x1_real = [Fraction(x1j, mx * brk_mx) for x1j in x1_point]
+                        x2_real = [Fraction(x2j, mx * brk_mx) for x2j in x2_point]
+                        t1_real = Fraction(t1_point, mt * brk_mt)
+                        t2_real = Fraction(t2_point, mt * brk_mt)
                         argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
 
         result = (lo, up, argmax)
@@ -498,7 +498,7 @@ class Estimator:
             tree_kwargs['brkline'] = _IntegerBrokenLine.init_from_rational(curve.dim, vertex_brkline)
 
         if rel_tol_inv is not None:
-            tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
+            tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
 
         # This is a basic algorithm that does not require SAT-solvers.
         # We maintain a "tree" (_BoundedItemsHeap instance) of pairs (_BoundedPair)
@@ -683,7 +683,7 @@ class Estimator:
         # This method is simply "bisection" algorithm based on bisect_dilation_fuzzy.
 
         if start_lower_bound is None:
-            curr_lo = Rational(0)
+            curr_lo = Fraction(0)
         else:
             curr_lo = start_lower_bound
 
@@ -703,17 +703,17 @@ class Estimator:
         # invariants:
         # * minimum dilation is in [curr_lo, curr_up]
         # * curr_curve dilation also in [curr_lo, curr_up]
-        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
+        tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
         while curr_up > curr_lo * tolerance:
             self.sum_stats['bisect_iter'] += 1
 
-            if curr_lo == Rational(0):
+            if curr_lo == Fraction(0):
                 # optimize, 0 is too rude lower bound
-                test_lo = Rational(1, 2) * curr_up
-                test_up = Rational(2, 3) * curr_up
+                test_lo = Fraction(1, 2) * curr_up
+                test_up = Fraction(2, 3) * curr_up
             else:
-                test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
-                test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
+                test_lo = Fraction(2, 3) * curr_lo + Fraction(1, 3) * curr_up
+                test_up = Fraction(1, 3) * curr_lo + Fraction(2, 3) * curr_up
 
             logger.info(
                 'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', self.sum_stats['bisect_iter'],
@@ -772,7 +772,7 @@ class Estimator:
         # This method is based on estimate_dilation_fuzzy.
         # We iterate over curves many times with increasing up/lo estimation tolerance.
 
-        tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
+        tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
         max_store_pairs_tree = 200
         CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example init_pairs_tree'.split())
 
@@ -781,7 +781,7 @@ class Estimator:
             priority = -lo if lo is not None else None
             return CurveItem(priority, idx, lo, up, curve, example, init_pairs_tree)
 
-        curr_lo = Rational(0)
+        curr_lo = Fraction(0)
         curr_up = upper_bound
 
         # Invariants:
@@ -830,7 +830,7 @@ class Estimator:
                 while new_active and new_active[0].lo > curr_up:  # priority = -lo
                     heappop(new_active)
 
-                logger.info('current active: %d')
+                logger.info('current active: %d', len(new_active))
 
             if not new_active:
                 # upper bound is too strong
@@ -852,18 +852,18 @@ class _IntegerBrokenLine(namedtuple('_IntegerBrokenLine', ['mx', 'mt', 'points']
     def init_from_rational(cls, dim, brkline):
         denoms = set()
         for x, t in brkline:
-            if isinstance(t, Rational):
+            if isinstance(t, Fraction):
                 denoms.add(t.q)
             for xj in x:
-                if isinstance(xj, Rational):
+                if isinstance(xj, Fraction):
                     denoms.add(xj.q)
         lcm = get_lcm(denoms)
         mx = lcm
         mt = lcm**dim
         points = []
         for x, t in brkline:
-            xp = tuple(int(Rational(xj) * mx) for xj in x)
-            tp = int(Rational(t) * mt)
+            xp = tuple(int(Fraction(xj) * mx) for xj in x)
+            tp = int(Fraction(t) * mt)
             points.append((xp, tp))
         return cls(mx, mt, points)
 

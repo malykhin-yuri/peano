@@ -1,7 +1,7 @@
 import itertools
 from collections import namedtuple
 
-from sympy import Rational
+from quicktions import Fraction
 
 from .base_maps import BaseMap
 
@@ -66,18 +66,18 @@ class Point(tuple, Subset):
     def transform(self, scale=None, shift=None):
         """M -> M*scale + shift"""
         if scale is not None:
-            scale = Rational(scale)
+            scale = Fraction(scale)
         new_pt = []
         for j, pj in enumerate(self):
             if scale is not None:
                 pj *= scale
             if shift is not None:
-                pj += Rational(shift[j])
+                pj += Fraction(shift[j])
             new_pt.append(pj)
         return type(self)(new_pt)
 
     def map_to_cube(self, div, cube):
-        return self.transform(shift=cube).transform(scale=Rational(1, div))
+        return self.transform(shift=cube).transform(scale=Fraction(1, div))
 
     def intersects(self, other):
         return self == other
@@ -100,25 +100,25 @@ class Point(tuple, Subset):
     def gen_integer_cubes(self):
         rngs = []
         for pj in self:
-            r = pj.p // pj.q
-            rng = [r-1, r] if pj.p % pj.q == 0 else [r]
+            r = pj.numerator // pj.denominator
+            rng = [r-1, r] if pj.numerator % pj.denominator == 0 else [r]
             rngs.append(rng)
         yield from itertools.product(*rngs)
 
     def __rmul__(self, bm):
-        return type(self)(Rational(1) - self[k] if b else self[k] for k, b in bm.coords)
+        return type(self)(Fraction(1) - self[k] if b else self[k] for k, b in bm.coords)
 
     def __str__(self):
         return '(' + ','.join([str(pj) for pj in self]) + ')'
 
     @classmethod
     def parse(cls, text):
-        pt = [Rational(token) for token in text.strip().strip('()').split(',')]
+        pt = [Fraction(token) for token in text.strip().strip('()').split(',')]
         return cls(pt)
 
     def std(self):
-        Half = Rational(1, 2)
-        new = [pj if pj <= Half else Rational(1) - pj for pj in self]
+        Half = Fraction(1, 2)
+        new = [pj if pj <= Half else Fraction(1) - pj for pj in self]
         new.sort()
         return type(self)(new)
 
@@ -126,7 +126,7 @@ class Point(tuple, Subset):
         return list(BaseMap.gen_constraint_fast(self, self.std()))
 
     def face_dim(self):
-        return sum(pj != Rational(0) and pj != Rational(1) for pj in self)
+        return sum(pj != Fraction(0) and pj != Fraction(1) for pj in self)
 
 
 class FacetDivSubset(Subset):
