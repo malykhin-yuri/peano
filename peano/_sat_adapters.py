@@ -4,7 +4,7 @@ which allows to encode fuzzy curves by boolean formulas
 and apply SAT-solvers to find a curve satisfying clauses.
 """
 import itertools
-from collections import Counter
+from collections import Counter, namedtuple
 
 from pysat.solvers import Glucose3
 
@@ -41,7 +41,7 @@ class CurveSATAdapter:
         self._int_clauses = []
         self._curve_vars = set()  # just cache (?)
         self._var_no = {}
-        self.stats = Counter()
+        self._stats = Counter()
         self.solver = None  # set in solve()
         self.curve = curve  # used in get_model
 
@@ -137,25 +137,19 @@ class CurveSATAdapter:
             if var not in self._var_no:
                 max_var_no = 1 + len(self._var_no)
                 self._var_no[var] = max_var_no
+                self._stats['variables'] += 1
             var_no = self._var_no[var]
             token = var_no if val else -var_no
             int_clause.append(token)
+            self._stats['literals'] += 1
         self._int_clauses.append(int_clause)
+        self._stats['clauses'] += 1
 
-    def get_stats(self):
-        """
-        Get adapter statistics.
+    SATProblemSize = namedtuple('SATProblemSize', ['literals', 'clauses', 'variables'])
 
-        Returns:
-            dict of stats; some of the keys:
-              'solve': times solve() called
-        """
-        curr = {
-            'clauses_count': len(self._int_clauses),
-            'variables_count': len(self._var_no),
-        }
-        curr.update(self.stats)
-        return curr
+    def get_problem_size(self):
+        size = [self._stats[k] for k in ['literals', 'clauses', 'variables']]
+        return self.SATProblemSize(*size)
 
     def solve(self):
         """
@@ -168,7 +162,6 @@ class CurveSATAdapter:
         """
         self.solver = Glucose3()
         self.solver.append_formula(self._int_clauses)
-        self.stats['solve'] += 1
         return self.solver.solve()
 
     def get_model(self):

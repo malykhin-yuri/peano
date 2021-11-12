@@ -11,9 +11,12 @@ import logging
 
 from sympy import Rational
 
-from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
+from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache, update_max_counter
 from . import _sat_adapters
 from .curves import Curve
+
+
+logger = logging.getLogger(__name__)
 
 
 class _PiecePosition:
@@ -275,6 +278,7 @@ class Estimator:
 
         pos1, pos2 = pair.pos1, pair.pos2
 
+        self.stats['get_bounds_calls'] += 1
         use_cache = (brkline is None)  # not implemented
         if use_cache:
             # note that pos pnums are not part of the key
@@ -497,7 +501,7 @@ class Estimator:
 
         # upper bound for worst active pair gives us upper bound for the curve
         curr_up = pairs_tree.top().up
-        logging.info('start bounds: %.5f < %.5f', curr_lo, curr_up)
+        logger.info('start bounds: %.5f < %.5f', curr_lo, curr_up)
 
         # invariant: dilation of the curve is in [curr_lo, curr_up]
         iter_no = 0
@@ -526,11 +530,11 @@ class Estimator:
                 curr_lo = item.lo
                 argmax = item.argmax
                 pairs_tree.set_good_threshold(curr_lo)
-                logging.info('new lower bound: %.5f < %.5f', curr_lo, curr_up)
+                logger.info('new lower bound: %.5f < %.5f', curr_lo, curr_up)
 
             new_up = pairs_tree.top().up
             if new_up < curr_up:
-                logging.info('new upper bound: %.5f < %.5f', curr_lo, curr_up)
+                logger.info('new upper bound: %.5f < %.5f', curr_lo, curr_up)
                 curr_up = new_up
 
         res = {'up': curr_up, 'lo': curr_lo, 'stats': pairs_tree.stats}
@@ -568,7 +572,8 @@ class Estimator:
         Returns:
             dict with keys:
             'curve': regular curve (if found)
-            'stats': counter with various stats
+            'sum_stats': counter with stats that can be summated (e.g., number of calls)
+            'max_stats': counter with stats that can be max-ed (e.g., max depth of divisions)
         """
 
         # This is the main algorithm of the whole "peano" package.
@@ -601,6 +606,7 @@ class Estimator:
 
         self._forbid(pairs_tree, adapter)
 
+        sum_stats = Counter()
         no_model = None
         iter_no = 0
         while pairs_tree.has_items():
@@ -610,21 +616,21 @@ class Estimator:
 
             self._divide_tree(pairs_tree)
             self._forbid(pairs_tree, adapter)
+            sum_stats['divide_iter'] += 1
 
             try_sat = self._try_by_strategy(try_sat_info)
             if not try_sat:
                 continue
 
-            logging.info('iter %d, try SAT solver', iter_no)
+            logger.info('iter %d, try SAT solver', iter_no)
             if not adapter.solve():
+                sum_stats['sat.solve_calls'] += 1
                 no_model = True
                 break
 
-        stats = Counter()
-        stats['divide_iter'] = iter_no
-        stats.update({'ptree.{}'.format(k): v for k, v in pairs_tree.stats.items()})
-        stats.update({'sat.{}'.format(k): v for k, v in adapter.get_stats().items()})
-        result = {'stats': stats}
+        sum_stats.update({'ptree.{}'.format(k): v for k, v in pairs_tree.stats.items()})
+        max_stats = {'sat.problem_size': adapter.get_problem_size()}
+        result = {'sum_stats': sum_stats, 'max_stats': max_stats}
 
         if no_model or not adapter.solve():
             return result
@@ -660,6 +666,7 @@ class Estimator:
             'up': upper_bound
             'curve': curve_example with dilation in [lo, up]
             'pairs_tree': initial tree to use in subsequent calls
+            'stats': TODO
         """
 
         # This method is simply "bisection" algorithm based on bisect_dilation_fuzzy.
@@ -685,9 +692,10 @@ class Estimator:
         # * minimum dilation is in [curr_lo, curr_up]
         # * curr_curve dilation also in [curr_lo, curr_up]
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
-        stats = Counter()
+        sum_stats = Counter()
+        max_stats = Counter()
         while curr_up > curr_lo * tolerance:
-            stats['bisect_iter'] += 1
+            sum_stats['bisect_iter'] += 1
 
             if curr_lo == Rational(0):
                 # optimize, 0 is too rude lower bound
@@ -697,11 +705,11 @@ class Estimator:
                 test_lo = Rational(2, 3) * curr_lo + Rational(1, 3) * curr_up
                 test_up = Rational(1, 3) * curr_lo + Rational(2, 3) * curr_up
 
-            logging.info(
-                'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', stats['bisect_iter'],
+            logger.info(
+                'Bisect #%d. best in: [%.5f, %.5f]; seek with thresholds: [%.5f, %.5f]', sum_stats['bisect_iter'],
                 curr_lo, curr_up, test_lo, test_up,
             )
-            logging.debug('precise test thresholds: %s, %s', test_lo, test_up)
+            logger.debug('precise test thresholds: %s, %s', test_lo, test_up)
             try:
                 # we always ask for a model, to get actual curve with guarantees
                 test_result = self.bisect_dilation_fuzzy(
@@ -711,7 +719,8 @@ class Estimator:
                     init_pairs_tree=init_pairs_tree,
                     **kwargs,
                 )
-                stats.update(test_result['stats'])
+                sum_stats.update(test_result['sum_stats'])
+                update_max_counter(max_stats, test_result['max_stats'])
             except self._RunOutOfIterationsException:
                 # run out of iterations
                 break
@@ -729,7 +738,8 @@ class Estimator:
             'curve': curr_curve,
             'lo': curr_lo,
             'up': curr_up,
-            'stats': stats,
+            'sum_stats': sum_stats,
+            'max_stats': max_stats,
             'init_pairs_tree': init_pairs_tree,
         }
 
@@ -751,13 +761,14 @@ class Estimator:
             'lo', 'up' - bounds for minimal dilation
             'curves' - list of regular curves in [lo, up]
             'idxs' - list of corresponding indices of input
+            'stats': TODO
         """
 
         # This method is based on estimate_dilation_fuzzy.
         # We iterate over curves many times with increasing up/lo estimation tolerance.
 
         tolerance = Rational(rel_tol_inv + 1, rel_tol_inv)
-        stats = Counter()
+        sum_stats, max_stats = Counter(), Counter()
         max_store_pairs_tree = 200
         CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example init_pairs_tree'.split())
 
@@ -785,7 +796,9 @@ class Estimator:
             total = len(active) if isinstance(active, list) else -1
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
-                logging.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
+                if epoch == 1:
+                    sum_stats['seen_pcurve'] += 1
+                logger.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
                 res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, stop_upper_bound=curr_up,
                     start_lower_bound=item.lo, start_upper_bound=item.up, start_curve=item.example,
@@ -794,7 +807,7 @@ class Estimator:
                 )
                 if curr_up is None or res['up'] < curr_up:
                     curr_up = res['up']
-                    logging.info('new upper bound: %.3f', curr_up)
+                    logger.info('new upper bound: %.3f', curr_up)
 
                 if res['lo'] <= curr_up:
                     # has a chance to be the best
@@ -807,14 +820,15 @@ class Estimator:
                         init_pairs_tree=(res['init_pairs_tree'] if store_pairs_tree else None),
                     )
                     heappush(new_active, new_item)
-                    logging.info('added new active item!')
+                    logger.info('added new active item!')
 
                 # it is important to cleanup new_active (in first run) to reduce memory consumption
                 while new_active and new_active[0].lo > curr_up:  # priority = -lo
                     heappop(new_active)
 
-                logging.info('current active: %d, stats: %s', len(new_active), res['stats'])
-                stats.update(res['stats'])
+                logger.info('current active: %d, stats: %s, %s', len(new_active), res['sum_stats'], res['max_stats'])
+                sum_stats.update(res['sum_stats'])
+                update_max_counter(max_stats, res['max_stats'])
 
             if not new_active:
                 # upper bound is too strong
@@ -822,13 +836,14 @@ class Estimator:
 
             active = sorted(new_active, key=lambda item: item.up)  # better to start with good curves
             curr_lo = min(item.lo for item in active)
-            logging.info('current bounds: [%.5f, %.5f]', curr_lo, curr_up)
+            logger.info('current bounds: [%.5f, %.5f]', curr_lo, curr_up)
 
         return {
             'lo': curr_lo, 'up': curr_up,
             'curves': [item.example for item in active],
             'idxs': [item.idx for item in active],
-            'stats': stats,
+            'sum_stats': sum_stats,
+            'max_stats': max_stats,
         }
 
 

@@ -11,6 +11,9 @@ from ._node_paths import NodePathTree
 from .utils import combinations_product
 
 
+logger = logging.getLogger(__name__)
+
+
 class Proto(tuple):
     """
     Curve prototype -- sequence of cubes.
@@ -265,7 +268,7 @@ class PathsGenerator:
         for link, parent in set(restrictions):
             paths_dict[link, parent] = list(self.generate_paths_generic(link=link, parent=parent, **kwargs))
 
-        logging.info('generate_paths counts: %s', [len(paths_dict[r]) for r in restrictions])
+        logger.info('generate_paths counts: %s', [len(paths_dict[r]) for r in restrictions])
 
         if std:
             yield from combinations_product(restrictions, paths_dict)
@@ -299,13 +302,13 @@ class PathsGenerator:
             for cube, cube_subset in link.entrance.divide(self.div):
                 for start_entr in self.gen_intersected(cube_subset):
                     for start_exit in self.entr2exits[start_entr]:
-                        logging.debug('start at %s: %s -> %s', cube, start_entr, start_exit)
+                        logger.debug('start at %s: %s -> %s', cube, start_entr, start_exit)
                         start.append(tree.init_path(cube, state=Link(start_entr, start_exit)))
 
             for cube, cube_subset in link.exit.divide(self.div):
                 for finish_entr in self.gen_intersected(cube_subset):
                     for finish_exit in self.entr2exits[finish_entr]:
-                        logging.debug('finish at %s: %s -> %s', cube, finish_exit, finish_entr)
+                        logger.debug('finish at %s: %s -> %s', cube, finish_exit, finish_entr)
                         finish.append(tree.init_path(cube, Link(finish_exit, finish_entr)))
         else:
             def check_parent(cnum, cube, link):

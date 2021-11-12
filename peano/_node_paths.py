@@ -3,6 +3,9 @@ import logging
 from collections import namedtuple, defaultdict
 
 
+logger = logging.getLogger(__name__)
+
+
 class CubeNode(namedtuple('CubeNode', ['cube', 'state'])):
     """
     Node of the partial path in the cube lattice.
@@ -161,7 +164,7 @@ class NodePathTree:
             if stop:
                 break
             curr_paths = new_paths
-            logging.debug('width_search: step %d, expanded to %d' % (i+1, len(curr_paths)))
+            logger.debug('width_search: step %d, expanded to %d' % (i+1, len(curr_paths)))
         return curr_paths
 
     @classmethod
@@ -191,9 +194,9 @@ class NodePathTree:
 
         start_paths = self.width_search(paths, max_steps=max_steps, max_count=start_max_count)
         if not start_paths:
-            logging.debug('start: cannot find start paths')
+            logger.debug('start: cannot find start paths')
             return
-        logging.debug('start: width: %d, paths: %d', start_paths[0].len, len(start_paths))
+        logger.debug('start: width: %d, paths: %d', start_paths[0].len, len(start_paths))
 
         if ends:
             if any(path.len != ends[0].len for path in ends):
@@ -203,11 +206,11 @@ class NodePathTree:
             if finish_max_count is not None:
                 finish_paths = self.width_search(finish_paths, max_steps=max_steps, max_count=finish_max_count, reverse=True)
             if not finish_paths:
-                logging.debug('finish: cannot find paths')
+                logger.debug('finish: cannot find paths')
                 return
             finish_width = finish_paths[0].len
 
-            logging.debug('finish: width %d, paths: %d', finish_width, len(finish_paths))
+            logger.debug('finish: width %d, paths: %d', finish_width, len(finish_paths))
             finish = defaultdict(list)
             for path in finish_paths:
                 phash = self.get_complement_phash(path)
@@ -219,7 +222,7 @@ class NodePathTree:
         found_count = 0
         for cnt, paths in enumerate(self.group_paths(start_paths)):
             if (cnt + 1) % 10 == 0:
-                logging.debug('processing start: %d of approx %d, found: %d', cnt + 1, len(start_paths), found_count)
+                logger.debug('processing start: %d of approx %d, found: %d', cnt + 1, len(start_paths), found_count)
             for mid_path in self.depth_search([paths[0]], **depth_kwargs):
                 if ends is not None:
                     fin_paths = finish[mid_path.phash()]

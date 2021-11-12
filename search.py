@@ -2,6 +2,7 @@
 
 import logging
 import argparse
+import pprint
 
 from sympy import Rational
 
@@ -95,12 +96,14 @@ def run_estimator(
             upper_bound=upper_bound,
             **estimate_kwargs
         )
+        result['sum_stats'].update({'estimator.{}'.format(k): v for k, v in estimator.stats.items()})
+
         print('======')
         print('GENERATOR:', gen_id)
         if not result:
             print('NOT FOUND!')
         else:
-            print(result)
+            pprint.pprint(result)
             print('lower bound:', float(result['lo']))
             print('upper bound:', float(result['up']))
             if output_curves:
@@ -150,11 +153,18 @@ if __name__ == "__main__":
     gate_list = []
     kwargs = vars(args).copy()
     kwargs['ratio_func'] = funcs.get(kwargs.pop('metric'))
+
     verbosity = kwargs.pop('verbose')
     if verbosity == 1:
-        logging.basicConfig(level=logging.INFO)
+        loglevel = logging.INFO
     elif verbosity == 2:
-        logging.basicConfig(level=logging.DEBUG)
+        loglevel = logging.DEBUG
+    else:
+        loglevel = logging.WARNING
+    logging.basicConfig(
+        level=loglevel,
+        format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
+    )
     logging.info('args: %s', args)  # call after loglevel is set!
 
     if (not args.output_stats) and (not args.output_gates) and (args.metric is None):

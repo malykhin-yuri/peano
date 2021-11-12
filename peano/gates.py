@@ -8,6 +8,9 @@ from .paths import Proto, PathsGenerator
 from .base_maps import BaseMap, Spec
 
 
+logger = logging.getLogger(__name__)
+
+
 class GatesGenerator:
     def __init__(self, dim, div, pcount, facet=False):
         """
@@ -62,20 +65,20 @@ class GatesGenerator:
         links_list = list(itertools.combinations_with_replacement(link_variants, r=pcount))
 
         for links_idx, links in enumerate(links_list):
-            logging.info('processing global links %d of %d', links_idx + 1, len(links_list))
+            logger.info('processing global links %d of %d', links_idx + 1, len(links_list))
             pg = PathsGenerator(dim=dim, div=div, links=links)
             plist = list(pg.generate_paths(std=True))
 
             for narrow_idx in range(narrow_steps):
                 new_plist = []
                 for paths_idx, paths in enumerate(plist):
-                    logging.info('processing narrow: %d of %d', paths_idx + 1, len(plist))
+                    logger.info('processing narrow: %d of %d', paths_idx + 1, len(plist))
                     new_plist += self.get_narrow_paths(paths)
-                logging.info('narrow step %d or %d: %d => %d', narrow_idx + 1, narrow_steps, len(plist), len(new_plist))
+                logger.info('narrow step %d or %d: %d => %d', narrow_idx + 1, narrow_steps, len(plist), len(new_plist))
                 plist = new_plist
 
             for paths_idx, paths in enumerate(plist):
-                logging.info('processing paths %d of %d, stats: %s', paths_idx + 1, len(plist), self.stats)
+                logger.info('processing paths %d of %d, stats: %s', paths_idx + 1, len(plist), self.stats)
                 yield from self._gen_path_gates(paths)
 
     def _gen_possible_gates(self):
@@ -109,7 +112,7 @@ class GatesGenerator:
             return any((c1j == c2j == 0) or (c1j == c2j == div-1) for c1j, c2j in zip(cube1, cube2))
 
         for pairs_idx, pairs in enumerate(std_pairs_list):
-            logging.info('processing cube pairs: %d of %d', pairs_idx + 1, len(std_pairs_list))
+            logger.info('processing cube pairs: %d of %d', pairs_idx + 1, len(std_pairs_list))
             protos = []
             for pair in pairs:
                 proto = [None] * (div**dim)
@@ -149,7 +152,7 @@ class GatesGenerator:
             total *= len(v)
         for specs_idx, specs in enumerate(itertools.product(*variants)):
             if (specs_idx + 1) % 1000 == 0:
-                logging.info('processing variants: %d of %d', specs_idx + 1, total)
+                logger.info('processing variants: %d of %d', specs_idx + 1, total)
             gate = self.check_and_std(protos, specs)
             if gate is not None:
                 yield gate
@@ -195,11 +198,11 @@ class GatesGenerator:
 
         # параметры -- дискуссионный вопрос
         if pg.get_paths_example(start_max_count=1000, finish_max_count=1000000):
-            logging.debug('GOOD gates: %s', [str(g) for g in std_gates])
+            logger.debug('GOOD gates: %s', [str(g) for g in std_gates])
             self.stats['new_good_gate'] += 1
             return std_gates
         else:
-            logging.debug('BAD gates: %s', [str(g) for g in std_gates])
+            logger.debug('BAD gates: %s', [str(g) for g in std_gates])
 
     def get_narrow_paths(self, paths):
         div = paths[0].proto.div

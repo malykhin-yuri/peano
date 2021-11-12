@@ -107,3 +107,11 @@ def combinations_product(iter_ids, iter_dict):
         for iter_id in iter_ids:
             result.append(groups_items[id2idx[iter_id]].pop(0))
         yield tuple(result)
+
+
+def update_max_counter(orig, patch):
+    for k, v in patch.items():
+        if k in orig:
+            orig[k] = max(orig[k], v)
+        else:
+            orig[k] = v
