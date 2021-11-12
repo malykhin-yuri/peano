@@ -13,13 +13,18 @@ This repo is mostly frozen, only fixes will appear.
 # User and developer guide
 
 Entry point is the script search.py: try it!
-Examples:
-* find YE curve:
+Results stated in the arXiv paper:
+* YE curve:
     * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000 --output-curves
     * time: ~3m30s, result: ye curve
-* find Spring curve:
+* Spring curve:
     * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --output-curves
     * time: ~7min
+* 4D facet-gated curve:
+    * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --output-curves
+    * time: ?
+
+Some other examples:
 * facet-gates search:
     * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --output-gates
     * time: ~20s, result: 35 gates
