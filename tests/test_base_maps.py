@@ -1,6 +1,6 @@
 import unittest
 
-from sympy import Rational
+from quicktions import Fraction
 
 from peano.subsets import Point
 from peano.base_maps import BaseMap
@@ -33,20 +33,20 @@ class TestBaseMap(unittest.TestCase):
     def test_constraint_fast(self):
         pairs = [
             (
-                [Rational(0, 1), Rational(1, 1), Rational(1, 3), Rational(1, 2)],
-                [Rational(0, 1), Rational(1, 2), Rational(1, 3), Rational(0, 1)],
+                [Fraction(0, 1), Fraction(1, 1), Fraction(1, 3), Fraction(1, 2)],
+                [Fraction(0, 1), Fraction(1, 2), Fraction(1, 3), Fraction(0, 1)],
             ),
             (
-                [Rational(0, 1), Rational(0, 1)],
-                [Rational(1, 2), Rational(1, 2)],
+                [Fraction(0, 1), Fraction(0, 1)],
+                [Fraction(1, 2), Fraction(1, 2)],
             ),
             (
-                [Rational(0, 1), Rational(0, 1), Rational(1, 2), Rational(1, 2), Rational(1, 4)],
-                [Rational(1, 2), Rational(1, 2), Rational(1, 1), Rational(1, 1), Rational(3, 4)],
+                [Fraction(0, 1), Fraction(0, 1), Fraction(1, 2), Fraction(1, 2), Fraction(1, 4)],
+                [Fraction(1, 2), Fraction(1, 2), Fraction(1, 1), Fraction(1, 1), Fraction(3, 4)],
             ),
             (
-                [Rational(0, 1), Rational(0, 1), Rational(0, 1), Rational(0, 1)],
-                [Rational(0, 1), Rational(0, 1), Rational(1, 1), Rational(1, 1)],
+                [Fraction(0, 1), Fraction(0, 1), Fraction(0, 1), Fraction(0, 1)],
+                [Fraction(0, 1), Fraction(0, 1), Fraction(1, 1), Fraction(1, 1)],
             ),
         ]
         for src_coords, dst_coords in pairs:

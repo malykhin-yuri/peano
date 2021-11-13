@@ -1,6 +1,6 @@
 import unittest
 
-from sympy import Rational
+from quicktions import Fraction
 
 from peano.base_maps import BaseMap, Spec
 from peano.curves import Curve, PathFuzzyCurve
@@ -150,15 +150,15 @@ class TestCurve(unittest.TestCase):
         known_moments = [
             {
                 'curve': get_haverkort_curve_a26(),
-                'moments': [Rational(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
+                'moments': [Fraction(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
             },
             {
                 'curve': get_haverkort_curve_f(),
-                'moments': [Rational(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
+                'moments': [Fraction(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
             },
             {
                 'curve': get_tokarev_curve(),
-                'moments': [Rational(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
+                'moments': [Fraction(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
             },
         ]
         for d in known_moments:
@@ -190,11 +190,11 @@ class TestCurve(unittest.TestCase):
             self.assertEqual(gates, data['gates'])
 
             for pnum, gate in enumerate(gates):
-                entr_face = [1 if pj == Rational(1) else 0 if pj == Rational(0) else None for pj in gate.entrance]
-                assert curve.get_face_moment(entr_face, pnum) == Rational(0)
+                entr_face = [1 if pj == Fraction(1) else 0 if pj == Fraction(0) else None for pj in gate.entrance]
+                assert curve.get_face_moment(entr_face, pnum) == Fraction(0)
 
-                exit_face = [1 if pj == Rational(1) else 0 if pj == Rational(0) else None for pj in gate.exit]
-                assert curve.get_face_moment(exit_face, pnum, last=True) == Rational(1)
+                exit_face = [1 if pj == Fraction(1) else 0 if pj == Fraction(0) else None for pj in gate.exit]
+                assert curve.get_face_moment(exit_face, pnum, last=True) == Fraction(1)
 
     def test_depth(self):
         known = [
