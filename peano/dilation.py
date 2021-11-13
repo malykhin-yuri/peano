@@ -253,7 +253,7 @@ class Estimator:
     class _RunOutOfIterationsException(Exception):
         pass
 
-    def __init__(self, ratio_func, cache_max_size=2**20):
+    def __init__(self, ratio_func, cache_max_size=2**20, cache_max_depth=4):
         """
         Init Estimator instance.
 
@@ -268,6 +268,7 @@ class Estimator:
         self.max_stats = {}
         self._get_bounds_cache = {}
         self._cache_max_size = cache_max_size
+        self._cache_max_depth = cache_max_depth
 
     def _get_bounds(self, pair, brkline=None):
         # Get lower and upper bounds for max ratio of given fractions pair:
@@ -282,9 +283,9 @@ class Estimator:
         pos1, pos2 = pair.pos1, pair.pos2
         pair_depth = max(pos1.depth, pos2.depth)  # not count junc.depth
         self.sum_stats['pair_depth'] += pair_depth
-        self._update_max_stats({'pair_depth': pair_depth})
+        self.max_stats['pair_depth'] = max(self.max_stats.get('pair_depth', 0), pair_depth)
 
-        use_cache = (brkline is None)  # not implemented
+        use_cache = (brkline is None and pair_depth <= self._cache_max_depth)  # not implemented for brkline
         if use_cache:
             # note that pos pnums are not part of the key
             # because cube time/space locations do not depend on them and dilation is not affected
@@ -385,7 +386,8 @@ class Estimator:
 
         result = (lo, up, argmax)
         if use_cache:
-            if len(cache) >= self._cache_max_size:
+            self.max_stats['cache_size'] = max(self.max_stats.get('cache_size', 0), len(cache))
+            if self._cache_max_size is not None and len(cache) >= self._cache_max_size:
                 # poor man's LRU cache :(
                 cache.clear()
                 self.sum_stats['get_bounds_cache_cleanup'] += 1

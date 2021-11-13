@@ -5,7 +5,7 @@ import argparse
 import pprint
 from collections import Counter
 
-from sympy import Rational
+from quicktions import Fraction
 
 import peano.utils as utils
 from peano.paths import PathsGenerator
@@ -26,6 +26,7 @@ def run_estimator(
         upper_bound=None,
         group_by_gates=False,
         output_gates=False, output_stats=False, output_curves=None,
+        cache_max_size=None, cache_max_depth=None,
     ):
 
     global_stats = Counter()
@@ -79,7 +80,7 @@ def run_estimator(
             print(' | '.join([str(gate) for gate in gates]))
         return
 
-    estimator = Estimator(ratio_func, cache_max_size=2**16)
+    estimator = Estimator(ratio_func, cache_max_size=cache_max_size, cache_max_depth=cache_max_depth)
 
     if group_by_gates:
         pcurve_gens = [(gates, gen_pcurves([gates])) for gates in gates_generator]
@@ -138,6 +139,8 @@ if __name__ == "__main__":
     argparser.add_argument('--upper-bound', type=str, help='fractional upper bound, e.g., "11/2"')
     argparser.add_argument('--rel-tol-inv', type=int, help='inverted relative tolerance')
     argparser.add_argument('--rel-tol-inv_mult', type=int, help='multiplier for rel_tol_inv in each epoch')
+    argparser.add_argument('--cache-max-size', type=int, help='dilation bounds cache size limit')
+    argparser.add_argument('--cache-max-depth', type=int, help='dilation bounds cache depth limit')
 
     # other
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
@@ -190,6 +193,6 @@ if __name__ == "__main__":
         kwargs['gate_list'] = [gates]
 
     if args.upper_bound is not None:
-        kwargs['upper_bound'] = Rational(args.upper_bound)
+        kwargs['upper_bound'] = Fraction(args.upper_bound)
 
     run_estimator(**kwargs)
