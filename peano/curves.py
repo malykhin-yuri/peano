@@ -36,7 +36,7 @@ class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
         proto = Proto.parse(chain)
         if isinstance(specs, str):
             specs = specs.split(',')
-        specs = [Spec.parse(c) for c in specs]
+        specs = tuple(Spec.parse(c) for c in specs)
         return cls(proto, specs)
 
     def __invert__(self):
@@ -75,10 +75,12 @@ class FuzzyCurve:
         self.div = div
 
         self.patterns = []
-        for proto, specs in patterns:
-            proto = proto if isinstance(proto, Proto) else Proto(dim, div, proto)
-            specs = tuple(sp if isinstance(sp, Spec) else Spec(sp) if sp is not None else None for sp in specs)
-            pattern = Pattern(proto=proto, specs=specs)
+        for pattern in patterns:
+            if not isinstance(pattern, Pattern):
+                proto, specs = pattern
+                proto = proto if isinstance(proto, Proto) else Proto(dim, div, proto)
+                specs = tuple(sp if isinstance(sp, Spec) else Spec(sp) if sp is not None else None for sp in specs)
+                pattern = Pattern(proto=proto, specs=specs)
             self.patterns.append(pattern)
 
         self.pcount = len(self.patterns)
