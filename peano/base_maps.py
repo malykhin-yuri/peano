@@ -48,6 +48,7 @@ class BaseMap:
         obj._key = key
         obj._mul_cache = {}
         obj._inv_cache = None
+        obj._hash = hash(key)
 
         cache[key] = obj
         return obj
@@ -104,7 +105,7 @@ class BaseMap:
         return self._key == other._key
 
     def __hash__(self):
-        return hash(self._key)
+        return self._hash
 
     def __str__(self):
         bases = [None] * self.dim
@@ -286,6 +287,7 @@ class Spec:
         obj.base_map = base_map
         obj.pnum = pnum
         obj._key = key
+        obj._hash = hash(key)
         cache[key] = obj
         return obj
 
@@ -293,7 +295,7 @@ class Spec:
         return self._key == other._key
 
     def __hash__(self):
-        return hash(self._key)
+        return self._hash
 
     @classmethod
     def parse(cls, text):
