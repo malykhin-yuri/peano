@@ -80,7 +80,12 @@ def run_estimator(
             print(' | '.join([str(gate) for gate in gates]))
         return
 
-    estimator = Estimator(ratio_func, cache_max_size=cache_max_size, cache_max_depth=cache_max_depth)
+    estimator_kwargs = {}
+    if cache_max_size is not None:
+        estimator_kwargs['cache_max_size'] = cache_max_size
+    if cache_max_depth is not None:
+        estimator_kwargs['cache_max_depth'] = cache_max_depth
+    estimator = Estimator(ratio_func, **estimator_kwargs)
 
     if group_by_gates:
         pcurve_gens = [(gates, gen_pcurves([gates])) for gates in gates_generator]
@@ -186,6 +191,8 @@ if __name__ == "__main__":
                 gates = [Link.parse_gates(token) for token in line.strip().split('|')]
                 gate_list.append(gates)
         kwargs['gate_list'] = gate_list
+
+    #TODO add assert on pcount!
 
     gates_str = kwargs.pop('gates')
     if gates_str is not None:

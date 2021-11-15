@@ -253,7 +253,7 @@ class Estimator:
     class _RunOutOfIterationsException(Exception):
         pass
 
-    def __init__(self, ratio_func, cache_max_size=2**20, cache_max_depth=4):
+    def __init__(self, ratio_func, cache_max_size=2**18, cache_max_depth=4):
         """
         Init Estimator instance.
 
@@ -437,13 +437,12 @@ class Estimator:
     def _add_tree_stats(self, tree):
         self.sum_stats.update({'ptree.{}'.format(k): v for k, v in tree.stats.items()})
 
-    def _update_max_stats(self, stats):
+    def _update_max_stats(self, k, v):
         max_stats = self.max_stats
-        for k, v in stats.items():
-            if k in max_stats:
-                max_stats[k] = max(max_stats[k], v)
-            else:
-                max_stats[k] = v
+        if k in max_stats:
+            max_stats[k] = max(max_stats[k], v)
+        else:
+            max_stats[k] = v
 
     def _forbid(self, tree, adapter):
         # forbid bad configurations and drop them from the tree
@@ -608,6 +607,7 @@ class Estimator:
         # and all other curve's pairs are good
 
         adapter = _sat_adapters.CurveSATAdapter(curve)
+        # TODO: copy sat adapter!
 
         # how often should we call sat solver? default is equidistant strategy
         if sat_strategy is None:
@@ -638,14 +638,14 @@ class Estimator:
             if not try_sat:
                 continue
 
-            logger.debug('iter %d, try SAT solver', iter_no)
+            logger.debug('iter %d, try SAT solver; stats: %s, %s', iter_no, self.sum_stats, self.max_stats)
             self.sum_stats['sat.solve_calls'] += 1
             if not adapter.solve():
                 no_model = True
                 break
 
         self._add_tree_stats(pairs_tree)
-        self._update_max_stats({'sat.problem_size': adapter.get_problem_size()})
+        self._update_max_stats('sat.problem_size', adapter.get_problem_size())
 
         if no_model or not adapter.solve():
             return None
@@ -751,7 +751,7 @@ class Estimator:
             'init_pairs_tree': init_pairs_tree,
         }
 
-    def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=3, upper_bound=None, **kwargs):
+    def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=4, upper_bound=None, **kwargs):
         """
         Estimate minimal dilation for sequence of fuzzy curves.
 
