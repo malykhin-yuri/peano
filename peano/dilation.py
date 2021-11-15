@@ -28,13 +28,10 @@ class _PiecePosition:
         self.div = div
         self.cnums = tuple(cnums)
         self.cubes = tuple(cubes)
-
         self.depth = len(self.cnums)
-        self.sub_div = div**self.depth
-        self.sub_genus = self.sub_div**dim
 
     def specify(self, cnum, cube):
-        return type(self)(
+        return _PiecePosition(
             dim=self.dim,
             div=self.div,
             cnums=self.cnums + (cnum,),
@@ -124,10 +121,10 @@ class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'p
         # use curve from divided piece because it has specified curve
         if self.pos1.depth > self.pos2.depth:
             for subpiece in self._get_piece(2).divide():
-                yield type(self)(subpiece.curve, self.junc, self.pos1, subpiece.pos)
+                yield _CurvePiecePair(subpiece.curve, self.junc, self.pos1, subpiece.pos)
         else:
             for subpiece in self._get_piece(1).divide():
-                yield type(self)(subpiece.curve, self.junc, subpiece.pos, self.pos2)
+                yield _CurvePiecePair(subpiece.curve, self.junc, subpiece.pos, self.pos2)
 
 
 class _BoundedItemsHeap:
@@ -314,11 +311,17 @@ class Estimator:
         junc = pair.junc
 
         # junc: apply base_maps to coordinates
+        pos1_sub_div = N**pos1.depth
+        pos1_sub_genus = pos1_sub_div**dim
+
+        pos2_sub_div = N**pos2.depth
+        pos2_sub_genus = pos2_sub_div**dim
+
         jbm1, jbm2 = junc.spec1.base_map, junc.spec2.base_map
-        x1 = jbm1.apply_cube(pos1.sub_div, x1)
-        t1 = jbm1.apply_cnum(pos1.sub_genus, t1)
-        x2 = jbm2.apply_cube(pos2.sub_div, x2)
-        t2 = jbm2.apply_cnum(pos2.sub_genus, t2)
+        x1 = jbm1.apply_cube(pos1_sub_div, x1)
+        t1 = jbm1.apply_cnum(pos1_sub_genus, t1)
+        x2 = jbm2.apply_cube(pos2_sub_div, x2)
+        t2 = jbm2.apply_cnum(pos2_sub_genus, t2)
         if use_brkline:
             brk1 = ((jbm1 * brk1_bm) * brkline).points
             brk2 = ((jbm2 * brk2_bm) * brkline).points
@@ -335,8 +338,8 @@ class Estimator:
         else:
             raise ValueError("Unbalanced positions!")
 
-        mx = pos1.sub_div
-        mt = pos1.sub_genus
+        mx = pos1_sub_div
+        mt = pos1_sub_genus
 
         # now we have the following integer coordinates:
         # cube1: x1j <= xj <= x1j + 1    -- cube inside [0, mx]^d
