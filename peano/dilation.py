@@ -563,7 +563,7 @@ class Estimator:
 
     def bisect_dilation_fuzzy(self, curve, good_threshold, bad_threshold,
                               max_iter=None, sat_strategy=None,
-                              init_pairs_tree=None):
+                              init_pairs_tree=None, init_sat_adapter=None):
         """
         Decide if there is a "good" regular curve or all curves are "bad".
 
@@ -586,6 +586,7 @@ class Estimator:
               strategy['type'] == 'equal': call every strategy['count'] divisions (default)
               strategy['type'] == 'geometric': call on strategy['multiplier']**k iterations
             init_pairs_tree: cached _create_tree
+            init_sat_adapter: cached initial sat_adapter
 
         Returns:
             curve or None (if not found)
@@ -606,8 +607,6 @@ class Estimator:
         # then the corresponding curve is good because it avoids bad pairs
         # and all other curve's pairs are good
 
-        adapter = _sat_adapters.CurveSATAdapter(curve)
-        # TODO: copy sat adapter!
 
         # how often should we call sat solver? default is equidistant strategy
         if sat_strategy is None:
@@ -619,6 +618,11 @@ class Estimator:
             pairs_tree = self._create_tree(curve, **thrs)
         else:
             pairs_tree = init_pairs_tree.copy_and_cleanup(**thrs)
+
+        if init_sat_adapter is None:
+            adapter = _sat_adapters.CurveSATAdapter(curve)
+        else:
+            adapter = init_sat_adapter.copy()
 
         self._forbid(pairs_tree, adapter)
 
@@ -655,7 +659,7 @@ class Estimator:
 
     def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, stop_upper_bound=None,
                                 start_lower_bound=None, start_upper_bound=None, start_curve=None,
-                                init_pairs_tree=None, **kwargs):
+                                **kwargs):
         """
         Estimate minimal dilation of a fuzzy curve.
 
@@ -666,7 +670,6 @@ class Estimator:
             curve: fuzzy curve
             rel_tol_inv: inverted relative tolerance, integer
             stop_upper_bound: do not proceed if min WD is higher than this
-            init_pairs_tree: initial tree of first-order pairs, without thresholds (optimization)
 
             start_lower_bound: known lower bound on min WD, start bisection with it
             start_upper_bound: known upper bound on min WD, start bisection with it
@@ -679,7 +682,6 @@ class Estimator:
             'lo': lower_bound
             'up': upper_bound
             'curve': curve_example with dilation in [lo, up]
-            'init_pairs_tree': initial tree to use in subsequent calls
         """
 
         # This method is simply "bisection" algorithm based on bisect_dilation_fuzzy.
@@ -698,9 +700,10 @@ class Estimator:
             curr_up = start_upper_bound
             curr_curve = start_curve
 
-        if init_pairs_tree is None:
-            init_pairs_tree = self._create_tree(curve)
-            self._add_tree_stats(init_pairs_tree)  # will not use init_pairs_tree anymore
+        init_pairs_tree = self._create_tree(curve)
+        self._add_tree_stats(init_pairs_tree)  # will not use init_pairs_tree anymore
+
+        init_sat_adapter = _sat_adapters.CurveSATAdapter(curve)
 
         # invariants:
         # * minimum dilation is in [curr_lo, curr_up]
@@ -723,12 +726,12 @@ class Estimator:
             )
             logger.debug('precise test thresholds: %s, %s', test_lo, test_up)
             try:
-                # we always ask for a model, to get actual curve with guarantees
                 bisect_result = self.bisect_dilation_fuzzy(
                     curve,
                     bad_threshold=test_lo,
                     good_threshold=test_up,
                     init_pairs_tree=init_pairs_tree,
+                    init_sat_adapter=init_sat_adapter,
                     **kwargs,
                 )
             except self._RunOutOfIterationsException:
@@ -748,7 +751,6 @@ class Estimator:
             'curve': curr_curve,
             'lo': curr_lo,
             'up': curr_up,
-            'init_pairs_tree': init_pairs_tree,
         }
 
     def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=4, upper_bound=None, **kwargs):
@@ -775,13 +777,12 @@ class Estimator:
         # We iterate over curves many times with increasing up/lo estimation tolerance.
 
         tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
-        max_store_pairs_tree = 200
-        CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example init_pairs_tree'.split())
+        CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example'.split())
 
-        def get_item(curve, idx, lo=None, up=None, example=None, init_pairs_tree=None):
+        def get_item(curve, idx, lo=None, up=None, example=None):
             # store idx in second field to avoid lo/up/... comparison
             priority = -lo if lo is not None else None
-            return CurveItem(priority, idx, lo, up, curve, example, init_pairs_tree)
+            return CurveItem(priority, idx, lo, up, curve, example)
 
         curr_lo = Fraction(0)
         curr_up = upper_bound
@@ -808,7 +809,6 @@ class Estimator:
                 res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, stop_upper_bound=curr_up,
                     start_lower_bound=item.lo, start_upper_bound=item.up, start_curve=item.example,
-                    init_pairs_tree=item.init_pairs_tree,
                     **kwargs,
                 )
                 if curr_up is None or res['up'] < curr_up:
@@ -817,13 +817,11 @@ class Estimator:
 
                 if res['lo'] <= curr_up:
                     # has a chance to be the best
-                    store_pairs_tree = (len(new_active) < max_store_pairs_tree)  # avoid memory leak
                     new_item = get_item(
                         idx=item.idx,
                         curve=item.curve,
                         lo=res['lo'], up=res['up'],
                         example=res['curve'],
-                        init_pairs_tree=(res['init_pairs_tree'] if store_pairs_tree else None),
                     )
                     heappush(new_active, new_item)
                     logger.info('added new active item!')

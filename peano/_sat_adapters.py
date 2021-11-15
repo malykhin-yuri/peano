@@ -4,7 +4,7 @@ which allows to encode fuzzy curves by boolean formulas
 and apply SAT-solvers to find a curve satisfying clauses.
 """
 import itertools
-from collections import Counter, namedtuple
+from collections import namedtuple
 
 from pysat.solvers import Glucose3
 
@@ -32,7 +32,7 @@ class CurveSATAdapter:
     - curve_var: variables for some fuzzy curves (internal)
     """
 
-    def __init__(self, curve):
+    def __init__(self, curve=None):
         """
         Create SAT adapter for given fuzzy curve.
 
@@ -41,8 +41,12 @@ class CurveSATAdapter:
         self._int_clauses = []
         self._curve_vars = set()  # just cache (?)
         self._var_no = {}
-        self._stats = Counter()
         self.solver = None  # set in solve()
+
+        if curve is not None:
+            self._load_curve(curve)
+
+    def _load_curve(self, curve):
         self.curve = curve  # used in get_model
 
         # possible specs
@@ -57,6 +61,15 @@ class CurveSATAdapter:
         # regular junctions
         for junc, curves in curve.get_junctions_info().items():
             self._make_junc_var(junc, curves)
+
+    def copy(self):
+        assert self.solver is None
+        new_adapter = type(self)()
+        new_adapter._int_clauses = self._int_clauses[:]
+        new_adapter._curve_vars = self._curve_vars.copy()
+        new_adapter._var_no = self._var_no.copy()
+        new_adapter.curve = self.curve
+        return new_adapter
 
     @staticmethod
     def _get_sp_var(pnum, cnum, sp):
@@ -137,19 +150,19 @@ class CurveSATAdapter:
             if var not in self._var_no:
                 max_var_no = 1 + len(self._var_no)
                 self._var_no[var] = max_var_no
-                self._stats['variables'] += 1
             var_no = self._var_no[var]
             token = var_no if val else -var_no
             int_clause.append(token)
-            self._stats['literals'] += 1
-        self._int_clauses.append(int_clause)
-        self._stats['clauses'] += 1
+        self._int_clauses.append(tuple(int_clause))
 
     SATProblemSize = namedtuple('SATProblemSize', ['literals', 'clauses', 'variables'])
 
     def get_problem_size(self):
-        size = [self._stats[k] for k in ['literals', 'clauses', 'variables']]
-        return self.SATProblemSize(*size)
+        return self.SATProblemSize(
+            literals=sum(len(clause) for clause in self._int_clauses),
+            clauses=len(self._int_clauses),
+            variables=len(self._var_no),
+        )
 
     def solve(self):
         """
