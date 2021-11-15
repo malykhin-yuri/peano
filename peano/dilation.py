@@ -69,21 +69,21 @@ class _CurvePiece(namedtuple('_CurvePiece', ['curve', 'pnum', 'pos'])):
         # define orientation of last_but_one fraction of a curve
         # in the last fraction we do not know the orientation yet!
         prev_spec = self.curve.get_deep_spec(self.pnum, self.pos.cnums[:-1])
-        prev_curve = prev_spec * self.curve
 
-        active_pnum = prev_curve.pnum
+        active_pnum = prev_spec.pnum
         active_cnum = self.pos.cnums[-1]  # the cube in prev_curve that will be divided
         orig_cnum = prev_spec.base_map.apply_cnum(self.curve.genus, active_cnum)
 
-        for sp in prev_curve.gen_allowed_specs(active_pnum, active_cnum):
-            # sp is spec in prev_curve, we need to restore spec in orig curve
+        for orig_spec in self.curve.gen_allowed_specs(active_pnum, orig_cnum):
+            # we need to get spec in prev_curve to proceed to last curve
             # specs are conjugated, see curves.FuzzyCurve.apply_cube_map
-            orig_spec = sp.conjugate_by(prev_spec.base_map**(-1))
+            sp = orig_spec.conjugate_by(prev_spec.base_map)
+
             specified_curve = self.curve.specify(active_pnum, orig_cnum, orig_spec)
 
             # last_curve = sp * prev_curve, but we do not use curve mult - optimization
             # last_curve_proto = (sp * prev_curve).proto
-            last_curve_proto = sp.base_map * prev_curve.patterns[sp.pnum].proto
+            last_curve_proto = (sp.base_map * prev_spec.base_map) * self.curve.patterns[sp.pnum].proto
             for cnum, cube in enumerate(last_curve_proto):
                 new_pos = self.pos.specify(cnum, cube)
                 new_piece = _CurvePiece(specified_curve, self.pnum, new_pos)
