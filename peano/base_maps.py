@@ -1,4 +1,5 @@
 import itertools
+from collections import Counter
 
 from quicktions import Fraction
 
@@ -9,10 +10,6 @@ class BaseMap:
 
     Immutable and hashable.
     Acts on function f:[0,1]->[0,1]^d as  Bf: [0,1]--B_time-->[0,1]--f-->[0,1]^d--B_cube-->[0,1]^d
-
-    We severily use caching, because there are not so many possible base maps.
-
-    TODO: maybe, totally cache it for dim <= 4 ?
     """
 
     basis_letters = 'ijklmn'
@@ -22,20 +19,18 @@ class BaseMap:
     def __new__(cls, coords, time_rev=False):
         """
         Create a BaseMap instance.
-
-        Cached method. 
-        Params:
-            coords:     list of pairs (k, b) defining the isometry
-                        B_cube(x_0,...,x_{d-1}) = (y_0,...,y_{d-1}),
-                        where y_j = 1 - x_{k_j} if b_j else x_{k_j}
-
-            time_rev:   time reversal (boolean), default: False
-                        B_time(t) = 1-t if time_rev else t
+        Args:
+            coords: tuple of pairs (k, b) defining the isometry
+              B_cube(x_0,...,x_{d-1}) = (y_0,...,y_{d-1}),
+              where y_j = 1 - x_{k_j} if b_j else x_{k_j}
+            time_rev: time reversal (boolean), default: False
+              B_time(t) = 1-t if time_rev else t
         """
-        
-        coords = tuple((k, bool(b)) for k, b in coords)
+        coords = tuple(coords)
         time_rev = bool(time_rev)
 
+        # use total object caching, because there are not so many possible base maps.
+        # do not make obj_id to provide consistency for pickling
         cache = cls._obj_cache
         key = (coords, time_rev)
         if key in cache:
@@ -59,23 +54,24 @@ class BaseMap:
         """Identity map."""
         bm = cls._id_map_cache.get(dim)
         if bm is None:
-            coords = [(k, False) for k in range(dim)]
+            coords = tuple((k, False) for k in range(dim))
             bm = cls._id_map_cache[dim] = cls(coords)
         return bm
 
     @classmethod
     def parse(cls, text):
         """
-        Convenient way to represent a base map.
+        Get base map from a convenient string representation.
 
-        basis -- string, e.g., 'Ij', representing images of standard basis e_1, e_2, ...
-            i=e_1, j=e_2, k=e_3, l=e_4, m=e_5, n=e_6
-            upper-case letters correspond to negation of vectors: I = -i, J = -j, ...
-            To get time reverse, place '~' at the end of the string, e.g., 'iJ~'
+        Args:
+            text: string, representing images of standard basis e_1, e_2, ...
+              i=e_1, j=e_2, k=e_3, l=e_4, m=e_5, n=e_6
+              upper-case letters correspond to negation of vectors: I = -i, J = -j, ...
+              To get time reverse, place '~' at the end of the string, e.g., 'iJ~'
+              e.g., 'Ji~' means that e_1->-e_2, e_2->e_1, time rev; (x,y)->(y,-x),t->1-t
 
         We restrict here to dim <= 6, but the limit may by increased by extending basis_letters.
         """
-
         text = text.strip()
         if text[-1] == '~':
             time_rev = True
@@ -89,12 +85,12 @@ class BaseMap:
         l2i = {l: i for i, l in enumerate(cls.basis_letters)}
         cmap = {}
         for k, l in enumerate(basis):
-            ll = l.lower()
-            i, b = l2i[ll], (l != ll)
+            i = l2i[l.lower()]
+            b = (l != l.lower())
             # e_k -> (+/-)e_i, so y_i = x_k^b
             cmap[i] = (k, b)
 
-        coords = [cmap[i] for i in range(len(cmap))]
+        coords = tuple(cmap[i] for i in range(len(cmap)))
         return cls(coords, time_rev)
 
     def cube_map(self):
@@ -108,42 +104,36 @@ class BaseMap:
         return self._hash
 
     def __str__(self):
-        bases = [None] * self.dim
+        basis = [None] * self.dim
         for i, (k, b) in enumerate(self.coords):  # y_i = x_k^b
             img = self.basis_letters[i]
-            bases[k] = img.upper() if b else img
-        return ''.join(bases) + ('~' if self.time_rev else '')
+            basis[k] = img.upper() if b else img
+        return ''.join(basis) + ('~' if self.time_rev else '')
 
     def __mul__(self, other):
-        """
-        Composition of base maps: A * B.
-        """
+        """Composition of base maps: A * B."""
         if not isinstance(other, BaseMap):
             return NotImplemented
 
         key = other._key
-        val = self._mul_cache.get(key, None)
+        val = self._mul_cache.get(key)
         if val is None:
-            # actual multiplication
             assert self.dim == other.dim
-            coords = []
+            coords = [None] * self.dim
             for i in range(self.dim):
-                p, b1 = self.coords[i]
-                k, b2 = other.coords[p]
-                coords.append((k, b1 ^ b2))
-            time_rev = self.time_rev ^ other.time_rev
-            val = BaseMap(coords, time_rev)
-            self._mul_cache[key] = val
+                p, b1 = self.coords[i]  # A: y->z; z_i = y_p^b1
+                k, b2 = other.coords[p]  # B: x->y; y_p = x_k^b2
+                coords[i] = (k, b1 ^ b2)  # AB: x->y; z_i = x_k^(b1 xor b2)
+            self._mul_cache[key] = val = BaseMap(coords, self.time_rev ^ other.time_rev)
         return val
 
     def get_inverse(self):
-        """Inverse of base map B: such X that B*X=X*B=id."""
+        """Group inverse of base map B: such X that B*X=X*B=id."""
         val = self._inv_cache
         if val is None:
-            # actual inversion
             coords = [None] * self.dim
             for i, (k, b) in enumerate(self.coords):
-                coords[k] = (i, b)
+                coords[k] = (i, b)  # y_i = x_k^b <=> x_k = y_i^b
             self._inv_cache = val = BaseMap(coords, self.time_rev)
         return val
 
@@ -166,14 +156,15 @@ class BaseMap:
         return BaseMap(self.coords, not self.time_rev)
 
     def conjugate_by(self, other):
-        """Conjugation."""
+        """Conjugation: g * X * g^{-1}."""
         return other * self * other.get_inverse()
 
-    def apply_x(self, x, mx=1):
-        """Apply isometry to a point x of [0,1]^d."""
+    def apply_x(self, x, mx=Fraction(1)):
+        """Apply cube isometry to a point x of [0,mx]^d."""
         return tuple(mx-x[k] if b else x[k] for k, b in self.coords)
 
-    def apply_t(self, t, mt=1):
+    def apply_t(self, t, mt=Fraction(1)):
+        """Apply time isometry to a point t of [0,mt]."""
         return mt - t if self.time_rev else t
 
     def apply_vec(self, v):
@@ -193,7 +184,13 @@ class BaseMap:
 
     @classmethod
     def gen_base_maps(cls, dim, time_rev=None):
-        time_rev_variants = [True, False] if time_rev is None else [time_rev]
+        """
+        Generate all base maps of given dimension.
+
+        Args:
+            time_rev: if not None, yield only bms with given time_rev
+        """
+        time_rev_variants = (True, False) if time_rev is None else (time_rev,)
         for perm in itertools.permutations(range(dim)):
             for flip in itertools.product([True, False], repeat=dim):
                 for time_rev in time_rev_variants:
@@ -201,7 +198,15 @@ class BaseMap:
 
     @classmethod
     def gen_constraint_fast(cls, src, dst):
-        """Generate bms: bm*src == dst. Used for rationals."""
+        """
+        Generate cube maps that map src to dst.
+
+        Args:
+            src, dst: points, i.e. iterables of fractions (dim=length)
+
+        Yields:
+            bm: bm*src == dst, bm without time_rev
+        """
         dim = len(src)
         group_id = {}
         group_coords = []
@@ -216,65 +221,47 @@ class BaseMap:
         group_perms = [itertools.permutations(gc) for gc in group_coords]
         group_perm_list = list(itertools.product(*group_perms))
 
-        bvars = []
+        flip_variants = []  # possible variants (b, group_id) for each coordinate
         for xj in src:
-            bvar = []
+            var = []
             if xj in group_id:
-                bvar.append((0, group_id[xj]))
+                var.append((False, group_id[xj]))
             xj_compl = Fraction(1) - xj
             if xj_compl in group_id:
-                bvar.append((1, group_id[xj_compl]))
-            bvars.append(bvar)
+                var.append((True, group_id[xj_compl]))
+            flip_variants.append(var)
 
-        # TODO: try to use combinations_product
-        for bvar_list in itertools.product(*bvars):
+        for flip_list in itertools.product(*flip_variants):
             good = True
-            gcnt = {}
-            bs = [h[0] for h in bvar_list]  # list of b's
-            gs = [h[1] for h in bvar_list]  # list of group ids
-            ps = []  # list of places in group
-            for g in gs:
-                if g not in gcnt:
-                    gcnt[g] = 0
-                else:
-                    gcnt[g] += 1
-                if gcnt[g] >= len(group_coords[g]):
+            gcnt = Counter()
+
+            # try to check if there exists a bm that maps src->dst
+            for _, g in flip_list:
+                gcnt[g] += 1
+                if gcnt[g] > len(group_coords[g]):
                     good = False
-                    break  # too many in group
-                ps.append(gcnt[g])
+                    break  # too many coords get in group, no bms for this flip_list
 
             if not good:
                 continue
 
             for perms in group_perm_list:
+                perms = tuple(list(perm) for perm in perms)
                 coords = [None] * dim
-                for k in range(dim):
-                    new_k = perms[gs[k]][ps[k]]  # x_k goes to x_{new_k}
-                    coords[new_k] = (k, bs[k])
+                for k, (b, g) in enumerate(flip_list):
+                    new_k = perms[g].pop(0)
+                    coords[new_k] = (k, b)
                 yield cls(coords)
-
-
-    @classmethod
-    def std(cls, x):
-        """Put x in "standard" (minimal) position, return (std_x, std_bm)."""
-        dim = len(x)
-        minx, minbm = None, None
-        for bm in cls.gen_base_maps(dim, time_rev=False):
-            bmx = bm * x
-            if minx is None or bmx < minx:
-                minx = bmx
-                minbm = bm
-        return minx, minbm
 
 
 class Spec:
     """
     Specification of poly-fractal curve to a fraction: BaseMap and pattern choice.
 
-    Specs act on polyfractal curves and form a semi-group.
+    Specs act on polyfractal curves and form a semi-group,
+    i.e. Sf=(bm,pnum)f means bm-mapped curve f with pnum pattern selected.
     """
 
-    # we do not make obj_id, to provide consistency for pickling
     _obj_cache = {}
 
     def __new__(cls, base_map, pnum=0):
@@ -299,6 +286,7 @@ class Spec:
 
     @classmethod
     def parse(cls, text):
+        """Parse spec, e.g. 3ijk for pnum=3 and bm=ijk."""
         if text[0].isdigit():
             pnum = int(text[0])
             basis = text[1:]

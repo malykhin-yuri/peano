@@ -629,7 +629,6 @@ class Estimator:
 
         self._forbid(pairs_tree, adapter)
 
-        sum_stats = Counter()
         no_model = None
         iter_no = 0
         while pairs_tree.has_items():

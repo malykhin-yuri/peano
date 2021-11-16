@@ -31,10 +31,15 @@ def run_estimator(
 
     global_stats = Counter()
 
-    if gate_list is not None:
-        gates_generator = gate_list
-    else:
-        gates_generator = GatesGenerator(dim, div, pcount, facet=facet_gated).gen_gates()
+    # we prefer to generate gates before curves to calculate timinings
+    if gate_list is None:
+        gate_list = list(GatesGenerator(dim, div, pcount, only_facet=facet_gated).gen_gates())
+
+    logging.info('gate configurations: %d', len(gate_list))
+    if output_gates:
+        for gates in gate_list:
+            print(' | '.join([str(gate) for gate in gates]))
+        return
 
     def gen_pcurves(gates_iterable):
         for gates_idx, gates in enumerate(gates_iterable):
@@ -66,18 +71,13 @@ def run_estimator(
 
     if output_stats:
         scnt = 0
-        for counts in gen_pcurves(gates_generator):
+        for counts in gen_pcurves(gate_list):
             prod = 1
             for cnt in counts:
                 prod *= cnt
             print(prod)
             scnt += prod
         print('TOTAL:', scnt)
-        return
-
-    if output_gates:
-        for gates in gates_generator:
-            print(' | '.join([str(gate) for gate in gates]))
         return
 
     estimator_kwargs = {}
@@ -88,9 +88,9 @@ def run_estimator(
     estimator = Estimator(ratio_func, **estimator_kwargs)
 
     if group_by_gates:
-        pcurve_gens = [(gates, gen_pcurves([gates])) for gates in gates_generator]
+        pcurve_gens = [(gates, gen_pcurves([gates])) for gates in gate_list]
     else:
-        pcurve_generator = gen_pcurves(gates_generator)
+        pcurve_generator = gen_pcurves(gate_list)
         pcurve_gens = [('all_gates', pcurve_generator)]
 
     estimate_kwargs = {}

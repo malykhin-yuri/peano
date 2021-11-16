@@ -90,19 +90,24 @@ def get_lcm(iterable):
 def combinations_product(iter_ids, iter_dict):
     """
     Product of combinations of iterables.
+
+    All positions with given iter_id are equivalent, so
+    we take combinations of iterables within that group, not whole product.
+
     Args:
         iter_ids  --  list of ids
         iter_dict --  dict {iter_id: iterable}
 
-    Generate tuples (elem_1,...,elem_n) where elem_j comes from iter_ids[j] iterable.
-    All positions with given iter_id are equivalent, so
-    we take combinations of iterables within that group, not whole product.
+    Yields:
+        tuples (elem_1,...,elem_n) where elem_j comes from iter_ids[j] iterable.
     """
-    counts = Counter(iter_ids)
-    combs = [itertools.combinations_with_replacement(iter_dict[iter_id], r=cnt) for iter_id, cnt in counts.items()]
-    id2idx = {iter_id: idx for idx, iter_id in enumerate(counts)}
+    combs = []
+    id2idx = {}
+    for idx, (iter_id, cnt) in enumerate(Counter(iter_ids).items()):
+        id2idx[iter_id] = idx
+        combs.append(itertools.combinations_with_replacement(iter_dict[iter_id], r=cnt))
     for groups_items in itertools.product(*combs):
-        groups_items = [list(elems) for elems in groups_items]
+        groups_items = tuple(list(elems) for elems in groups_items)
         result = []
         for iter_id in iter_ids:
             result.append(groups_items[id2idx[iter_id]].pop(0))

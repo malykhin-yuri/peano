@@ -10,4 +10,8 @@ class TestUtils(unittest.TestCase):
             1: 'abcd',
             2: 'UVW'
         }
-        print(list(combinations_product([1,2,1], iters)))
+        output = list(combinations_product([1,2,1], iters))
+        print(output)
+        self.assertEqual(len(output), 30)
+        self.assertTrue(('a','V','d') in output)
+        self.assertTrue(('b','U','a') not in output)

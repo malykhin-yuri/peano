@@ -12,19 +12,19 @@ logger = logging.getLogger(__name__)
 
 
 class GatesGenerator:
-    def __init__(self, dim, div, pcount, facet=False):
+    def __init__(self, dim, div, pcount, only_facet=False):
         """
         Generate gates for given configuration, optimized for facet-gated curves
 
         Args:
-          dim, div, pcount: base configuration
-          facet: work with facet-gated curves only, i.e. having entrance/exit
-            strictly on facets (hyperfaces)
+            dim, div, pcount: base configuration
+            only_facet: work with facet-gated curves only, i.e. having entrance/exit
+              strictly on facets (hyperfaces)
         """
         self.dim = dim
         self.div = div
         self.pcount = pcount
-        self.facet = facet
+        self.only_facet = only_facet
         self.stats = Counter()
         self.seen_gates = set()
         self.seen_std_gates = set()
@@ -42,7 +42,7 @@ class GatesGenerator:
         """
         self.seen_gates.clear()
         self.seen_std_gates.clear()
-        if self.facet:
+        if self.only_facet:
             yield from self._gen_facet_gates(**kwargs)
         else:
             yield from self._gen_possible_gates(**kwargs)
@@ -56,11 +56,11 @@ class GatesGenerator:
         """
         dim, div, pcount = self.dim, self.div, self.pcount
 
-        face0 = FacetDivSubset(dim=dim, div=div, face=(0, 0))  # x0=0
-        face1 = FacetDivSubset(dim=dim, div=div, face=(0, 1))  # x0=1
-        face2 = FacetDivSubset(dim=dim, div=div, face=(1, 0))  # x1=0
+        face0 = FacetDivSubset(dim=dim, div=div, facet=(0, 0))  # x0=0
+        face1 = FacetDivSubset(dim=dim, div=div, facet=(0, 1))  # x0=1
+        face2 = FacetDivSubset(dim=dim, div=div, facet=(1, 0))  # x1=0
 
-        # we either go to the opposite face, either to the neighbour face, or return to the same face
+        # we either go to the opposite facet, either to the neighbour facet, or return to the same facet
         link_variants = [Link(face0, face0), Link(face0, face1), Link(face0, face2)]
         links_list = list(itertools.combinations_with_replacement(link_variants, r=pcount))
 
@@ -170,11 +170,11 @@ class GatesGenerator:
         gates = []
         for pnum in range(pcount):
             entr = curve.get_entrance(pnum)
-            if (self.facet and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
+            if (self.only_facet and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
                 return
 
             exit = curve.get_exit(pnum)
-            if (self.facet and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
+            if (self.only_facet and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
                 return
 
             gates.append(Link(entr, exit))
