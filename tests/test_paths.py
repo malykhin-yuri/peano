@@ -8,7 +8,7 @@ from peano.paths import PathsGenerator
 
 class TestGen(unittest.TestCase):
     def setUp(self):
-        logging.basicConfig(level=0, stream=sys.stdout)
+        logging.basicConfig(level=logging.INFO, stream=sys.stdout)
         self.kws = {'start_max_count': 1, 'finish_max_count': 10 ** 6}
 
     def test_p1(self):

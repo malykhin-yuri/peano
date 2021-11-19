@@ -7,7 +7,7 @@ from quicktions import Fraction
 
 from .base_maps import BaseMap
 from .subsets import Point, Link
-from ._node_paths import NodePathTree
+from ._cube_path_trees import CubePathTree
 from .utils import combinations_product
 
 
@@ -284,67 +284,67 @@ class PathsGenerator:
         parent -- Path such that generated paths must be consistent with it (same proto & intersecting links)
         std -- try to standartize path (minimize keeping parent/link)
         """
-        # will use NodePathTree with state = link
+        # will use CubePathTree with state = link
         start = []
         finish = []
 
         if parent is None:
             #assert parent is None  # TODO fix
-            def gen_next(node):
-                return self.next_dict[node.state.exit]
+            def gen_next(cube, link):
+                return self.next_dict[link.exit]
 
-            def gen_prev(node):
-                for delta, link in self.next_dict[node.state.entrance]:
+            def gen_prev(cube, link):
+                for delta, link in self.next_dict[link.entrance]:
                     yield delta, ~link
 
-            tree = NodePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
+            tree = CubePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
 
             for cube, cube_subset in link.entrance.divide(self.div):
                 for start_entr in self.gen_intersected(cube_subset):
                     for start_exit in self.entr2exits[start_entr]:
                         logger.debug('start at %s: %s -> %s', cube, start_entr, start_exit)
-                        start.append(tree.init_path(cube, state=Link(start_entr, start_exit)))
+                        start.append((cube, Link(start_entr, start_exit)))
 
             for cube, cube_subset in link.exit.divide(self.div):
                 for finish_entr in self.gen_intersected(cube_subset):
                     for finish_exit in self.entr2exits[finish_entr]:
                         logger.debug('finish at %s: %s -> %s', cube, finish_exit, finish_entr)
-                        finish.append(tree.init_path(cube, Link(finish_exit, finish_entr)))
+                        finish.append((cube, Link(finish_exit, finish_entr)))
         else:
             def check_parent(cnum, cube, link):
                 """Check that link at given cube is consistent with parent"""
                 return cube == parent.proto[cnum] and link.intersects(parent.links[cnum])
 
             cube2cnum = {cube: cnum for cnum, cube in enumerate(parent.proto)}
-            def gen_next(node):
-                next_cnum = cube2cnum[node.cube] + 1  # currently we are at correct cube
-                for delta, next_link in self.next_dict[node.state.exit]:
-                    next_cube = tuple(cj + dj for cj, dj in zip(node.cube, delta))
+            def gen_next(cube, link):
+                next_cnum = cube2cnum[cube] + 1  # currently we are at correct cube
+                for delta, next_link in self.next_dict[link.exit]:
+                    next_cube = tuple(cj + dj for cj, dj in zip(cube, delta))
                     if check_parent(next_cnum, next_cube, next_link):
                         yield delta, next_link
 
-            def gen_prev(node):
-                next_cnum = cube2cnum[node.cube] - 1
-                for delta, next_link in self.next_dict[node.state.entrance]:
-                    next_cube = tuple(cj + dj for cj, dj in zip(node.cube, delta))
+            def gen_prev(cube, link):
+                next_cnum = cube2cnum[cube] - 1
+                for delta, next_link in self.next_dict[link.entrance]:
+                    next_cube = tuple(cj + dj for cj, dj in zip(cube, delta))
                     if check_parent(next_cnum, next_cube, ~next_link):
                         yield delta, ~next_link
 
-            tree = NodePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
+            tree = CubePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
 
             start_cube = parent.proto[0]
             for start_entr in self.gen_intersected(parent.links[0].entrance):
                 for start_exit in self.entr2exits[start_entr]:
                     start_link = Link(start_entr, start_exit)
                     if check_parent(0, start_cube, start_link):
-                        start.append(tree.init_path(start_cube, start_link))
+                        start.append((start_cube, start_link))
 
             finish_cube = parent.proto[-1]
             for finish_entr in self.gen_intersected(parent.links[-1].exit):
                 for finish_exit in self.entr2exits[finish_entr]:
                     finish_link = Link(finish_exit, finish_entr)
                     if check_parent(-1, finish_cube, finish_link):
-                        finish.append(tree.init_path(finish_cube, finish_link))
+                        finish.append((finish_cube, finish_link))
 
         if std:
             seen_paths = set()
@@ -352,10 +352,10 @@ class PathsGenerator:
             keep = parent if parent is not None else link
             std_bms = [bm for bm in bms if bm * keep == keep]
 
-        for path_data in tree.grow(start, ends=finish, **kwargs):
+        for path_data in tree.grow(start, finish, **kwargs):
             result_path = Path(
-                proto=Proto(self.dim, self.div, [head.cube for head in path_data]),
-                links=[head.state for head in path_data],
+                proto=Proto(self.dim, self.div, [cube for cube, _ in path_data]),
+                links=[state for _, state in path_data],
             )
             if std:
                 std_path = min(bm * result_path for bm in std_bms)
