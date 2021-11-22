@@ -26,18 +26,12 @@ class TestCubePathTree(unittest.TestCase):
         # in a n X n chessboard, provided that each cell must be reached exactly once
         true_results = [0, 1, 2, 30, 4942]
         dim = 2
-        for N in range(2, 4):
-            tree = CubePathTree(dim=dim, div=N, next_func=Next(dim))
-            start_cube = (0, 0)
-            finish_cube = (N-1, N-1)
-            found_paths = list(tree.grow(start=[(start_cube, None)], finish=[(finish_cube, None)], finish_max_count=None))
-            self.assertEqual(len(found_paths), true_results[N])
-
-        for N in range(4, 5):
+        for N in range(2, 5):
             tree = CubePathTree(dim=dim, div=N, next_func=Next(dim), prev_func=Next(dim))
             start_cube = (0, 0)
             finish_cube = (N-1, N-1)
-            found_paths = list(tree.grow(start=[(start_cube, None)], finish=[(finish_cube, None)], finish_max_count=200))
+            finish_max_count = 200 if N == 4 else None
+            found_paths = list(tree.grow(start=[(start_cube, None)], finish=[(finish_cube, None)], finish_max_count=finish_max_count))
             self.assertEqual(len(found_paths), true_results[N])
 
     def test_grow_proto(self):

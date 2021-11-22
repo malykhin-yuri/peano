@@ -3,6 +3,8 @@ from collections import Counter
 
 from quicktions import Fraction
 
+from .utils import BASIS_LETTERS
+
 
 class BaseMap:
     """
@@ -11,8 +13,6 @@ class BaseMap:
     Immutable and hashable.
     Acts on function f:[0,1]->[0,1]^d as  Bf: [0,1]--B_time-->[0,1]--f-->[0,1]^d--B_cube-->[0,1]^d
     """
-
-    basis_letters = 'ijklmn'
 
     _obj_cache = {}
 
@@ -80,9 +80,9 @@ class BaseMap:
             time_rev = False
             basis = text
 
-        assert len(basis) <= len(cls.basis_letters)
+        assert len(basis) <= len(BASIS_LETTERS)
 
-        l2i = {l: i for i, l in enumerate(cls.basis_letters)}
+        l2i = {l: i for i, l in enumerate(BASIS_LETTERS)}
         cmap = {}
         for k, l in enumerate(basis):
             i = l2i[l.lower()]
@@ -106,7 +106,7 @@ class BaseMap:
     def __str__(self):
         basis = [None] * self.dim
         for i, (k, b) in enumerate(self.coords):  # y_i = x_k^b
-            img = self.basis_letters[i]
+            img = BASIS_LETTERS[i]
             basis[k] = img.upper() if b else img
         return ''.join(basis) + ('~' if self.time_rev else '')
 

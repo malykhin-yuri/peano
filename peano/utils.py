@@ -10,6 +10,9 @@ import math
 from quicktions import Fraction
 
 
+BASIS_LETTERS = 'ijklmn'
+
+
 def ratio_linf(d, dv, dt):
     return Fraction(max(abs(x) for x in dv) ** d, dt)
 

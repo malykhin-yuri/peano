@@ -6,9 +6,9 @@ import re
 from quicktions import Fraction
 
 from .base_maps import BaseMap
-from .subsets import Point, Link
+from .subsets import Link, Point
 from ._cube_path_trees import CubePathTree
-from .utils import combinations_product
+from .utils import combinations_product, BASIS_LETTERS
 
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,6 @@ class Proto(tuple):
     We allow None-s for some of cubes, to support usage of get_entrance/get_exit methods.
     """
 
-    basis_letters = 'ijklmn'
-
     def __new__(cls, dim, div, cubes):
         cubes = tuple(tuple(cube) if cube is not None else None for cube in cubes)
         obj = super().__new__(cls, cubes)
@@ -31,25 +29,26 @@ class Proto(tuple):
         return obj
 
     def __rmul__(self, base_map):
-        cubes = [base_map.apply_cube(self.div, cube) if cube is not None else None for cube in self]
-        if base_map.time_rev:
-            cubes = reversed(cubes)
-        return type(self)(self.dim, self.div, cubes)
+        """Apply a base map to prototype."""
+        src_cubes = reversed(self) if base_map.time_rev else self
+        cubes = (base_map.apply_cube(self.div, cube) if cube is not None else None for cube in src_cubes)
+        return Proto(self.dim, self.div, cubes)
 
     def __invert__(self):
         """Time-reversed prototype."""
-        return type(self)(self.dim, self.div, tuple(reversed(self)))
+        return Proto(self.dim, self.div, reversed(self))
 
     @classmethod
     def parse(cls, chain_code):
         """
         Convert chain code like 'ijK' to curve prototype.
-        If proto is not facet-continuous, use groups: i(jk)J
+
+        If proto is not facet-continuous, use grouping: i(jk)J, here (jk) means j+k
         """
         chain_groups = [grp.strip('()') for grp in re.findall('\w|\(\w+\)', chain_code)]
         dim = len(set(c.lower() for grp in chain_groups for c in grp))
-        assert dim <= len(cls.basis_letters)
-        l2i = {l: i for i, l in enumerate(cls.basis_letters)}
+        assert dim <= len(BASIS_LETTERS)
+        l2i = {l: i for i, l in enumerate(BASIS_LETTERS)}
 
         cubes = [(0,) * dim]
         for bases in chain_groups:
@@ -71,37 +70,39 @@ class Proto(tuple):
     def __str__(self):
         res = []
         for idx in range(len(self) - 1):
-            delta = tuple(nj - cj for nj, cj in zip(self[idx+1], self[idx]))
+            delta = (nj - cj for nj, cj in zip(self[idx+1], self[idx]))
             bases = []
-            for x, letter in zip(delta, self.basis_letters):
+            for x, letter in zip(delta, BASIS_LETTERS):
                 if x == 1:
                     bases.append(letter)
                 elif x == -1:
                     bases.append(letter.upper())
-            if len(bases) == 1:
-                res.append(bases[0])
-            else:
-                res.append('(' + ''.join(bases) + ')')
+            res.append(bases[0] if len(bases) == 1 else '({})'.format(''.join(bases)))
         return ''.join(res)
 
 
 class Path:
-    """Prototype + links."""
+    """
+    Prototype with links.
+
+    In each fraction, link defines entrance and exit subsets (relative to the fraction).
+    Most important is the case of point links; such path may be also called
+    "Pointed prototype"; it is the basis for dilation estimation using SAT-solvers.
+    """
     def __init__(self, proto, links):
         self.proto = proto
         self.dim = proto.dim
         self.div = proto.div
         self.links = tuple(links)
 
-        entr = links[0].entrance.map_to_cube(self.div, proto[0])
-        exit = links[-1].exit.map_to_cube(self.div, proto[-1])
+        entr = self.links[0].entrance.map_to_cube(self.div, proto[0])
+        exit = self.links[-1].exit.map_to_cube(self.div, proto[-1])
         self.link = Link(entr, exit)
 
     def __rmul__(self, base_map):
-        new_links = [base_map * link for link in self.links]
-        if base_map.time_rev:
-            new_links.reverse()
-        return type(self)(base_map * self.proto, new_links)
+        src_links = reversed(self.links) if base_map.time_rev else self.links
+        new_links = (base_map * link for link in src_links)
+        return Path(base_map * self.proto, new_links)
 
     def __invert__(self):
         return ~BaseMap.id_map(self.dim) * self
@@ -118,159 +119,168 @@ class Path:
     def __hash__(self):
         return hash(self._data())
 
-    def is_pointed(self):
-        return all(link.is_pointed() for link in self.links)
-
     def is_continuous(self):
-        if not self.is_pointed():
-            raise TypeError("Continuity is defined only for pointed paths")
+        """
+        Check if path is continuous.
+
+        For pointed paths the notion of continuity is obvious.
+        For generic paths we mean that in each fraction, exit must
+        intersect entrance of the next fraction. Only such paths
+        may "contain" a continuous curve.
+        """
         prev_cube = self.proto[0]
         prev_link = self.links[0]
         for cube, link in zip(self.proto[1:], self.links[1:]):
             # check prev_link.exit ~~ link.entrance
             shift = [cj - pj for cj, pj in zip(cube, prev_cube)]
-            if prev_link.exit != link.entrance.transform(shift=shift):
+            if not prev_link.exit.intersects(link.entrance.transform(shift=shift)):
                 return False
             prev_cube, prev_link = cube, link
         return True
 
 
 class PathsGenerator:
-    """Generate paths with given links.
+    """Generate continuous paths with given links."""
 
-    Given a list of links (pairs subsets of [0,1]^d),
-    generate Paths, i.e. paths such that link exit
-    in each fraction intersects (or equals) link entrance in next fraction.
-    """
-
-    def __init__(self, dim, div, links=None, hdist=None, max_cdist=None, mode='auto'):
+    def __init__(self, dim, div, links, max_cdist=None):
         """
         Init paths generator.
 
-        dim, div    --  subj
-        links     --  list of links
-        hist        --  one gate: (0,..,0) -> (0,..,0,1,1,..,1) with k ones
-        max_cdist   --  maximum l1-distance between cubes
-        mode        --  'auto'|'intersects'|'equals' - condition on links
-        TODO: mode Не используется, выпилим?
+        Args:
+            dim, div: subj
+            links: list of Link instances, used in two ways:
+              * as a set of possible links for each fraction in generate_paths_generic
+                note that here we use non-oriented links, i.e. always add their reverse
+              * as a default list of global links in generate_paths method
+            max_cdist: maximum l1-distance between adjacent cubes (limitation on prototypes)
         """
-
         self.dim = dim
         self.div = div
+        self.links = tuple(links)
 
-        if links is None:
-            entrance = Point((Fraction(0),) * dim)
-            exit = Point((Fraction(0),) * (dim - hdist) + (Fraction(1, 1),) * hdist)
-            links = [Link(entrance, exit)]
-        self.links = links
+        self._init_entr2links()
+        self._is_pointed = all(isinstance(entr, Point) for entr in self._entr2links)
+        self._init_exit2next(max_cdist)
 
-        if mode == 'auto':
-            if all(link.is_pointed() for link in links):
-                mode = 'equals'
-            else:
-                mode = 'intersects'
-        self.mode = mode
-
-        entr2exits = defaultdict(dict)
-        for bm in BaseMap.gen_base_maps(dim, time_rev=False):
-            for link in links:
+    def _init_entr2links(self):
+        entr2exits = defaultdict(dict)  # to keep order
+        for bm in BaseMap.gen_base_maps(self.dim, time_rev=False):  # optimization: do not use time_rev
+            for link in self.links:
                 bm_entr = bm * link.entrance
                 bm_exit = bm * link.exit
                 entr2exits[bm_entr][bm_exit] = 1
                 entr2exits[bm_exit][bm_entr] = 1
-        self.entr2exits = entr2exits
-        self.next_dict = self.get_next_dict(max_cdist)
 
-    def gen_intersected(self, subset):
-        """
-        Given a subset in [0,1]^d, find links entrances that intersects it.
-        """
-        if self.mode == 'equals':
-            if subset in self.entr2exits:
+        self._entr2links = {}
+        for entr, exit_dict in entr2exits.items():
+            self._entr2links[entr] = tuple(Link(entr, exit) for exit in exit_dict)
+
+    def _gen_intersected_entr(self, subset):
+        # Given a subset in [0,1]^d, find entrances that intersect it
+        if self._is_pointed and isinstance(subset, Point):
+            if subset in self._entr2links:
                 yield subset
         else:
-            for entr in self.entr2exits:
+            for entr in self._entr2links:
                 if entr.intersects(subset):
                     yield entr
 
-    def get_next_dict(self, max_cdist=None):
-        """
-        Get a dict: exit_subset => [(cube_delta, new_link), ...]
+    def _gen_intersected_links(self, subset):
+        # Given a subset in [0,1]^d, find links with entrance that intersects it
+        for entr in self._gen_intersected_entr(subset):
+            yield from self._entr2links[entr]
 
-        Params:
-            max_cdist:  do not allow cube changes greater than it
-        """
+    def _init_exit2next(self, max_cdist=None):
+        # setup self._exit2next: exit_subset => [(cube_delta, new_link), ...]
 
         # there may be too many exit sets, work with standard
         std_exits = set()
         for link in self.links:
             std_exits.add(link.exit.std())
-            std_exits.add(link.entrance.std())  # "no time_rev" is not supported
+            std_exits.add(link.entrance.std())
 
-        result = {}
+        self._exit2next = {}
         bms = list(BaseMap.gen_base_maps(self.dim, time_rev=False))
         for std_exit in std_exits:
             std_next = []
             for cube, cube_subset in std_exit.gen_neighbours():
-                if max_cdist is not None:
-                    if sum(abs(cj) for cj in cube) > max_cdist:
-                        continue
-                for entr in self.gen_intersected(cube_subset):
+                if (max_cdist is not None) and sum(abs(cj) for cj in cube) > max_cdist:
+                    continue
+                for entr in self._gen_intersected_entr(cube_subset):
                     std_next.append((cube, entr))
 
             for bm in bms:
                 exit = bm * std_exit
-                if exit in result:
+                if exit in self._exit2next:
                     continue
 
                 next_pos = []
                 for cube, entr in std_next:
-                    next_cube = bm.apply_cube_start(cube, 1)  # this does not change cdist!
-                    next_entr = bm * entr
-                    for next_exit in self.entr2exits[next_entr]:
-                        next_pos.append((next_cube, Link(next_entr, next_exit)))
+                    bm_cube = bm.apply_cube_start(cube, 1)  # this does not change cdist!
+                    for next_link in self._entr2links[bm * entr]:  # do not use _gen_intersected_links, optimization!
+                        next_pos.append((bm_cube, next_link))
 
-                result[exit] = next_pos
+                self._exit2next[exit] = tuple(next_pos)
 
-        return result
+    def _get_restrictions(self, links, parents):
+        if links is None and parents is None:
+            links = self.links
+            parents = (None,) * len(links)
+        elif links is None:
+            links = (None,) * len(parents)
+        elif parents is None:
+            parents = (None,) * len(links)
+        else:
+            raise ValueError("provide either links or parents!")
+        return tuple((link, path) for link, path in zip(links, parents))
 
-    def get_paths_example(self, parents=None, **kwargs):
-        """Generate one paths tuple."""
+    def get_paths_example(self, links=None, parents=None, **kwargs):
+        """
+        Generate one paths tuple.
+
+        Args:
+            see generate_paths method
+
+        Returns:
+            tuple of paths if found else None
+        """
         examples = []
-        if parents is None:
-            parents = (None,) * len(self.links)
-        for link, parent in zip(self.links, parents):
+        for link, parent in self._get_restrictions(links, parents):
             path = next(self.generate_paths_generic(link=link, parent=parent, **kwargs), None)
             if path is None:
                 return None
             examples.append(path)
-        return examples
+        return tuple(examples)
 
-    def generate_paths(self, parents=None, std=False, **kwargs):
+    def generate_paths(self, links=None, parents=None, **kwargs):
         """
-        Generate tuples of paths (p_1,..,p_g) for self links.
+        Generate tuples of paths (p_1,..,p_g) with given restrictions, using self.links in fractions.
 
-        parents  --  additional restriction for paths (see generic method)
+        Args:
+            links: tuple of links for each pattern
+            parents: tuple of parents for each pattern (see generate_paths_generic)
+              use self.links if not links nor patterns given
+            **kwargs: other kwargs passed to generate_paths_generic
+
+        Yields:
+            tuples of paths
         """
-        links = self.links
-        if parents is None:
-            parents = (None,) * len(links)
-        kwargs['std'] = std
+        restrictions = self._get_restrictions(links, parents)
 
         # only for one link we do not consume path into memory
-        if len(links) == 1:
-            for path in self.generate_paths_generic(links[0], parent=parents[0], **kwargs):
+        if len(restrictions) == 1:
+            link, parent = restrictions[0]
+            for path in self.generate_paths_generic(link=link, parent=parent, **kwargs):
                 yield (path,)
             return
 
         paths_dict = {}
-        restrictions = list(zip(links, parents))
         for link, parent in set(restrictions):
             paths_dict[link, parent] = list(self.generate_paths_generic(link=link, parent=parent, **kwargs))
 
         logger.info('generate_paths counts: %s', [len(paths_dict[r]) for r in restrictions])
 
-        if std:
+        if kwargs.get('std'):
             yield from combinations_product(restrictions, paths_dict)
         else:
             path_lists = [paths_dict[r] for r in restrictions]
@@ -278,73 +288,72 @@ class PathsGenerator:
 
     def generate_paths_generic(self, link=None, parent=None, std=False, **kwargs):
         """
-        Generate Path with given (global) link using all self.links.
+        Generate Path with given global restriction using all self.links in fractions.
 
-        This method is usually called for link in self.links, but this is not required.
-        parent -- Path such that generated paths must be consistent with it (same proto & intersecting links)
-        std -- try to standartize path (minimize keeping parent/link)
+        Args:
+            link: global link for path
+              usually one of self.links, but this is not required
+            parent: path such that generated paths must be consistent with it (same proto & intersecting links)
+              exactly one of (link, parent) must be defined
+            std: standartize paths (minimize using admissible base maps)
+              with point self.links and point input link std guarantees to yield unique paths
+            **kwargs: passed to tree.grow: start_max_count, finish_max_count
+
+        Yields:
+            paths (Path instances) that are "continuous", see Path.is_continuous method
         """
-        # will use CubePathTree with state = link
-        start = []
-        finish = []
+        if not ((link is None) ^ (parent is None)):
+            raise ValueError("exactly one of (link, parent) must be defined!")
 
-        if parent is None:
-            #assert parent is None  # TODO fix
-            def gen_next(cube, link):
-                return self.next_dict[link.exit]
+        # will use cube path tree with state = link
 
-            def gen_prev(cube, link):
-                for delta, link in self.next_dict[link.entrance]:
-                    yield delta, ~link
-
-            tree = CubePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
-
-            for cube, cube_subset in link.entrance.divide(self.div):
-                for start_entr in self.gen_intersected(cube_subset):
-                    for start_exit in self.entr2exits[start_entr]:
-                        logger.debug('start at %s: %s -> %s', cube, start_entr, start_exit)
-                        start.append((cube, Link(start_entr, start_exit)))
-
-            for cube, cube_subset in link.exit.divide(self.div):
-                for finish_entr in self.gen_intersected(cube_subset):
-                    for finish_exit in self.entr2exits[finish_entr]:
-                        logger.debug('finish at %s: %s -> %s', cube, finish_exit, finish_entr)
-                        finish.append((cube, Link(finish_exit, finish_entr)))
-        else:
+        if parent is not None:
+            cube2cnum = {cube: cnum for cnum, cube in enumerate(parent.proto)}
             def check_parent(cnum, cube, link):
-                """Check that link at given cube is consistent with parent"""
                 return cube == parent.proto[cnum] and link.intersects(parent.links[cnum])
 
-            cube2cnum = {cube: cnum for cnum, cube in enumerate(parent.proto)}
-            def gen_next(cube, link):
-                next_cnum = cube2cnum[cube] + 1  # currently we are at correct cube
-                for delta, next_link in self.next_dict[link.exit]:
-                    next_cube = tuple(cj + dj for cj, dj in zip(cube, delta))
-                    if check_parent(next_cnum, next_cube, next_link):
-                        yield delta, next_link
+            def check_next(cube, delta, next_link, reverse=False):
+                next_cnum = cube2cnum[cube] + (-1 if reverse else 1)
+                next_cube = tuple(cj + dj for cj, dj in zip(cube, delta))
+                return check_parent(next_cnum, next_cube, next_link)
 
-            def gen_prev(cube, link):
-                next_cnum = cube2cnum[cube] - 1
-                for delta, next_link in self.next_dict[link.entrance]:
-                    next_cube = tuple(cj + dj for cj, dj in zip(cube, delta))
-                    if check_parent(next_cnum, next_cube, ~next_link):
-                        yield delta, ~next_link
+        def gen_next(cube, link):
+            for delta, next_link in self._exit2next[link.exit]:
+                if (parent is not None) and (not check_next(cube, delta, next_link)):
+                    continue
+                yield delta, next_link
 
-            tree = CubePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
+        def gen_prev(cube, link):
+            for delta, next_link in self._exit2next[link.entrance]:
+                if (parent is not None) and (not check_next(cube, delta, ~next_link, reverse=True)):
+                    continue
+                yield delta, ~next_link
 
-            start_cube = parent.proto[0]
-            for start_entr in self.gen_intersected(parent.links[0].entrance):
-                for start_exit in self.entr2exits[start_entr]:
-                    start_link = Link(start_entr, start_exit)
-                    if check_parent(0, start_cube, start_link):
-                        start.append((start_cube, start_link))
+        tree = CubePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
 
-            finish_cube = parent.proto[-1]
-            for finish_entr in self.gen_intersected(parent.links[-1].exit):
-                for finish_exit in self.entr2exits[finish_entr]:
-                    finish_link = Link(finish_exit, finish_entr)
-                    if check_parent(-1, finish_cube, finish_link):
-                        finish.append((finish_cube, finish_link))
+        if parent is None:
+            start_cube_sets = link.entrance.divide(self.div)
+            finish_cube_sets = link.exit.divide(self.div)
+        else:
+            start_cube_sets = [(parent.proto[0], parent.links[0].entrance)]
+            finish_cube_sets = [(parent.proto[-1], parent.links[-1].exit)]
+
+        start = []
+        for start_cube, start_set in start_cube_sets:
+            for start_link in self._gen_intersected_links(start_set):
+                if (parent is not None) and (not check_parent(0, start_cube, start_link)):
+                    continue
+                logger.debug('start at %s, %s', start_cube, start_link)
+                start.append((start_cube, start_link))
+
+        finish = []
+        for finish_cube, finish_set in finish_cube_sets:
+            for finish_link in self._gen_intersected_links(finish_set):
+                finish_link = ~finish_link
+                if (parent is not None) and (not check_parent(-1, finish_cube, finish_link)):
+                    continue
+                logger.debug('finish at %s, %s', finish_cube, finish_link)
+                finish.append((finish_cube, finish_link))
 
         if std:
             seen_paths = set()
@@ -359,9 +368,8 @@ class PathsGenerator:
             )
             if std:
                 std_path = min(bm * result_path for bm in std_bms)
-                if std_path not in seen_paths:
-                    yield std_path
-                    seen_paths.add(std_path)
-                continue
-            else:
-                yield result_path
+                if std_path in seen_paths:
+                    continue
+                seen_paths.add(std_path)
+
+            yield result_path
