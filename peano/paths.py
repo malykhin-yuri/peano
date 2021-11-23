@@ -325,9 +325,10 @@ class PathsGenerator:
 
         def gen_prev(cube, link):
             for delta, next_link in self._exit2next[link.entrance]:
-                if (parent is not None) and (not check_next(cube, delta, ~next_link, reverse=True)):
+                prev_link = ~next_link
+                if (parent is not None) and (not check_next(cube, delta, prev_link, reverse=True)):
                     continue
-                yield delta, ~next_link
+                yield delta, prev_link
 
         tree = CubePathTree(dim=self.dim, div=self.div, next_func=gen_next, prev_func=gen_prev)
 

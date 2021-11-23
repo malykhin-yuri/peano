@@ -343,10 +343,6 @@ class Link(namedtuple('Link', ['entrance', 'exit'])):
         for bm in self.exit.argmul_intersect(other.entrance, bms=bms2):
             yield ~bm
 
-    def is_pointed(self):
-        """Pair of Points, e.g., entrance and exit gates of a curve."""
-        return isinstance(self.entrance, Point) and isinstance(self.exit, Point)
-
     @classmethod
     def parse_gates(cls, text):
         """Create Points Link from string, e.g., '(0,0)->(1,1/2)'"""
