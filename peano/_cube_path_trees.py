@@ -149,7 +149,7 @@ class CubePathTree:
         start_paths = [self._init_path(cube, state) for cube, state in start]
         start_paths = self._width_search(start_paths, max_steps=max_steps, max_count=start_max_count)
         if not start_paths:
-            logger.info('start: cannot find start paths')
+            logger.debug('start: cannot find start paths')
             return
 
         finish_paths = [self._init_path(cube, state) for cube, state in finish]
@@ -158,7 +158,7 @@ class CubePathTree:
                 raise Exception("prev_func not defined, can't expand finish")
             finish_paths = self._width_search(finish_paths, max_steps=max_steps, max_count=finish_max_count, reverse=True)
         if not finish_paths:
-            logger.info('finish: cannot find paths')
+            logger.debug('finish: cannot find paths')
             return
         finish_by_hash = defaultdict(list)
         for path in finish_paths:
@@ -167,7 +167,7 @@ class CubePathTree:
         mid_length = N**d - finish_paths[0].length + 1  # +1 as mid & finish = head
 
         start_path_groups = list(self._group_paths_by_future(start_paths))
-        logger.info(
+        logger.debug(
             'depth_search width %d: start %d paths, %d groups => finish %d paths, %d hashes',
             mid_length - start_paths[0].length, len(start_paths), len(start_path_groups), len(finish_paths), len(finish_by_hash)
         )

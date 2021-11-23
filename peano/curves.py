@@ -708,7 +708,7 @@ class PathFuzzyCurve(FuzzyCurve):
         Args:
             allow_time_rev: boolean, allow time_reverse in curve base_maps (default: True)
         """
-        if any(not path.is_pointed() for path in paths):
+        if not all(all(isinstance(link.entrance, Point) and isinstance(link.exit, Point) for link in path.links) for path in paths):
             raise ValueError("Only pointed links (gate pairs) are supported!")
 
         dim = paths[0].dim
