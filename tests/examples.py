@@ -33,9 +33,10 @@ def get_scepin_bauman_curve():
 
 def get_peano5_curve():
     """5-div analog of original Peano curve."""
-    chain_code = 'jjjjiJJJJijjjjiJJJJijjjj'
-    base_maps = 'ij,Ij,ij,Ij,ij, iJ,IJ,iJ,IJ,iJ, ij,Ij,ij,Ij,ij, iJ,IJ,iJ,IJ,iJ, ij,Ij,ij,Ij,ij'
-    pattern = (chain_code, base_maps)
+    pattern = (
+        'jjjjiJJJJijjjjiJJJJijjjj',
+        'ij,Ij,ij,Ij,ij, iJ,IJ,iJ,IJ,iJ, ij,Ij,ij,Ij,ij, iJ,IJ,iJ,IJ,iJ, ij,Ij,ij,Ij,ij',
+    )
     return Curve.parse([pattern])
 
 
@@ -65,9 +66,11 @@ def get_r_curve():
 
 def get_ye_curve():
     """YE-curve: 5*5 monofractal with l2-ratio 5 43/73."""
-    chain = 'jiJijjIIjjiJijiiJIJiJIJi'
-    bases = '0Ji~,0ij,0ij,0jI~,0Ji~,0Ji~,0Ji~,0IJ,0IJ,0Ji~,0ij,0ij,0jI~,0Ji~,0ij,0ij,0ij,0IJ,0jI~,0jI~,0ij,0IJ,0jI~,0jI~,0ij'
-    return Curve.parse([(chain, bases)])
+    pattern = (
+        'jiJijjIIjjiJijiiJIJiJIJi',
+        '0Ji~,0ij,0ij,0jI~,0Ji~,0Ji~,0Ji~,0IJ,0IJ,0Ji~,0ij,0ij,0jI~,0Ji~,0ij,0ij,0ij,0IJ,0jI~,0jI~,0ij,0IJ,0jI~,0jI~,0ij',
+    )
+    return Curve.parse([pattern])
 
 
 # 2D polyfractals

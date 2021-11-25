@@ -16,10 +16,13 @@ from .paths import Proto, Path, Link
 from .subsets import Point
 
 
-class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
+class Pattern(namedtuple('_Pattern', ['proto', 'specs'])):
     """
     Pattern - one component of a multifractal, prototype + specifications.
     """
+
+    def __new__(cls, proto, specs):
+        return super().__new__(cls, proto=proto, specs=tuple(specs))
 
     @classmethod
     def parse(cls, chain, specs):
@@ -39,13 +42,16 @@ class Pattern(namedtuple('Pattern', ['proto', 'specs'])):
         specs = tuple(Spec.parse(c) for c in specs)
         return cls(proto, specs)
 
+    def __str__(self):
+        return '{} | {}'.format(self.proto, ','.join(str(spec) for spec in self.specs))
+
     def __invert__(self):
         """Time-reversed pattern."""
         # each base_map does not change:
         #   - pnums are the same
         #   - if there was not time_rev, there should not be after reversal
         #   - cube map does not change, because geometry does not change
-        return type(self)(~self.proto, tuple(reversed(self.specs)))
+        return Pattern(~self.proto, reversed(self.specs))
 
 
 class FuzzyCurve:
@@ -65,7 +71,7 @@ class FuzzyCurve:
         Args:
             dim: dimension d of cube [0,1]^d (image of the curve)
             div: number of divisions for each of the coordinates, so genus = G = div**dim
-            patterns -- list of patterns (Pattern instances)
+            patterns: list of patterns (Pattern instances) or plain (proto, specs) tuples
                 some specs in patterns may be None
             pnum: selected pattern, to pick actual curve f:[0,1]->[0,1]^d
 
@@ -79,7 +85,6 @@ class FuzzyCurve:
             if not isinstance(pattern, Pattern):
                 proto, specs = pattern
                 proto = proto if isinstance(proto, Proto) else Proto(dim, div, proto)
-                specs = tuple(sp if isinstance(sp, Spec) else Spec(sp) if sp is not None else None for sp in specs)
                 pattern = Pattern(proto=proto, specs=specs)
             self.patterns.append(pattern)
 
@@ -115,10 +120,7 @@ class FuzzyCurve:
         return self.pcount == other.pcount and all(p1 == p2 for p1, p2 in zip(self.patterns, other.patterns))
 
     def __str__(self):
-        lines = []
-        for pnum, pattern in enumerate(self.patterns):
-            lines.append('@{}: {} | {}\n'.format(pnum, pattern.proto, ','.join([str(spec) for spec in pattern.specs])))
-        return ''.join(lines)
+        return ''.join('@{}: {}\n'.format(pnum, pattern) for pnum, pattern in enumerate(self.patterns))
 
     def changed(self, patterns=None, pnum=None, **kwargs):
         """Create curve with changed parameters."""
@@ -151,7 +153,7 @@ class FuzzyCurve:
             # - map curve to original (base_map^{-1})
             # - then map curve to the fraction (spec)
             # - then map the whole thing to mapped curve (base_map)
-            new_specs = [spec.conjugate_by(base_map) if spec is not None else None for spec in pattern.specs]
+            new_specs = (spec.conjugate_by(base_map) if spec is not None else None for spec in pattern.specs)
             new_patterns.append((new_proto, new_specs))
 
         return self.changed(patterns=new_patterns)
@@ -294,7 +296,7 @@ class FuzzyCurve:
 
         new_specs = list(pattern.specs)
         new_specs[cnum] = spec
-        new_pattern = (pattern.proto, new_specs)
+        new_pattern = Pattern(pattern.proto, new_specs)
 
         new_patterns = list(self.patterns)
         new_patterns[pnum] = new_pattern
@@ -593,6 +595,7 @@ class Curve(FuzzyCurve):
         current_curve = self
         for _ in range(k):
             new_patterns = []
+            new_div = N*current_curve.div
             for pnum, curr_pattern in enumerate(current_curve.patterns):
                 new_proto = []
                 new_specs = []
@@ -606,7 +609,7 @@ class Curve(FuzzyCurve):
 
             current_curve = type(self)(
                 dim=self.dim,
-                div=N*current_curve.div,  # we change div so do not use ``changed''
+                div=new_div,  # we change div so do not use ``changed''
                 patterns=new_patterns,
             )
 
@@ -728,7 +731,7 @@ class PathFuzzyCurve(FuzzyCurve):
 
         patterns, pattern_links, pattern_reprs = [], [], []
         for path in paths:
-            specs = [None] * len(path.proto)  # nothing is defined
+            specs = (None,) * len(path.proto)  # nothing is defined
             patterns.append((path.proto, specs))
 
             reprs, links = [], []
