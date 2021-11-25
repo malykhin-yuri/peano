@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, namedtuple
 import logging
 import itertools
 
@@ -64,20 +64,19 @@ class GatesGenerator:
             pg = PathsGenerator(dim=dim, div=div, links=links)
             plist = list(pg.generate_paths(std=True))
 
-            # _get_narrow_paths uniqs by intermediate links, so we can't make 2+ narrowing steps!
-            # this is optimized for 3d bifractals search; should experiment more ...
             for paths_idx, paths in enumerate(plist):
                 logger.debug('processing paths %d of %d, stats: %s', paths_idx + 1, len(plist), self.stats)
-                for narrow_paths in self._gen_narrow_paths(paths):
+                protos = [path.proto for path in paths]
+                for narrow in self._gen_narrow_links(paths):
                     # to determine: specs for first and last for all patterns
                     specs_dict = {}
                     for pnum, cnum in self._boundary_pnum_cnums:
                         specs = []
                         for pn in range(self.pcount):
-                            bms = narrow_paths[pn].link.argmul_intersect(narrow_paths[pnum].links[cnum])
+                            bms = narrow[pn].link.argmul_intersect(narrow[pnum].links[cnum])
                             specs += [Spec(bm, pnum=pn) for bm in bms]
                         specs_dict[pnum, cnum] = specs
-                    yield from self._check_variants([path.proto for path in narrow_paths], specs_dict)
+                    yield from self._check_variants(protos, specs_dict)
 
     def _gen_all_gates(self):
         dim, div, pcount = self.dim, self.div, self.pcount
@@ -124,10 +123,12 @@ class GatesGenerator:
             yield from self._check_variants(protos, specs_dict)
 
     def _check_variants(self, protos, specs_dict):
+        # in each proto only first and last cubes are used
         variants = [specs_dict[pnum, cnum] for pnum, cnum in self._boundary_pnum_cnums]
         total = 1
         for v in variants:
             total *= len(v)
+        logger.debug('check variants: %s => %d', [len(v) for v in variants], total)
         for specs_idx, specs in enumerate(itertools.product(*variants)):
             if (specs_idx + 1) % 1000 == 0:
                 logger.debug('processing variants: %d of %d', specs_idx + 1, total)
@@ -184,13 +185,17 @@ class GatesGenerator:
         self.stats['new_good_gate'] += 1
         return std_gates
 
-    def _gen_narrow_paths(self, paths):
+    _NarrowLinks = namedtuple('_NarrowLinks', ['link', 'links'])
+
+    def _gen_narrow_links(self, paths):
         # paths = one paths tuple
         # narrowing idea: suppose we have a path with facet links;
         # this path's global link is more "narrow" - a div-subset of facet
-        # so we output paths with that narrow links
+        # so we generate paths with that narrow links
         #
-        # important optimization: we uniq paths by intermediate links, they are not used later
+        # important optimization: we output only boundary links (intermediate are not used later)
+        # so we can't make 2+ narrowing steps!
+        # this is optimized for 3d bifractals search; should experiment more ...
 
         dim, div = paths[0].proto.dim, paths[0].proto.div
 
@@ -204,10 +209,10 @@ class GatesGenerator:
             seen = set()
             res = []
             for narrow_path in npg.generate_paths_generic(parent=path):
-                key = (narrow_path.link, narrow_path.links[0], narrow_path.links[-1])
+                key = self._NarrowLinks(link=narrow_path.link, links=(narrow_path.links[0], narrow_path.links[-1]))
                 if key not in seen:  # main optimization
                     seen.add(key)
-                    res.append(narrow_path)
+                    res.append(key)
             narrows.append(res)
 
         yield from itertools.product(*narrows)
