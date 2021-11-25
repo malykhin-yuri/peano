@@ -26,6 +26,21 @@ class TestGen(unittest.TestCase):
             {'dim': 2, 'div': 2, 'gates': '(0,0)->(0,1)|(0,0)->(1,1)', 'counts': {'all': 12, 'std': 5}},  # A:4+1*2, B:1*2
 
             {'dim': 3, 'div': 2, 'gates': '(0,0,0)->(1/2,1/2,1)', 'counts': {'all': 8, 'std': 4}},
+
+            # from Haverkort's inventory paper
+            {'dim': 3, 'div': 2, 'gates': '(0,0,0)->(1,0,0)', 'counts': {'std': 29}},  # connection schemes of type A
+            {'dim': 3, 'div': 2, 'gates': '(0,0,0)->(0,1,1)', 'counts': {'std': 149}},  # type B
+            {'dim': 3, 'div': 2, 'gates': '(0,0,0)->(1,1/2,0)', 'counts': {'std': 2758}},  # type C
+            {'dim': 3, 'div': 2, 'gates': '(0,0,0)->(1,1/2,1/2)', 'counts': {'std': 4}},  # type D
+            {'dim': 3, 'div': 2, 'gates': '(1/3,0,0)->(1,1/3,1)', 'counts': {'std': 16}},  # type E
+            {'dim': 3, 'div': 2, 'gates': '(0,1/3,1/3)->(2/3,1/3,0)', 'counts': {'std': 1}},  # type F
+
+            #'(0,0,0)->(1,0,0)',  # type A
+            #        '(0,0,0)->(0,1,1)',  # type B
+            #        '(0,0,0)->(1,1/2,0)',  # type C
+            #        '(0,0,0)->(1,1/2,1/2)',  # type D
+            #        '(1/3,0,0)->(1,1/3,1)',  # type E
+            #        '(0,1/3,1/3)->(2/3,1/3,0)',  # type F
         ]
         for conf in configs:
             links = [Link.parse_gates(token) for token in conf['gates'].split('|')]
@@ -36,7 +51,8 @@ class TestGen(unittest.TestCase):
             self.assertTrue(all(all(path.is_continuous() for path in path_tuple) for path_tuple in paths))
 
             counts = conf['counts']
-            self.assertEqual(len(paths), counts['all'])
+            if 'all' in counts:
+                self.assertEqual(len(paths), counts['all'])
             std_paths = set(gen.generate_paths(std=True, **self.kws))
             if 'std' in counts:
                 self.assertEqual(len(std_paths), counts['std'])
