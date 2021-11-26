@@ -17,8 +17,8 @@ def get_model_from_curve(adapter, curve):
 class TestSAT(unittest.TestCase):
     def setUp(self):
         self.curves = [
-            get_peano_curve().forget(allow_time_rev=False),
-            get_meurthe_curve().forget(allow_time_rev=False),
+            get_peano_curve().forget(disable_time_rev=True),
+            get_meurthe_curve().forget(disable_time_rev=True),
         ]
 
     def test_sat(self):

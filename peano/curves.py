@@ -198,13 +198,12 @@ class FuzzyCurve:
         Returns:
             Curve instance
         """
-        current = self
-        for pnum in range(self.pcount):
-            for cnum in range(self.genus):
-                if current.patterns[pnum].specs[cnum] is None:
-                    spec = next(current.gen_allowed_specs(pnum=pnum, cnum=cnum))
-                    current = current.specify(pnum=pnum, cnum=cnum, spec=spec)
-        return current
+        spec_dict = defaultdict(dict)
+        for pnum, pattern in enumerate(self.patterns):
+            for cnum, spec in enumerate(pattern.specs):
+                if spec is None:
+                    spec_dict[pnum][cnum] = next(self.gen_allowed_specs(pnum=pnum, cnum=cnum))
+        return self._specify_allowed(spec_dict)
 
     # TODO: function not in prod!
     def gen_possible_curves(self):
@@ -235,16 +234,14 @@ class FuzzyCurve:
 
     def specify(self, pnum, cnum, spec):
         """
-        Check that we can set spec at pnum, cnum, and return specified curve if so.
-
-        Try to set self.patterns[pnum][cnum] = spec
+        Check that we can set self.patterns[pnum][cnum] = spec, and return specified curve if so.
 
         Args:
             pnum, cnum: position to specify
             spec: value to specify
 
         Returns:
-            new curve
+            specified curve
 
         Raises:
             ValueError: if spec is not allowed
@@ -253,33 +250,21 @@ class FuzzyCurve:
         # so the efficiency is important here!
         if spec not in self.gen_allowed_specs(pnum, cnum):
             raise ValueError("Can't specify curve")
+        if self.patterns[pnum].specs[cnum] is not None:
+            return self  # optimization: spec is already defined
 
-        pattern = self.patterns[pnum]
-        if pattern.specs[cnum] is not None:
-            return self  # optimization
+        return self._specify_allowed({pnum: {cnum: spec}})
 
-        new_specs = list(pattern.specs)
-        new_specs[cnum] = spec
-        new_pattern = Pattern(pattern.proto, new_specs)
-
+    def _specify_allowed(self, spec_dict):
+        # Specify many specs and do not check allowance
         new_patterns = list(self.patterns)
-        new_patterns[pnum] = new_pattern
-
+        for pnum, cnum_specs in spec_dict.items():
+            pattern = new_patterns[pnum]
+            new_specs = list(pattern.specs)
+            for cnum, spec in cnum_specs.items():
+                new_specs[cnum] = spec
+            new_patterns[pnum] = Pattern(pattern.proto, new_specs)
         return self._changed(patterns=new_patterns)
-
-    def specify_dict(self, spec_dict):
-        """
-        Specify many specs.
-
-        Args:
-            spec_dict: dict {(pnum, cnum): spec}
-
-        Returns, Raises: see specify
-        """
-        curve = self
-        for (pnum, cnum), spec in spec_dict.items():
-            curve = curve.specify(pnum=pnum, cnum=cnum, spec=spec)
-        return curve
 
     #
     # Entrance/exit/moments
@@ -497,7 +482,12 @@ class FuzzyCurve:
                             def_specs = gate_specs.copy()
                             def_specs[pc1] = sp1
                             def_specs[pc2] = sp2
-                            configs.append((pnum, cnum, self.specify_dict(def_specs)))
+
+                            def_specs_by_pnum = defaultdict(dict)
+                            for (p, c), sp in def_specs.items():
+                                def_specs_by_pnum[p][c] = sp
+
+                            configs.append((pnum, cnum, self._specify_allowed(def_specs_by_pnum)))
 
         junc_curves = defaultdict(list)
         for pnum, cnum, curve in configs:
@@ -581,22 +571,22 @@ class Curve(FuzzyCurve):
         current_curve = self
         for _ in range(k):
             new_patterns = []
-            new_div = N*current_curve.div
             for pnum, curr_pattern in enumerate(current_curve.patterns):
                 new_proto = []
                 new_specs = []
                 for cube, spec in zip(curr_pattern.proto, curr_pattern.specs):
-                    proto, specs = self.patterns[spec.pnum]  # from original curve
-                    new_proto += [tuple(cj*N + ncj for cj, ncj in zip(cube, c)) for c in spec.base_map * proto]
+                    orig_proto, orig_specs = self.patterns[spec.pnum]  # from original curve
+                    new_proto += [tuple(cj*N + ncj for cj, ncj in zip(cube, c)) for c in spec.base_map * orig_proto]
                     if spec.base_map.time_rev:
-                        specs = reversed(specs)
-                    new_specs += [spec.base_map * sp for sp in specs]
+                        orig_specs = reversed(orig_specs)
+                    new_specs += [spec.base_map * sp for sp in orig_specs]
                 new_patterns.append((new_proto, new_specs))
 
-            current_curve = type(self)(
+            current_curve = Curve(
                 dim=self.dim,
-                div=new_div,  # we change div so do not use ``_changed''
+                div=current_curve.div * N,  # we change div so do not use ``_changed''
                 patterns=new_patterns,
+                pnum=self.pnum,
             )
 
         return current_curve
@@ -613,7 +603,8 @@ class PathFuzzyCurve(FuzzyCurve):
 
     We fix only paths: prototypes and entrance/exit gates (links) and allow
     the curve to have any specs that are consistent with them.
-    Note that specs choice is independent in each fraction, it is used in SAT-adaptation.
+    Hence the specs choice is independent, as required for applications.
+    Some specs may be defined using specify, e.g.
 
     Additional attributes:
     We store information about "standard" links (gate pairs) used in paths:
@@ -636,8 +627,7 @@ class PathFuzzyCurve(FuzzyCurve):
 
     def _changed(self, *args, **kwargs):
         for add_field in ['links_symmetries', 'links_std', 'pattern_links', 'pattern_reprs']:
-            if add_field not in kwargs:
-                kwargs[add_field] = getattr(self, add_field)
+            kwargs.setdefault(add_field, getattr(self, add_field))
         return super()._changed(*args, **kwargs)
 
     def __invert__(self):
@@ -645,9 +635,9 @@ class PathFuzzyCurve(FuzzyCurve):
         new_links_std = {}
         for link, data in self.links_std.items():
             new_links_std[link] = {pnum: ~std_map for pnum, std_map in data.items()}
-        new_pattern_links = [list(reversed(links)) for links in self.pattern_links]
+        new_pattern_links = [list(reversed(links)) for links in self.pattern_links]  # we do not change links, only their order
         new_pattern_reprs = [[~bm for bm in reversed(reprs)] for reprs in self.pattern_reprs]
-        # after super().__invert__() the curve will be in inconsistent state:(
+        # after super invert the curve will be in inconsistent state:(
         return super().__invert__()._changed(
             links_std=new_links_std,
             pattern_links=new_pattern_links,
@@ -683,37 +673,39 @@ class PathFuzzyCurve(FuzzyCurve):
         std = self.links_std[link]
         for pn, std_map in std.items():
             for symm in symmetries:
-                # how go we get fraction from a pattern:
-                # 1) map pattern link to std_link
+                # how do we put pn-pattern in fraction:
+                # 1) map pn-pattern link to std_link
                 # 2) apply symmetries for std_link
                 # 3) apply repr to get fraction link
                 yield Spec(repr * symm * std_map, pn)
 
     @classmethod
-    def init_from_paths(cls, paths, allow_time_rev=True):
+    def init_from_paths(cls, paths, disable_time_rev=False):
         """
         Create PathFuzzyCurve from a tuple of pointed paths (Path instances).
 
         Args:
-            allow_time_rev: boolean, allow time_reverse in curve base_maps (default: True)
+            paths: tuple of Path instances (so, pcount is len(paths))
+            disable_time_rev: boolean, disable time_rev in curve base_maps
         """
         if not all(all(isinstance(link.entrance, Point) and isinstance(link.exit, Point) for link in path.links) for path in paths):
             raise ValueError("Only pointed links (gate pairs) are supported!")
 
         dim = paths[0].dim
         div = paths[0].div
-        if allow_time_rev:
-            all_bms = list(BaseMap.gen_base_maps(dim))
-        else:
-            all_bms = list(BaseMap.gen_base_maps(dim, time_rev=False))
+
+        # this is the group of bms used in the curve; may generalize this ...
+        bms_group = list(BaseMap.gen_base_maps(dim))
+        if disable_time_rev:
+            bms_group = [bm for bm in bms_group if not bm.time_rev]
 
         links_std = defaultdict(dict)
-        for pnum, path in enumerate(paths):  # pnum stands for path_num and also pattern_num
-            std_link = min(bm * path.link for bm in all_bms)  # equals path.link.std() for allow_time_rev=True
-            std_map = next(bm for bm in all_bms if bm * path.link == std_link)
+        for pnum, path in enumerate(paths):
+            std_link = min(bm * path.link for bm in bms_group)
+            std_map = next(bm for bm in bms_group if bm * path.link == std_link)
             links_std[std_link][pnum] = std_map
 
-        links_symmetries = {link: [bm for bm in all_bms if bm * link == link] for link in links_std}
+        links_symmetries = {link: [bm for bm in bms_group if bm * link == link] for link in links_std}
 
         patterns, pattern_links, pattern_reprs = [], [], []
         for path in paths:
@@ -722,11 +714,11 @@ class PathFuzzyCurve(FuzzyCurve):
 
             reprs, links = [], []
             for link in path.links:
-                std_link = min(bm * link for bm in all_bms)
+                std_link = min(bm * link for bm in bms_group)
                 if std_link not in links_std:
                     # all links must be allowed images of global (path.link) links!
                     raise KeyError("Found link in path.links that does not correspond to global links!")
-                repr0 = next(bm for bm in all_bms if bm * std_link == link)
+                repr0 = next(bm for bm in bms_group if bm * std_link == link)
                 reprs.append(repr0)
                 links.append(std_link)
             pattern_reprs.append(reprs)

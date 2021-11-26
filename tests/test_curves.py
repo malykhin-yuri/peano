@@ -37,8 +37,8 @@ class TestCommon(unittest.TestCase):
             get_haverkort_curve_a26(),
             get_haverkort_curve_f(),
 
-            get_hilbert_curve().forget(allow_time_rev=False),
-            get_haverkort_curve_a26().forget(allow_time_rev=False),
+            get_hilbert_curve().forget(disable_time_rev=True),
+            get_haverkort_curve_a26().forget(disable_time_rev=True),
 
             get_beta_omega_curve(),
             get_ARW_Curve(),
@@ -129,6 +129,7 @@ class TestCurve(unittest.TestCase):
     def test_subsubdivision(self):
         for curve in self.curves:
             curve.get_subdivision(2).check()
+            self.assertEqual(curve.get_subdivision().get_subdivision(), curve.get_subdivision(3))
 
     def test_compose(self):
         for curve in self.curves:
@@ -218,7 +219,7 @@ class TestFuzzyCurves(unittest.TestCase):
 
     def test_check(self):
         for curve in [get_hilbert_curve()]:
-            pcurve = curve.forget(allow_time_rev=True)
+            pcurve = curve.forget()
             for c in pcurve.gen_possible_curves():
                 c.check()
 
@@ -230,9 +231,9 @@ class TestFuzzyCurves(unittest.TestCase):
 
         for num, curve in enumerate(self.curves):
             if num == 0:
-                pcurve = curve.forget(allow_time_rev=True)
+                pcurve = curve.forget()
             else:
-                pcurve = curve.forget(allow_time_rev=False)
+                pcurve = curve.forget(disable_time_rev=True)
 
             junc_info = pcurve.get_junctions_info()
             for junc in junc_info:
