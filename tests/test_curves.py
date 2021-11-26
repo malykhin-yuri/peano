@@ -137,7 +137,7 @@ class TestCurve(unittest.TestCase):
                     for cnum in range(curve.genus):
                         spec = Spec(base_map=bm, pnum=pnum)
                         C = spec * curve
-                        assert C.specs[cnum] * C == curve.compose_specs(spec, cnum) * curve
+                        assert C.specs[cnum] * C == curve._compose_specs(spec, cnum) * curve
 
     def test_junc(self):
         for curve in self.curves:

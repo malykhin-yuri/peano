@@ -73,7 +73,7 @@ class _CurvePiece(namedtuple('_CurvePiece', ['curve', 'pnum', 'pos'])):
 
         for orig_spec in self.curve.gen_allowed_specs(active_pnum, orig_cnum):
             # we need to get spec in prev_curve to proceed to last curve
-            # specs are conjugated, see curves.FuzzyCurve.apply_cube_map
+            # specs are conjugated, see the mul operator in curves module
             sp = orig_spec.conjugate_by(prev_spec.base_map)
 
             specified_curve = self.curve.specify(active_pnum, orig_cnum, orig_spec)

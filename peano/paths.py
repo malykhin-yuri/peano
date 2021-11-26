@@ -30,6 +30,8 @@ class Proto(tuple):
 
     def __rmul__(self, base_map):
         """Apply a base map to prototype."""
+        if base_map.dim != self.dim:
+            raise Exception("Incompatible base map!")
         src_cubes = reversed(self) if base_map.time_rev else self
         cubes = (base_map.apply_cube(self.div, cube) if cube is not None else None for cube in src_cubes)
         return Proto(self.dim, self.div, cubes)

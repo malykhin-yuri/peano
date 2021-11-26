@@ -37,9 +37,7 @@ class Pattern(namedtuple('_Pattern', ['proto', 'specs'])):
             Pattern instance
         """
         proto = Proto.parse(chain)
-        if isinstance(specs, str):
-            specs = specs.split(',')
-        specs = tuple(Spec.parse(c) for c in specs)
+        specs = [Spec.parse(c) for c in specs.split(',')]
         return cls(proto, specs)
 
     def __str__(self):
@@ -56,10 +54,13 @@ class Pattern(namedtuple('_Pattern', ['proto', 'specs'])):
 
 class FuzzyCurve:
     """
-    Multifractal Peano curve, not fully specified.
+    Multifractal Peano curve that may be not fully specified.
 
-    Object attributes:
-    .genus -- subj
+    Peano multifractal consists of several patterns (with the same div!).
+
+    This is abstract class for fuzzy curves.
+    The implementation must provide that specs for different fractions
+    are independent. This is required for the correct usage of SAT solvers!
 
     Most methods may raise KeyError if some required specs/proto cubes are not defined
     """
@@ -72,22 +73,21 @@ class FuzzyCurve:
             dim: dimension d of cube [0,1]^d (image of the curve)
             div: number of divisions for each of the coordinates, so genus = G = div**dim
             patterns: list of patterns (Pattern instances) or plain (proto, specs) tuples
-                some specs in patterns may be None
+              some specs in patterns may be None
             pnum: selected pattern, to pick actual curve f:[0,1]->[0,1]^d
-
-        Note that we assume that each pattern has the same div.
         """
         self.dim = dim
         self.div = div
 
-        self.patterns = []
+        pattern_objects = []
         for pattern in patterns:
             if not isinstance(pattern, Pattern):
                 proto, specs = pattern
                 proto = proto if isinstance(proto, Proto) else Proto(dim, div, proto)
                 pattern = Pattern(proto=proto, specs=specs)
-            self.patterns.append(pattern)
+            pattern_objects.append(pattern)
 
+        self.patterns = tuple(pattern_objects)
         self.pcount = len(self.patterns)
         self.pnum = pnum
         self.genus = div**dim
@@ -100,30 +100,10 @@ class FuzzyCurve:
     def specs(self):
         return self.patterns[self.pnum].specs
 
-    @classmethod
-    def parse(cls, patterns_bases):
-        """
-        Convenient way to define a curve.
-
-        Args:
-            patterns_bases: A list of pattern data, see Pattern.parse
-
-        Returns:
-            FuzzyCurve instance
-        """
-        patterns = [Pattern.parse(chain, spec_bases) for chain, spec_bases in patterns_bases]
-        proto0 = patterns[0].proto
-        dim, div = proto0.dim, proto0.div
-        return cls(dim, div, patterns)
-
-    def __eq__(self, other):
-        return self.pcount == other.pcount and all(p1 == p2 for p1, p2 in zip(self.patterns, other.patterns))
-
     def __str__(self):
         return ''.join('@{}: {}\n'.format(pnum, pattern) for pnum, pattern in enumerate(self.patterns))
 
-    def changed(self, patterns=None, pnum=None, **kwargs):
-        """Create curve with changed parameters."""
+    def _changed(self, patterns=None, pnum=None, **kwargs):
         return type(self)(
             dim=self.dim,
             div=self.div,
@@ -134,16 +114,9 @@ class FuzzyCurve:
 
     def __invert__(self):
         """Reverse time in a curve."""
-        return self.changed(patterns=[~pattern for pattern in self.patterns])
+        return self._changed(patterns=[~pattern for pattern in self.patterns])
 
-    def apply_cube_map(self, base_map):
-        """Apply cube isometry to a curve."""
-
-        if base_map.dim != self.dim:
-            raise Exception("Incompatible base map!")
-        if base_map.time_rev:
-            raise Exception("Do not use this method with time_rev!")
-
+    def _apply_cube_map(self, base_map):
         new_patterns = []
         for pattern in self.patterns:
             # isometry for the prototype
@@ -153,13 +126,17 @@ class FuzzyCurve:
             # - map curve to original (base_map^{-1})
             # - then map curve to the fraction (spec)
             # - then map the whole thing to mapped curve (base_map)
-            new_specs = (spec.conjugate_by(base_map) if spec is not None else None for spec in pattern.specs)
+            new_specs = [spec.conjugate_by(base_map) if spec is not None else None for spec in pattern.specs]
             new_patterns.append((new_proto, new_specs))
 
-        return self.changed(patterns=new_patterns)
+        return self._changed(patterns=new_patterns)
 
     def __rmul__(self, other):
-        """Apply base map or spec to a fractal curve, return new curve."""
+        """
+        Apply base map or spec to a fractal curve, return new curve.
+        
+        Note that spec also may change curve's selected pnum.
+        """
         if isinstance(other, Spec):
             base_map = other.base_map
             pnum = other.pnum
@@ -173,28 +150,21 @@ class FuzzyCurve:
         curve = self
         if base_map.time_rev:
             curve = ~curve
-        curve = curve.apply_cube_map(base_map.cube_map())
+        curve = curve._apply_cube_map(base_map.cube_map())
 
         if curve.pnum != pnum:
-            curve = curve.changed(pnum=pnum)
+            curve = curve._changed(pnum=pnum)
 
         return curve
 
-    def compose_specs(self, spec, cnum):
-        """
-        Fast spec composition without curve multiplication.
-
-        Get spec X = C.specs[cnum] * spec, where C := spec*self,
-        i.e. this is spec such that: C.specs[cnum] * C = X * self
-        Method allows to get orientations of deep fractions of a curve.
-
-        Args:
-            spec: specification defining curve C = spec*self
-            cnum: cube index in curve C for next spec
-
-        Returns:
-            composed Spec
-        """
+    def _compose_specs(self, spec, cnum):
+        # Fast spec composition without curve multiplication.
+        # Get spec X = C.specs[cnum] * spec, where C := spec*self,
+        # i.e. this is spec such that: C.specs[cnum] * C = X * self
+        # Method allows to get orientations of deep fractions of a curve.
+        # Args:
+        #   spec: specification defining curve C = spec*self
+        #   cnum: cube index in curve C for next spec
 
         active_cnum = spec.base_map.apply_cnum(self.genus, cnum)
         last_spec = self.patterns[spec.pnum].specs[active_cnum]
@@ -213,7 +183,7 @@ class FuzzyCurve:
         """
         spec = Spec(BaseMap.id_map(self.dim), pnum)
         for cnum in cnums:
-            spec = self.compose_specs(spec, cnum)
+            spec = self._compose_specs(spec, cnum)
         return spec
 
     def gen_allowed_specs(self, pnum, cnum):
@@ -238,13 +208,7 @@ class FuzzyCurve:
 
     # TODO: function not in prod!
     def gen_possible_curves(self):
-        """
-        Generate all curves, compatible with self.
-
-        We use gen_allowed_specs (defined in child classes) and suppose
-        that specs for different fractions are independent. Required for SAT!!!!!!!
-        This is very important condition, which is provided in PathFuzzyCurve class by continuity.
-        """
+        """Generate all curves, compatible with self."""
 
         sp_variant_generators = []
         G = self.genus
@@ -301,7 +265,7 @@ class FuzzyCurve:
         new_patterns = list(self.patterns)
         new_patterns[pnum] = new_pattern
 
-        return self.changed(patterns=new_patterns)
+        return self._changed(patterns=new_patterns)
 
     def specify_dict(self, spec_dict):
         """
@@ -356,7 +320,7 @@ class FuzzyCurve:
                 raise KeyError("Curve not specified enough to get cubes sequence!")
             cubes.append(cube)
             index[cur_spec] = len(cubes)-1
-            cur_spec = self.compose_specs(cur_spec, cnum)
+            cur_spec = self._compose_specs(cur_spec, cnum)
             if cur_spec in index:
                 idx = index[cur_spec]
                 start, period = cubes[0:idx], cubes[idx:]
@@ -557,6 +521,28 @@ class Curve(FuzzyCurve):
     This curve defines the continuous surjective map f:[0,1]->[0,1]^d.
     """
 
+    def __eq__(self, other):
+        return self.patterns, self.pnum == other.patterns, other.pnum
+
+    def __hash__(self):
+        return hash((self.patterns, self.pnum))
+
+    @classmethod
+    def parse(cls, patterns_bases):
+        """
+        Convenient way to define a curve.
+
+        Args:
+            patterns_bases: list of tuples (chain_code, spec_bases) for Pattern.parse
+
+        Returns:
+            Curve instance
+        """
+        patterns = [Pattern.parse(chain, spec_bases) for chain, spec_bases in patterns_bases]
+        proto0 = patterns[0].proto
+        dim, div = proto0.dim, proto0.div
+        return cls(dim, div, patterns)
+
     def _gen_base_junctions(self):
         # junctions from first subdivision
         seen = set()
@@ -577,7 +563,7 @@ class Curve(FuzzyCurve):
     def gen_allowed_specs(self, pnum, cnum):
         yield self.patterns[pnum].specs[cnum]
 
-    def get_paths(self):
+    def _get_paths(self):
         links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
         paths = []
         for pattern in self.patterns:
@@ -587,7 +573,7 @@ class Curve(FuzzyCurve):
 
     def forget(self, **kwargs):
         """Convert curve to a fuzzy curve, saving entrance/exit and forgetting all specs."""
-        return PathFuzzyCurve.init_from_paths(self.get_paths(), **kwargs)
+        return PathFuzzyCurve.init_from_paths(self._get_paths(), **kwargs)
 
     def get_subdivision(self, k=1):
         """Get k-th subdivision of a curve."""
@@ -609,7 +595,7 @@ class Curve(FuzzyCurve):
 
             current_curve = type(self)(
                 dim=self.dim,
-                div=new_div,  # we change div so do not use ``changed''
+                div=new_div,  # we change div so do not use ``_changed''
                 patterns=new_patterns,
             )
 
@@ -617,7 +603,7 @@ class Curve(FuzzyCurve):
 
     def check(self):
         """Assert that curve (all patterns) is continuous."""
-        if any(not path.is_continuous() for path in self.get_paths()):
+        if any(not path.is_continuous() for path in self._get_paths()):
             raise ValueError("Not contiuous!")
 
 
@@ -648,11 +634,11 @@ class PathFuzzyCurve(FuzzyCurve):
         self.pattern_reprs = kwargs.pop('pattern_reprs')
         super().__init__(*args, **kwargs)
 
-    def changed(self, *args, **kwargs):
+    def _changed(self, *args, **kwargs):
         for add_field in ['links_symmetries', 'links_std', 'pattern_links', 'pattern_reprs']:
             if add_field not in kwargs:
                 kwargs[add_field] = getattr(self, add_field)
-        return super().changed(*args, **kwargs)
+        return super()._changed(*args, **kwargs)
 
     def __invert__(self):
         # we do not change links to keep them standard (hence, links_symmetries also do not change)
@@ -662,13 +648,13 @@ class PathFuzzyCurve(FuzzyCurve):
         new_pattern_links = [list(reversed(links)) for links in self.pattern_links]
         new_pattern_reprs = [[~bm for bm in reversed(reprs)] for reprs in self.pattern_reprs]
         # after super().__invert__() the curve will be in inconsistent state:(
-        return super().__invert__().changed(
+        return super().__invert__()._changed(
             links_std=new_links_std,
             pattern_links=new_pattern_links,
             pattern_reprs=new_pattern_reprs,
         )
 
-    def apply_cube_map(self, cube_map):
+    def _apply_cube_map(self, cube_map):
         cube_inv = cube_map**(-1)
 
         # to get std_link, revert cube_map and the apply old std_map
@@ -679,7 +665,7 @@ class PathFuzzyCurve(FuzzyCurve):
         # to get actual link, first map std_link to get old link, the apply cube_map
         new_pattern_reprs = [[cube_map * repr for repr in reprs] for reprs in self.pattern_reprs]
 
-        return super().apply_cube_map(cube_map).changed(
+        return super()._apply_cube_map(cube_map)._changed(
             links_std=new_links_std,
             pattern_reprs=new_pattern_reprs,
         )

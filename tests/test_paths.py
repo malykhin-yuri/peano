@@ -34,13 +34,6 @@ class TestGen(unittest.TestCase):
             {'dim': 3, 'div': 2, 'gates': '(0,0,0)->(1,1/2,1/2)', 'counts': {'std': 4}},  # type D
             {'dim': 3, 'div': 2, 'gates': '(1/3,0,0)->(1,1/3,1)', 'counts': {'std': 16}},  # type E
             {'dim': 3, 'div': 2, 'gates': '(0,1/3,1/3)->(2/3,1/3,0)', 'counts': {'std': 1}},  # type F
-
-            #'(0,0,0)->(1,0,0)',  # type A
-            #        '(0,0,0)->(0,1,1)',  # type B
-            #        '(0,0,0)->(1,1/2,0)',  # type C
-            #        '(0,0,0)->(1,1/2,1/2)',  # type D
-            #        '(1/3,0,0)->(1,1/3,1)',  # type E
-            #        '(0,1/3,1/3)->(2/3,1/3,0)',  # type F
         ]
         for conf in configs:
             links = [Link.parse_gates(token) for token in conf['gates'].split('|')]
