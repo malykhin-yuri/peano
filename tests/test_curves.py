@@ -150,15 +150,18 @@ class TestCurve(unittest.TestCase):
             self.assertEqual(set(curve.gen_regular_junctions()), set(curve.get_junctions_info().keys()))
 
     def test_face_moments(self):
-        """Check face moments for miscellaneous dimesions."""
+        """
+        Check first and last face moments for miscellaneous dimesions.
+        """
         def gen_faces(dim, face_dim):
-            for values in itertools.product((0, 1), repeat=dim-face_dim):
-                for coords in itertools.combinations(list(range(dim)), r=dim-face_dim):
+            for coords in itertools.combinations(list(range(dim)), r=dim-face_dim):
+                for values in itertools.product((0, 1), repeat=dim-face_dim):
                     face = [None] * dim
                     for val, coord in zip(values, coords):
                         face[coord] = val
                     yield tuple(face)
 
+        # key = face dim; if negative, check last moments instead of first
         known_moments = [
             {
                 'curve': get_haverkort_curve_a26(),
@@ -176,15 +179,20 @@ class TestCurve(unittest.TestCase):
                     1: [Fraction(k, 4194176) for k in [0, 693632, 1364617, 1659520]]
                         + [Fraction(k, 65534) for k in [0, 11433, 38292, 44200]]
                         + [Fraction(k, 524272) for k in [0, 169360, 316073, 431496]],
+                    -1: [Fraction(k, 4194176) for k in [2534656, 2829559, 3500544, 4194176]]
+                        + [Fraction(k, 65534) for k in [21334, 27242, 54101, 65534]]
+                        + [Fraction(k, 524272) for k in [92776, 208199, 354912, 524272]],
                     2: [Fraction(k, 224) for k in [0, 0, 0, 37, 72, 128]],
+                    -2: [Fraction(k, 224) for k in [96, 152, 187, 224, 224, 224]],
                 },
             },
         ]
         for data in known_moments:
             curve = data['curve']
             for face_dim, true_moments in data['moments'].items():
-                got_moments = set(curve.get_face_moment(face) for face in gen_faces(curve.dim, face_dim))
-                self.assertSetEqual(set(true_moments), set(got_moments))
+                last = (face_dim < 0)
+                got_moments = [curve.get_face_moment(face, last=last) for face in gen_faces(curve.dim, abs(face_dim))]
+                self.assertEqual(list(sorted(true_moments)), list(sorted((got_moments))))
 
     def test_gate(self):
         known = [
