@@ -1,4 +1,5 @@
 import unittest
+import itertools
 
 from quicktions import Fraction
 
@@ -148,24 +149,42 @@ class TestCurve(unittest.TestCase):
                     raise Exception("Too many juncs!")
             self.assertEqual(set(curve.gen_regular_junctions()), set(curve.get_junctions_info().keys()))
 
-    def test_vertex_moments(self):
+    def test_face_moments(self):
+        """Check face moments for miscellaneous dimesions."""
+        def gen_faces(dim, face_dim):
+            for values in itertools.product((0, 1), repeat=dim-face_dim):
+                for coords in itertools.combinations(list(range(dim)), r=dim-face_dim):
+                    face = [None] * dim
+                    for val, coord in zip(values, coords):
+                        face[coord] = val
+                    yield tuple(face)
+
         known_moments = [
             {
                 'curve': get_haverkort_curve_a26(),
-                'moments': [Fraction(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]],
+                'moments': {0: [Fraction(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]]},
             },
             {
                 'curve': get_haverkort_curve_f(),
-                'moments': [Fraction(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]],
+                'moments': {0: [Fraction(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]]},
             },
+            # Tokarev curve: from Scepin & Korneev (2018)
             {
                 'curve': get_tokarev_curve(),
-                'moments': [Fraction(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
+                'moments': {
+                    0: [Fraction(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
+                    1: [Fraction(k, 4194176) for k in [0, 693632, 1364617, 1659520]]
+                        + [Fraction(k, 65534) for k in [0, 11433, 38292, 44200]]
+                        + [Fraction(k, 524272) for k in [0, 169360, 316073, 431496]],
+                    2: [Fraction(k, 224) for k in [0, 0, 0, 37, 72, 128]],
+                },
             },
         ]
-        for d in known_moments:
-            moments = d['curve'].get_vertex_moments().values()
-            self.assertSetEqual(set(d['moments']), set(moments))
+        for data in known_moments:
+            curve = data['curve']
+            for face_dim, true_moments in data['moments'].items():
+                got_moments = set(curve.get_face_moment(face) for face in gen_faces(curve.dim, face_dim))
+                self.assertSetEqual(set(true_moments), set(got_moments))
 
     def test_gate(self):
         known = [
