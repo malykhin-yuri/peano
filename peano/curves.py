@@ -694,7 +694,6 @@ class PathFuzzyCurve(FuzzyCurve):
         dim = paths[0].dim
         div = paths[0].div
 
-        # this is the group of bms used in the curve; may generalize this ...
         if base_maps_group is None:
             base_maps_group = list(BaseMap.gen_base_maps(dim))
         if disable_time_rev:
