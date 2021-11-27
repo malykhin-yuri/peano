@@ -205,7 +205,6 @@ class FuzzyCurve:
                     spec_dict[pnum][cnum] = next(self.gen_allowed_specs(pnum=pnum, cnum=cnum))
         return self._specify_allowed(spec_dict)
 
-    # TODO: function not in prod!
     def gen_possible_curves(self):
         """Generate all curves, compatible with self."""
 
@@ -680,12 +679,13 @@ class PathFuzzyCurve(FuzzyCurve):
                 yield Spec(repr * symm * std_map, pn)
 
     @classmethod
-    def init_from_paths(cls, paths, disable_time_rev=False):
+    def init_from_paths(cls, paths, base_maps_group=None, disable_time_rev=False):
         """
         Create PathFuzzyCurve from a tuple of pointed paths (Path instances).
 
         Args:
             paths: tuple of Path instances (so, pcount is len(paths))
+            base_maps_group: subgroup of all base maps to use in curve
             disable_time_rev: boolean, disable time_rev in curve base_maps
         """
         if not all(all(isinstance(link.entrance, Point) and isinstance(link.exit, Point) for link in path.links) for path in paths):
@@ -695,17 +695,18 @@ class PathFuzzyCurve(FuzzyCurve):
         div = paths[0].div
 
         # this is the group of bms used in the curve; may generalize this ...
-        bms_group = list(BaseMap.gen_base_maps(dim))
+        if base_maps_group is None:
+            base_maps_group = list(BaseMap.gen_base_maps(dim))
         if disable_time_rev:
-            bms_group = [bm for bm in bms_group if not bm.time_rev]
+            base_maps_group = [bm for bm in base_maps_group if not bm.time_rev]
 
         links_std = defaultdict(dict)
         for pnum, path in enumerate(paths):
-            std_link = min(bm * path.link for bm in bms_group)
-            std_map = next(bm for bm in bms_group if bm * path.link == std_link)
+            std_link = min(bm * path.link for bm in base_maps_group)
+            std_map = next(bm for bm in base_maps_group if bm * path.link == std_link)
             links_std[std_link][pnum] = std_map
 
-        links_symmetries = {link: [bm for bm in bms_group if bm * link == link] for link in links_std}
+        links_symmetries = {link: [bm for bm in base_maps_group if bm * link == link] for link in links_std}
 
         patterns, pattern_links, pattern_reprs = [], [], []
         for path in paths:
@@ -714,11 +715,11 @@ class PathFuzzyCurve(FuzzyCurve):
 
             reprs, links = [], []
             for link in path.links:
-                std_link = min(bm * link for bm in bms_group)
+                std_link = min(bm * link for bm in base_maps_group)
                 if std_link not in links_std:
                     # all links must be allowed images of global (path.link) links!
                     raise KeyError("Found link in path.links that does not correspond to global links!")
-                repr0 = next(bm for bm in bms_group if bm * std_link == link)
+                repr0 = next(bm for bm in base_maps_group if bm * std_link == link)
                 reprs.append(repr0)
                 links.append(std_link)
             pattern_reprs.append(reprs)

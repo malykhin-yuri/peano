@@ -6,6 +6,7 @@ from peano.base_maps import BaseMap, Spec
 from peano.curves import Curve, PathFuzzyCurve
 from peano.subsets import Link
 from peano.paths import PathsGenerator
+from peano.gates import GatesGenerator
 
 from .examples import *
 
@@ -223,8 +224,37 @@ class TestFuzzyCurves(unittest.TestCase):
             for c in pcurve.gen_possible_curves():
                 c.check()
 
-    def test_junc(self):
+    def test_GP(self):
+        # Haverkort & Walderveen, p.135: "... 272 orders"""
+        all_bms = list(BaseMap.gen_base_maps(dim=2))
+        pg = PathsGenerator(dim=2, div=3, links=[Link.parse_gates('(0,0)->(1,1)')], max_cdist=1)
+        paths_tuple = pg.get_paths_example()
+        seen = set()
+        fcurve = PathFuzzyCurve.init_from_paths(paths_tuple, disable_time_rev=True)
+        for curve in fcurve.gen_possible_curves():
+            if all(bm * curve not in seen for bm in all_bms):
+                seen.add(curve)
+        self.assertEqual(len(seen), 272)
 
+    def test_3D(self):
+        # Haverkort inventory: 920 face-continuous vertex-gated order-preserving
+        dim, div, pcount = 3, 2, 1
+        all_bms = list(BaseMap.gen_base_maps(dim=dim))
+        seen = set()
+        gates_gen = GatesGenerator(dim=dim, div=div, pcount=pcount)
+        for gates in gates_gen.gen_gates():
+            link = gates[0]
+            if link.entrance.face_dim() > 0 or link.exit.face_dim() > 0:
+                continue
+            paths_gen = PathsGenerator(dim=dim, div=div, links=gates, max_cdist=1)
+            for paths in paths_gen.generate_paths(std=True):
+                fcurve = PathFuzzyCurve.init_from_paths(paths, disable_time_rev=True)
+                for curve in fcurve.gen_possible_curves():
+                    if all(bm * curve not in seen for bm in all_bms):
+                        seen.add(curve)
+        self.assertEqual(len(seen), 920)
+
+    def test_junc(self):
         def is_specialization(curve, tmpl):
             # Check if curve has all of defined specs of the given template, and they are the same."""
             return all(curve.patterns[pnum].specs[cnum] == sp for pnum, cnum, sp in tmpl.gen_defined_specs())
