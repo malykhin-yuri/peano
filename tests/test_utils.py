@@ -1,6 +1,8 @@
 import unittest
 
-from peano.utils import combinations_product
+from quicktions import Fraction
+
+from peano.utils import combinations_product, get_periodic_sum
 
 
 class TestUtils(unittest.TestCase):
@@ -15,3 +17,6 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(len(output), 30)
         self.assertTrue(('a','V','d') in output)
         self.assertTrue(('b','U','a') not in output)
+
+    def test_periodic_sum(self):
+        self.assertEqual(get_periodic_sum([1, 2, 3], [4, 5], 6), Fraction(907, 3780))

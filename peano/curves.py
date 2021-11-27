@@ -159,20 +159,15 @@ class FuzzyCurve:
 
     def _compose_specs(self, spec, cnum):
         # Fast spec composition without curve multiplication.
-        # Get spec X = C.specs[cnum] * spec, where C := spec*self,
-        # i.e. this is spec such that: C.specs[cnum] * C = X * self
+        # Get spec X such that: X * self = C.specs[cnum] * C, where C := spec*self
         # Method allows to get orientations of deep fractions of a curve.
-        # Args:
-        #   spec: specification defining curve C = spec*self
-        #   cnum: cube index in curve C for next spec
-
         active_cnum = spec.base_map.apply_cnum(self.genus, cnum)
         last_spec = self.patterns[spec.pnum].specs[active_cnum]
         if last_spec is None:
             raise KeyError
         # pnum is taken from the last spec
-        # base_maps:
-        # C.specs[cnum].base_map = spec.base_map * last_spec.base_map * ~spec.base_map, see __rmul__
+        # base_maps: # C.specs[cnum].base_map = spec.base_map * last_spec.base_map * ~spec.base_map, see __rmul__
+        #  equivalently: first, we map self by last_spec then apply spec.base_map to the whole picture
         return spec.base_map * last_spec
 
     def get_deep_spec(self, pnum, cnums):
@@ -291,37 +286,28 @@ class FuzzyCurve:
 
     def _get_cube_limit(self, pnum, cnum):
         # we found the sequence of cubes that we obtain if we take cube #cnum in each fraction
-        # returns pair (non-periodic part, periodic part)
         cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
         cubes = []
         index = {}
-
-        while True:
-            # cur_curve = cur_spec * self
-            cur_curve_proto = cur_spec.base_map * self.patterns[cur_spec.pnum].proto
-            cube = cur_curve_proto[cnum]
+        # current curve = cur_spec * self
+        while cur_spec not in index:
+            index[cur_spec] = len(cubes)
+            cube = (cur_spec.base_map * self.patterns[cur_spec.pnum].proto)[cnum]
             if cube is None:
                 raise KeyError("Curve not specified enough to get cubes sequence!")
             cubes.append(cube)
-            index[cur_spec] = len(cubes)-1
             cur_spec = self._compose_specs(cur_spec, cnum)
-            if cur_spec in index:
-                idx = index[cur_spec]
-                start, period = cubes[0:idx], cubes[idx:]
-                break
 
-        pt = []
-        for j in range(self.dim):
-            start_j = [x[j] for x in start]
-            period_j = [x[j] for x in period]
-            pt.append(get_periodic_sum(start_j, period_j, self.div))
-        return Point(pt)
+        idx = index[cur_spec]
+        start, period = cubes[0:idx], cubes[idx:]
+        get_coord = lambda cs, j: [c[j] for c in cs]
+        return Point(get_periodic_sum(get_coord(start, j), get_coord(period, j), self.div) for j in range(self.dim))
 
     def get_vertex_moments(self, pnum=None):
         """
-        Get all vertex moments.
+        Get all vertex moments, i.e. t: f(t)=v, where v in {0,1}^d
 
-        Note that vertex moment, i.e. t: f(t)=v, is uniquely defined
+        Note that any vertex moment is uniquely defined
         because only one fraction contains given vertex.
 
         Args:
@@ -350,34 +336,31 @@ class FuzzyCurve:
             pnum = self.pnum
 
         cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
-        curve = cur_spec * self  # invariant
         cnums = []
         index = {}
-        while True:
-            cnum = curve._get_face_cnum(face, last=last)
+        while cur_spec not in index:
+            index[cur_spec] = len(cnums)
+            cur_proto = cur_spec.base_map * self.patterns[cur_spec.pnum].proto
+            cnum = self._get_face_cnum(cur_proto, face, last=last)
             cnums.append(cnum)
-            index[cur_spec] = len(cnums)-1
+            cur_spec = self._compose_specs(cur_spec, cnum)
 
-            sp = curve.specs[cnum]
-            cur_spec = sp * cur_spec
-            curve = sp * curve
+        period_start = index[cur_spec]
+        return get_periodic_sum(cnums[0:period_start], cnums[period_start:], self.genus)
 
-            if cur_spec in index:
-                period_start = index[cur_spec]
-                return get_periodic_sum(cnums[0:period_start], cnums[period_start:], self.genus)
-
-    def _get_face_cnum(self, face, last=False):
-        data = enumerate(self.proto)
+    @staticmethod
+    def _get_face_cnum(proto, face, last=False):
+        # cnum of face touch
+        data = enumerate(proto)
         if last:
             data = reversed(list(data))
         for cnum, cube in data:
-            # check that cube touches face
-            touch = True
+            touches_face = True
             for x, e in zip(cube, face):
-                if (e == 1 and x != (self.div-1)) or (e == 0 and x != 0):
-                    touch = False
+                if (e == 1 and x != (proto.div-1)) or (e == 0 and x != 0):
+                    touches_face = False
                     break
-            if touch:
+            if touches_face:
                 return cnum
 
     #
