@@ -532,27 +532,11 @@ class Curve(FuzzyCurve):
         dim, div = proto0.dim, proto0.div
         return cls(dim, div, patterns)
 
-    def _gen_base_junctions(self):
-        # junctions from first subdivision
-        seen = set()
-        for pnum in range(self.pcount):
-            for cnum in range(self.genus - 1):
-                junc = self._get_base_junction(cnum=cnum, pnum=pnum)
-                if junc not in seen:
-                    yield junc
-                    seen.add(junc)
-
-    def gen_regular_junctions(self):
-        """Generate all regular junctions for a curve."""
-        yield from self._gen_junctions_from_base(self._gen_base_junctions())
-
-    def get_depth(self):
-        return max(junc.depth for junc in self.gen_regular_junctions())
-
     def gen_allowed_specs(self, pnum, cnum):
         yield self.patterns[pnum].specs[cnum]
 
-    def _get_paths(self):
+    def get_paths(self):
+        """Get curve pointed prototypes (Path objects tuple)."""
         links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
         paths = []
         for pattern in self.patterns:
@@ -562,7 +546,7 @@ class Curve(FuzzyCurve):
 
     def forget(self, **kwargs):
         """Convert curve to a fuzzy curve, saving entrance/exit and forgetting all specs."""
-        return PathFuzzyCurve.init_from_paths(self._get_paths(), **kwargs)
+        return PathFuzzyCurve.init_from_paths(self.get_paths(), **kwargs)
 
     def get_subdivision(self, k=1):
         """Get k-th subdivision of a curve."""
@@ -592,8 +576,25 @@ class Curve(FuzzyCurve):
 
     def check(self):
         """Assert that curve (all patterns) is continuous."""
-        if any(not path.is_continuous() for path in self._get_paths()):
+        if any(not path.is_continuous() for path in self.get_paths()):
             raise ValueError("Not contiuous!")
+
+    def _gen_base_junctions(self):
+        # junctions from first subdivision
+        seen = set()
+        for pnum in range(self.pcount):
+            for cnum in range(self.genus - 1):
+                junc = self._get_base_junction(cnum=cnum, pnum=pnum)
+                if junc not in seen:
+                    yield junc
+                    seen.add(junc)
+
+    def gen_regular_junctions(self):
+        """Generate all regular junctions for a curve."""
+        yield from self._gen_junctions_from_base(self._gen_base_junctions())
+
+    def get_depth(self):
+        return max(junc.depth for junc in self.gen_regular_junctions())
 
 
 class PathFuzzyCurve(FuzzyCurve):
