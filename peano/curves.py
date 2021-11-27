@@ -368,7 +368,8 @@ class FuzzyCurve:
     #
 
     def gen_auto_junctions(self):
-        return (AutoJunction(dim=self.dim, pnum=pnum) for pnum in range(self.pcount))
+        for pnum in range(self.pcount):
+            yield AutoJunction(dim=self.dim, pnum=pnum)
 
     def _gen_junctions_from_base(self, base_juncs):
         # Yield base junctions and their derivatives
@@ -389,14 +390,14 @@ class FuzzyCurve:
                 seen.add(dj)
                 to_derive.append(dj)
 
-    def _get_base_junction(self, pnum, cnum):
+    def _get_base_junction(self, pnum, cnum, depth=1):
         # Get base junction if both specs are defined
         pattern = self.patterns[pnum]
         spec1, spec2 = pattern.specs[cnum], pattern.specs[cnum + 1]
         if spec1 is None or spec2 is None:
             raise KeyError("Can't get base junction: spec is not defined!")
         delta_x = [c2j - c1j for c1j, c2j in zip(pattern.proto[cnum], pattern.proto[cnum + 1])]
-        return RegularJunction(spec1, spec2, delta_x, depth=1)
+        return RegularJunction(spec1, spec2, delta_x, depth=depth)
 
     def _get_derived_junction(self, junc):
         if not isinstance(junc, RegularJunction):
@@ -425,18 +426,22 @@ class FuzzyCurve:
             depth=(junc.depth + 1 if junc.depth is not None else None),
         )
 
-    def get_junctions_info(self):
+    def get_junction_templates(self):
         """
-        Get possible junctions and specs for them.
+        Get possible junctions and template curves for them.
+
+        If a specified curve has some junc, then it is consistent with
+        one of the corresponding template curves.
+        If a specified curve is consistent with some of the templates,
+        then it has the corresponding junc.
 
         Returns:
-            dict {junc: curves}, with partially specified curves that have given junction.
+            dict {junc: template_curves}
         """
-
-        # config is a tuple (pnum, cnum, curve), where in curve there are specified:
+        # template is a tuple (pnum, cnum, tmpl_specs), where in tmpl we specify:
         # - all begin and end specs (to get derivatives)
         # - specs at (pnum, cnum) and (pnum, cnum+1)
-        configs = []
+        templates = []
         G = self.genus
         P = self.pcount
         variants = []
@@ -448,42 +453,35 @@ class FuzzyCurve:
             variant = list(variant)
             gate_specs = {}
             for pnum in range(P):
-                gate_specs[(pnum, 0)] = variant.pop(0)
-                gate_specs[(pnum, G - 1)] = variant.pop(0)
+                gate_specs[pnum, 0] = variant.pop(0)
+                gate_specs[pnum, G - 1] = variant.pop(0)
 
-            for pnum in range(P):
-                for cnum in range(G - 1):
-                    pc1 = (pnum, cnum)
-                    for sp1 in self.gen_allowed_specs(*pc1):
-                        if pc1 in gate_specs and gate_specs[pc1] != sp1:
-                            continue
-                        pc2 = (pnum, cnum + 1)
-                        for sp2 in self.gen_allowed_specs(*pc2):
-                            if pc2 in gate_specs and gate_specs[pc2] != sp2:
-                                continue
-                            def_specs = gate_specs.copy()
-                            def_specs[pc1] = sp1
-                            def_specs[pc2] = sp2
-
-                            def_specs_by_pnum = defaultdict(dict)
-                            for (p, c), sp in def_specs.items():
-                                def_specs_by_pnum[p][c] = sp
-
-                            configs.append((pnum, cnum, self._specify_allowed(def_specs_by_pnum)))
+            for pnum, cnum in itertools.product(range(P), range(G-1)):
+                pc1 = (pnum, cnum)
+                pc2 = (pnum, cnum + 1)
+                for sp1, sp2 in itertools.product(self.gen_allowed_specs(*pc1), self.gen_allowed_specs(*pc2)):
+                    if any(pc in gate_specs and gate_specs[pc] != sp for pc, sp in [(pc1, sp1), (pc2, sp2)]):
+                        continue
+                    tmpl_specs = gate_specs.copy()
+                    tmpl_specs[pc1] = sp1
+                    tmpl_specs[pc2] = sp2
+                    templates.append((pnum, cnum, tmpl_specs))
 
         junc_curves = defaultdict(list)
-        for pnum, cnum, curve in configs:
-            base_junc = curve._get_base_junction(pnum=pnum, cnum=cnum)
+        for pnum, cnum, tmpl_specs in templates:
+            spec_dict = defaultdict(dict)
+            for (p, c), sp in tmpl_specs.items():
+                spec_dict[p][c] = sp
+            curve = self._specify_allowed(spec_dict)
+            base_junc = curve._get_base_junction(pnum=pnum, cnum=cnum, depth=None)  # junc depths can't be known for fuzzy curves
             for junc in curve._gen_junctions_from_base([base_junc]):
-                # junc depths may be incorrect for fuzzy curves, because depth depends on all of curve's juncs
-                junc.depth = None
                 junc_curves[junc].append(curve)
 
         return junc_curves
 
     def gen_regular_junctions(self):
-        """Gen all possible(!) regular junctions."""
-        yield from self.get_junctions_info().keys()
+        """Gen all possible regular junctions."""
+        yield from self.get_junction_templates()
 
 
 class Curve(FuzzyCurve):
@@ -567,7 +565,7 @@ class Curve(FuzzyCurve):
         seen = set()
         for pnum in range(self.pcount):
             for cnum in range(self.genus - 1):
-                junc = self._get_base_junction(cnum=cnum, pnum=pnum)
+                junc = self._get_base_junction(pnum=pnum, cnum=cnum)
                 if junc not in seen:
                     yield junc
                     seen.add(junc)
@@ -722,11 +720,11 @@ class Junction:
     Junction is a pair of two curve fractions.
 
     Attributes:
-    .spec1:  first fraction is spec1 * curve
-    .spec2:  second fractions is spec2 * curve
-    .delta_x:  shift vector to get 2-nd fraction from 1-st, element of {0,1,-1}^d
-    .delta_t:  time shift (=0 or 1, see below)
-    .depth:  junction has depth k if it is obtained from fractions of k-th curve subdivision
+        spec1: first fraction is spec1 * curve
+        spec2: second fraction is spec2 * curve
+        delta_x: shift vector to get 2-nd fraction from 1-st, element of {0,1,-1}^d
+        delta_t: time shift (=0 or 1, see below)
+        depth: junction has depth k if it is obtained from fractions of k-th curve subdivision
     """
     def __init__(self, spec1, spec2, delta_x, delta_t, depth=None):
         self.spec1 = spec1
@@ -737,7 +735,7 @@ class Junction:
         self.depth = depth
 
     def _data(self):
-        return self.delta_x, self.spec1, self.spec2
+        return self.delta_x, self.delta_t, self.spec1, self.spec2
 
     def __eq__(self, other):
         return self._data() == other._data()
@@ -766,7 +764,7 @@ class RegularJunction(Junction):
         if spec1.pnum > spec2.pnum \
                 or (spec1.pnum == spec2.pnum and spec1.base_map.time_rev and spec2.base_map.time_rev):
             # swap and reverse time
-            delta_x = tuple(-dj for dj in delta_x)
+            delta_x = [-dj for dj in delta_x]
             spec1, spec2 = ~spec2, ~spec1
 
         bm1_cube_inv = spec1.base_map.cube_map()**(-1)
@@ -785,8 +783,8 @@ class AutoJunction(Junction):
 
     delta_x = 0, delta_t = 0
 
-    Required for correct ratio estimation
+    Required for correct dilation estimation
     """
-    def __init__(self, dim, pnum=0):
+    def __init__(self, dim, pnum):
         spec = Spec(base_map=BaseMap.id_map(dim), pnum=pnum)
         super().__init__(spec1=spec, spec2=spec, delta_x=(0,) * dim, delta_t=0, depth=0)

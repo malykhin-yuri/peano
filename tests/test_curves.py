@@ -143,11 +143,19 @@ class TestCurve(unittest.TestCase):
                         assert C.specs[cnum] * C == curve._compose_specs(spec, cnum) * curve
 
     def test_junc(self):
+        def is_continuous(curve, junc):
+            link1 = junc.spec1.base_map * Link(curve.get_entrance(junc.spec1.pnum), curve.get_exit(junc.spec1.pnum))
+            link2 = junc.spec2.base_map * Link(curve.get_entrance(junc.spec2.pnum), curve.get_exit(junc.spec2.pnum))
+            return link1.exit == link2.entrance.transform(shift=junc.delta_x)
+
         for curve in self.curves:
             for jcnt, junc in enumerate(curve.gen_regular_junctions()):
+                self.assertTrue(is_continuous(curve, junc))
+                self.assertTrue(all(x in [0,-1,1] for x in junc.delta_x))
+                self.assertNotEqual(junc.delta_x, (0,) * curve.dim)
                 if jcnt > 100:
                     raise Exception("Too many juncs!")
-            self.assertEqual(set(curve.gen_regular_junctions()), set(curve.get_junctions_info().keys()))
+            self.assertEqual(set(curve.gen_regular_junctions()), set(curve.get_junction_templates()))
 
     def test_face_moments(self):
         """
@@ -225,14 +233,23 @@ class TestCurve(unittest.TestCase):
                 exit_face = [1 if pj == Fraction(1) else 0 if pj == Fraction(0) else None for pj in gate.exit]
                 assert curve.get_face_moment(exit_face, pnum, last=True) == Fraction(1)
 
+    def test_known_junctions(self):
+        known = [
+            {'curve': get_tokarev_curve(), 'junctions_count': 9},  # Scepin & Korneev
+        ]
+        for data in known:
+            juncs = list(data['curve'].gen_regular_junctions())
+            self.assertEqual(len(juncs), data['junctions_count'])
+
     def test_depth(self):
         known = [
             {'curve': get_hilbert_curve(), 'depth': 2},
             {'curve': get_peano_curve(), 'depth': 1},
             {'curve': get_tokarev_curve(), 'depth': 3},
+            {'curve': get_ye_curve(), 'depth': 1},
         ]
         for data in known:
-            assert data['curve'].get_depth() == data['depth']
+            self.assertEqual(data['curve'].get_depth(), data['depth'])
 
 
 class TestFuzzyCurves(unittest.TestCase):
@@ -292,26 +309,18 @@ class TestFuzzyCurves(unittest.TestCase):
             else:
                 pcurve = curve.forget(disable_time_rev=True)
 
-            junc_info = pcurve.get_junctions_info()
-            for junc in junc_info:
-                if any(dx not in set([0,1,-1]) for dx in junc.delta_x):
-                    raise Exception("Bad delta!")
-
+            junc_info = pcurve.get_junction_templates()
             for curve in pcurve.gen_possible_curves():
                 juncs = list(curve.gen_regular_junctions())
-                # проверяем, что для каждого найденного стыка есть порождающая кривая
+                # check that for all curve juncs there is a template
                 for junc in juncs:
-                    if junc not in junc_info:
-                        raise Exception("Unknown junc!")
-                    if not any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]):
-                        raise Exception("Can't found consistent curve!")
+                    self.assertIn(junc, junc_info)
+                    self.assertTrue(any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]))
 
-                # проверяем, что для каждого не найденного стыка нет порождающих кривых
+                # check that is curve is consistent with template, then it has junc
                 for junc, curves in junc_info.items():
-                    if junc in juncs:
-                        continue
                     if any(is_specialization(curve, tmpl) for tmpl in junc_info[junc]):
-                        raise Exception("Found consistent curve for wrong junc!")
+                        self.assertIn(junc, juncs)
 
 
 class TestMisc(unittest.TestCase):

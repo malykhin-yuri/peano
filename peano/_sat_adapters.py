@@ -59,7 +59,7 @@ class CurveSATAdapter:
             self._append_clause({self._get_junc_var(junc): True})
 
         # regular junctions
-        for junc, curves in curve.get_junctions_info().items():
+        for junc, curves in curve.get_junction_templates().items():
             self._make_junc_var(junc, curves)
 
     def copy(self):
@@ -113,7 +113,7 @@ class CurveSATAdapter:
         
     def _make_junc_var(self, junc, curves):
         # Create variable J, such that J=True <=> curve has junction J
-        # curves is the list of minimal fuzzy curves with this junc (see get_junctions_info)
+        # curves is the list of minimal fuzzy curves with this junc (see get_junction_templates)
         J = self._get_junc_var(junc)
 
         curve_vars = [self._make_curve_var(curve) for curve in curves]
