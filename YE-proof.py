@@ -70,8 +70,10 @@ def check_genus5_ye_proto():
 
 def check_ye():
     estimator = Estimator(ratio_l2, cache_max_size=2**16)
-    result = estimator.estimate_dilation(
+    result = estimator.estimate_dilation_regular(
         get_ye_curve(),
+        use_vertex_moments=True,
+        max_depth=10,  # TODO set real depth!
         rel_tol_inv=100000,
     )
     print('lo:', float(result['lo']))

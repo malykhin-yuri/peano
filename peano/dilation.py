@@ -466,14 +466,7 @@ class Estimator:
                 info['next_try_iter'] = int(info['next_try_iter'] * strategy['multiplier']) + 1
                 return True
 
-    def estimate_dilation(self, curve, *args, **kwargs):
-        """Dispatcher method: uses estimate_dilation_regular or estimate_dilation_fuzzy"""
-        if isinstance(curve, Curve):
-            return self.estimate_dilation_regular(curve, *args, **kwargs)
-        else:
-            return self.estimate_dilation_fuzzy(curve, *args, **kwargs)
-
-    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_brkline=False, max_depth=None):
+    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_moments=False, max_depth=None):
         """
         Estimate dilation for a regular peano curve (class Curve).
 
@@ -481,7 +474,7 @@ class Estimator:
             curve: Curve instance, fully defined polyfractal curve
             rel_tol_inv: inverted relative tolerance (may be set to None)
             max_iter: limit for subdivisions iters
-            use_vertex_brkline: use vertex moments (broken line) for dilation lower bounds
+            use_vertex_moments: use vertex moments (broken line) for dilation lower bounds
             max_depth: allow not to consider pairs of higher depth
               note that fraction depth = junc depth + piece depth;
               if dilation is attained at pair of fractions of depth <= max_depth,
@@ -491,11 +484,11 @@ class Estimator:
             dict with keys:
             'lo': lower bound - dilation(curve) >= lo
             'up': upper bound - dilation(curve) <= up
-            'argmax': pair of points where lo is achieved (if use_vertex_brkline is set)
+            'argmax': pair of points where lo is achieved (if use_vertex_moments is set)
         """
 
         tree_kwargs = {'keep_max_lo_item': True}
-        if use_vertex_brkline:
+        if use_vertex_moments:
             if curve.pcount > 1:
                 raise NotImplementedError("Brklines for multiple patterns not implemented!")
             vertex_brkline = list(curve.get_vertex_moments().items())
@@ -855,10 +848,10 @@ class _IntegerBrokenLine(namedtuple('_IntegerBrokenLine', ['mx', 'mt', 'points']
         denoms = set()
         for x, t in brkline:
             if isinstance(t, Fraction):
-                denoms.add(t.q)
+                denoms.add(t.denominator)
             for xj in x:
                 if isinstance(xj, Fraction):
-                    denoms.add(xj.q)
+                    denoms.add(xj.denominator)
         lcm = get_lcm(denoms)
         mx = lcm
         mt = lcm**dim

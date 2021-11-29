@@ -1,12 +1,14 @@
 import unittest
 
+from quicktions import Fraction
+
 from peano import utils
 from peano.dilation import Estimator
 
 from .examples import *
 
 
-def _check_dilation(data):
+def _check_dilation(data, strict=False, fuzzy=False):
     curve = data['curve']
     dilation_dict = data['dilation']
     for metric in sorted(dilation_dict.keys()):
@@ -16,6 +18,8 @@ def _check_dilation(data):
         else:
             dilation_lo = dilation * 0.999
             dilation_up = dilation * 1.001
+            if strict:
+                dilation_lo = dilation
 
         if metric == 'l2':
             func = utils.ratio_l2_squared
@@ -25,7 +29,15 @@ def _check_dilation(data):
         elif metric == 'linf':
             func = utils.ratio_linf
 
-        res = Estimator(func).estimate_dilation(curve, rel_tol_inv=10 ** 5)
+        if fuzzy:
+            res = Estimator(func).estimate_dilation_fuzzy(curve, rel_tol_inv=10 ** 5)
+        elif strict:
+            res = Estimator(func).estimate_dilation_regular(
+                curve, use_vertex_moments=True, max_depth=data['max_depth'], rel_tol_inv=10 ** 5,
+            )
+            assert res['lo'] == dilation_lo
+        else:
+            res = Estimator(func).estimate_dilation_regular(curve, rel_tol_inv=10 ** 5)
         print(res)
         assert float(res['up']) <= dilation_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], dilation_up)
         assert float(res['lo']) >= dilation_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], dilation_lo)
@@ -101,6 +113,25 @@ class TestCurve(unittest.TestCase):
         for data in known_bounds:
             _check_dilation(data)
 
+    def test_dilation_eq(self):
+        known = [
+            {
+                'curve': get_hilbert_curve(),
+                'max_depth': 10,  # TODO move to metric
+                'dilation': {
+                    'l2': 6,
+                },
+            },
+            {
+                'curve': get_ye_curve(),
+                'max_depth': 10,
+                'dilation': {'l2': Fraction(408, 73)},
+            },
+        ]
+        for data in known:
+            _check_dilation(data, strict=True)
+
+
     def test_fuzzy_dilation(self):
         known_bounds = [
             {
@@ -123,4 +154,4 @@ class TestCurve(unittest.TestCase):
             'dilation': {'l2': [18, 19]}
         })
         for data in known_bounds:
-            _check_dilation(data)
+            _check_dilation(data, fuzzy=True)
