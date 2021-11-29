@@ -275,7 +275,7 @@ class Estimator:
     class _RunOutOfIterationsException(Exception):
         pass
 
-    def __init__(self, ratio_func, cache_max_size=2**18, cache_max_depth=4):
+    def __init__(self, ratio_func, cache_max_size=2**18):
         """
         Init Estimator instance.
 
@@ -288,15 +288,13 @@ class Estimator:
         self.ratio_func = ratio_func
         self.sum_stats = Counter()
         self.max_stats = {}
-        self._get_bounds_cached = functools.lru_cache(cache_max_size)(self._get_bounds_cached)
+        self._get_pos_bounds = functools.lru_cache(cache_max_size)(self._get_pos_bounds)  # TODO: use methodtools?
 
     def _get_bounds(self, pair, curve_points=None):
         # Get lower and upper bounds for max ratio of given fractions pair:
         #   WD(f1,f2) := sup ||gamma(s)-gamma(t)||^d/|s-t|:  gamma(s) in f1, gamma(t) in f2
         # curve_points: dict {pnum: curve points list}
         # Returns triple (lo, up, argmax), argmax only if curve_points is set
-
-        self.sum_stats['get_bounds_calls'] += 1
 
         pos1, pos2 = pair.pos1, pair.pos2
         pair_depth = max(pos1.depth, pos2.depth)  # not count junc.depth
@@ -310,9 +308,9 @@ class Estimator:
         else:
             pts1 = pts2 = None
 
-        return self._get_bounds_cached(pair.junc, pos1, pos2, pts1, pts2)
+        return self._get_pos_bounds(pair.junc, pos1, pos2, pts1, pts2)
 
-    def _get_bounds_cached(self, junc, pos1, pos2, pts1, pts2):
+    def _get_pos_bounds(self, junc, pos1, pos2, pts1, pts2):
         dim, N = pos1.dim, pos1.div
         use_curve_points = (pts1 is not None)
 

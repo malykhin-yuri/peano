@@ -26,7 +26,7 @@ def run_estimator(
         upper_bound=None,
         group_by_gates=False,
         output_gates=False, output_stats=False, output_curves=None,
-        cache_max_size=None, cache_max_depth=None,
+        cache_max_size=None,
     ):
 
     global_stats = Counter()
@@ -83,8 +83,6 @@ def run_estimator(
     estimator_kwargs = {}
     if cache_max_size is not None:
         estimator_kwargs['cache_max_size'] = cache_max_size
-    if cache_max_depth is not None:
-        estimator_kwargs['cache_max_depth'] = cache_max_depth
     estimator = Estimator(ratio_func, **estimator_kwargs)
 
     if group_by_gates:
@@ -146,7 +144,6 @@ if __name__ == "__main__":
     argparser.add_argument('--rel-tol-inv', type=int, help='inverted relative tolerance')
     argparser.add_argument('--rel-tol-inv_mult', type=int, help='multiplier for rel_tol_inv in each epoch')
     argparser.add_argument('--cache-max-size', type=int, help='dilation bounds cache size limit')
-    argparser.add_argument('--cache-max-depth', type=int, help='dilation bounds cache depth limit')
 
     # other
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
