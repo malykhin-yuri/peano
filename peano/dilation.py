@@ -4,6 +4,8 @@ regular curve or fuzzy curve dilation.
 SAT-solvers are used for fuzzy curves.
 """
 
+import itertools
+import functools
 from collections import Counter, namedtuple
 from collections.abc import Sized
 from heapq import heappop, heappush
@@ -43,6 +45,15 @@ class _PiecePosition:
         self.cnums = tuple(cnums)
         self.cubes = tuple(cubes)
         self.depth = len(self.cnums)
+
+    def _data(self):
+        return self.dim, self.div, self.cnums, self.cubes
+
+    def __eq__(self, other):
+        return self._data() == other._data()
+
+    def __hash__(self):
+        return hash(self._data())
 
     def specify(self, cnum, cube):
         return _PiecePosition(
@@ -277,9 +288,7 @@ class Estimator:
         self.ratio_func = ratio_func
         self.sum_stats = Counter()
         self.max_stats = {}
-        self._get_bounds_cache = {}
-        self._cache_max_size = cache_max_size
-        self._cache_max_depth = cache_max_depth
+        self._get_bounds_cached = functools.lru_cache(cache_max_size)(self._get_bounds_cached)
 
     def _get_bounds(self, pair, curve_points=None):
         # Get lower and upper bounds for max ratio of given fractions pair:
@@ -288,39 +297,29 @@ class Estimator:
         # Returns triple (lo, up, argmax), argmax only if curve_points is set
 
         self.sum_stats['get_bounds_calls'] += 1
-        dim = pair.curve.dim
-        N = pair.curve.div
 
         pos1, pos2 = pair.pos1, pair.pos2
         pair_depth = max(pos1.depth, pos2.depth)  # not count junc.depth
         self.sum_stats['pair_depth'] += pair_depth
         self.max_stats['pair_depth'] = max(self.max_stats.get('pair_depth', 0), pair_depth)
 
-        use_cache = (curve_points is None and pair_depth <= self._cache_max_depth)
-        if use_cache:
-            cache_key = (dim, N, pair.junc, pos1.cnums, pos1.cubes, pos2.cnums, pos2.cubes)
-            cache = self._get_bounds_cache
-            cache_value = cache.get(cache_key)
-            if cache_value is not None:
-                self.sum_stats['get_bounds_cache_hit'] += 1
-                return cache_value
-            else:
-                self.sum_stats['get_bounds_cache_miss'] += 1
+        if curve_points is not None:
+            sp1, sp2 = pair.get_last_specs()
+            pts1 = tuple(sp1.base_map * pt for pt in curve_points[sp1.pnum])
+            pts2 = tuple(sp2.base_map * pt for pt in curve_points[sp2.pnum])
+        else:
+            pts1 = pts2 = None
+
+        return self._get_bounds_cached(pair.junc, pos1, pos2, pts1, pts2)
+
+    def _get_bounds_cached(self, junc, pos1, pos2, pts1, pts2):
+        dim, N = pos1.dim, pos1.div
+        use_curve_points = (pts1 is not None)
 
         # these are integer positions in original curve patterns
         # we will transform them to absolute coords
         x1, t1 = pos1.get_int_coords()
         x2, t2 = pos2.get_int_coords()
-
-        use_curve_points = (curve_points is not None)
-        if use_curve_points:
-            # rotations for curve_points
-            sp1, sp2 = pair.get_last_specs()
-            assert sp1.pnum == sp2.pnum == 0
-            pts1, pts2 = curve_points[sp1.pnum], curve_points[sp2.pnum]
-            pts1_bm, pts2_bm = sp1.base_map, sp2.base_map
-
-        junc = pair.junc
 
         # junc: apply base_maps to coordinates
         pos1_sub_div = N**pos1.depth
@@ -335,8 +334,8 @@ class Estimator:
         x2 = jbm2.apply_cube(pos2_sub_div, x2)
         t2 = jbm2.apply_cnum(pos2_sub_genus, t2)
         if use_curve_points:
-            pts1 = [(jbm1 * pts1_bm) * pt for pt in pts1]
-            pts2 = [(jbm2 * pts2_bm) * pt for pt in pts2]
+            pts1 = [jbm1 * pt for pt in pts1]
+            pts2 = [jbm2 * pt for pt in pts2]
 
         # common scale
         if pos1.depth == pos2.depth:
@@ -375,36 +374,25 @@ class Estimator:
 
         argmax = None
         if use_curve_points:
-            # x1,x2,t1,t2; mx,mt; 
-            for x1rel, t1rel in pts1:
+            for (x1rel, t1rel), (x2rel, t2rel) in itertools.product(pts1, pts2):
                 x1_point = [x1j + x1relj for x1j, x1relj in zip(x1, x1rel)]
                 t1_point = t1 + t1rel
-                for x2rel, t2rel in pts2:
-                    x2_point = [x2j + x2relj for x2j, x2relj in zip(x2, x2rel)]
-                    t2_point = t2 + t2rel
+                x2_point = [x2j + x2relj for x2j, x2relj in zip(x2, x2rel)]
+                t2_point = t2 + t2rel
 
-                    dx = [x1j - x2j for x1j, x2j in zip(x1_point, x2_point)]
-                    dt = t2_point - t1_point
-                    lo_point = self.ratio_func(dim, dx, dt)
+                dx = [x1j - x2j for x1j, x2j in zip(x1_point, x2_point)]
+                dt = t2_point - t1_point
+                lo_point = self.ratio_func(dim, dx, dt)
 
-                    if lo_point > lo or argmax is None:
-                        lo = lo_point
-                        x1_real = [Fraction(x1j, mx) for x1j in x1_point]
-                        x2_real = [Fraction(x2j, mx) for x2j in x2_point]
-                        t1_real = Fraction(t1_point, mt)
-                        t2_real = Fraction(t2_point, mt)
-                        argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
+                if lo_point > lo or argmax is None:
+                    lo = lo_point
+                    x1_real = [Fraction(x1j, mx) for x1j in x1_point]
+                    x2_real = [Fraction(x2j, mx) for x2j in x2_point]
+                    t1_real = Fraction(t1_point, mt)
+                    t2_real = Fraction(t2_point, mt)
+                    argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
 
-        result = (lo, up, argmax)
-        if use_cache:
-            self.max_stats['cache_size'] = max(self.max_stats.get('cache_size', 0), len(cache))
-            if self._cache_max_size is not None and len(cache) >= self._cache_max_size:
-                # poor man's LRU cache :(
-                cache.clear()
-                self.sum_stats['get_bounds_cache_cleanup'] += 1
-            cache[cache_key] = result
-
-        return result
+        return lo, up, argmax
 
     def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
         # Create initial pairs tree from a curve

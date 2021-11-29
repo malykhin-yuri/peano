@@ -109,6 +109,7 @@ def run_estimator(
         result['global_stats'] = global_stats
         result['sum_stats'] = estimator.sum_stats
         result['max_stats'] = estimator.max_stats
+        result['cache_info'] = estimator._get_bounds_cached.cache_info()
 
         print('======')
         print('GENERATOR:', gen_id)
