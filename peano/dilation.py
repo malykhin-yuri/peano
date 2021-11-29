@@ -32,7 +32,7 @@ class _CurvePoint(namedtuple('_CurvePoint', ['x', 't'])):
         return _CurvePoint(base_map * self.x, base_map.apply_t(self.t))
 
     def scale(self, factor):
-        return _CurvePoint(Point(xj * factor for xj in self.x), factor**self.x.dim * self.t)
+        return _CurvePoint(Point(xj * factor for xj in self.x), (factor**self.x.dim) * self.t)
 
 
 class _PiecePosition:
@@ -88,28 +88,20 @@ class _CurvePiece(namedtuple('_CurvePiece', ['curve', 'pnum', 'pos'])):
 
     def divide(self):
         # Divide the fraction in all possible ways.
+
         # define orientation of last_but_one fraction of a curve
         # in the last fraction we do not know the orientation yet!
         prev_spec = self.curve.get_deep_spec(self.pnum, self.pos.cnums[:-1])
-
         active_pnum = prev_spec.pnum
-        active_cnum = self.pos.cnums[-1]  # the cube in prev_curve that will be divided
-        orig_cnum = prev_spec.base_map.apply_cnum(self.curve.genus, active_cnum)
+
+        orig_cnum = prev_spec.base_map.apply_cnum(self.curve.genus, self.pos.cnums[-1])  # cube in orig curve to divide
 
         for orig_spec in self.curve.gen_allowed_specs(active_pnum, orig_cnum):
-            # we need to get spec in prev_curve to proceed to last curve
-            # specs are conjugated, see the mul operator in curves module
-            sp = orig_spec.conjugate_by(prev_spec.base_map)
-
             specified_curve = self.curve.specify(active_pnum, orig_cnum, orig_spec)
-
-            # last_curve = sp * prev_curve, but we do not use curve mult - optimization
-            # last_curve_proto = (sp * prev_curve).proto
-            last_curve_proto = (sp.base_map * prev_spec.base_map) * self.curve.patterns[sp.pnum].proto
+            # first we transform proto in orig, then apply prev map to the whole picture
+            last_curve_proto = (prev_spec.base_map * orig_spec.base_map) * self.curve.patterns[orig_spec.pnum].proto
             for cnum, cube in enumerate(last_curve_proto):
-                new_pos = self.pos.specify(cnum, cube)
-                new_piece = _CurvePiece(specified_curve, self.pnum, new_pos)
-                yield new_piece
+                yield _CurvePiece(specified_curve, self.pnum, self.pos.specify(cnum, cube))
 
 
 class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'pos2'])):
