@@ -14,9 +14,23 @@ from quicktions import Fraction
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
 from . import _sat_adapters
 from .curves import Curve
+from .subsets import Point
 
 
 logger = logging.getLogger(__name__)
+
+
+class _CurvePoint(namedtuple('_CurvePoint', ['x', 't'])):
+    # pair (x,t) of a Point and time moment; i.e. a point on the graph of a curve, f(t)=x
+    @classmethod
+    def init_from_rational(cls, x, t):
+        return cls(Point(Fraction(xj) for xj in x), Fraction(t))
+
+    def __rmul__(self, base_map):
+        return _CurvePoint(base_map * self.x, base_map.apply_t(self.t))
+
+    def scale(self, factor):
+        return _CurvePoint(Point(xj * factor for xj in self.x), factor**self.x.dim * self.t)
 
 
 class _PiecePosition:
@@ -267,11 +281,11 @@ class Estimator:
         self._cache_max_size = cache_max_size
         self._cache_max_depth = cache_max_depth
 
-    def _get_bounds(self, pair, brkline=None):
+    def _get_bounds(self, pair, curve_points=None):
         # Get lower and upper bounds for max ratio of given fractions pair:
         #   WD(f1,f2) := sup ||gamma(s)-gamma(t)||^d/|s-t|:  gamma(s) in f1, gamma(t) in f2
-        # brkline: instance of _IntegerBrokenLine class (for pcount==1 only!)
-        # Returns triple (lo, up, argmax), argmax only for brkline
+        # curve_points: dict {pnum: curve points list}
+        # Returns triple (lo, up, argmax), argmax only if curve_points is set
 
         self.sum_stats['get_bounds_calls'] += 1
         dim = pair.curve.dim
@@ -282,11 +296,8 @@ class Estimator:
         self.sum_stats['pair_depth'] += pair_depth
         self.max_stats['pair_depth'] = max(self.max_stats.get('pair_depth', 0), pair_depth)
 
-        use_cache = (brkline is None and pair_depth <= self._cache_max_depth)  # not implemented for brkline
+        use_cache = (curve_points is None and pair_depth <= self._cache_max_depth)
         if use_cache:
-            # note that pos pnums are not part of the key
-            # because cube time/space locations do not depend on them and dilation is not affected
-            # however, pnums are important for brkline rotation - but brkline case is not cached
             cache_key = (dim, N, pair.junc, pos1.cnums, pos1.cubes, pos2.cnums, pos2.cubes)
             cache = self._get_bounds_cache
             cache_value = cache.get(cache_key)
@@ -301,12 +312,13 @@ class Estimator:
         x1, t1 = pos1.get_int_coords()
         x2, t2 = pos2.get_int_coords()
 
-        use_brkline = (brkline is not None)
-        if use_brkline:
-            # rotations for broken lines
+        use_curve_points = (curve_points is not None)
+        if use_curve_points:
+            # rotations for curve_points
             sp1, sp2 = pair.get_last_specs()
             assert sp1.pnum == sp2.pnum == 0
-            brk1_bm, brk2_bm = sp1.base_map, sp2.base_map
+            pts1, pts2 = curve_points[sp1.pnum], curve_points[sp2.pnum]
+            pts1_bm, pts2_bm = sp1.base_map, sp2.base_map
 
         junc = pair.junc
 
@@ -322,9 +334,9 @@ class Estimator:
         t1 = jbm1.apply_cnum(pos1_sub_genus, t1)
         x2 = jbm2.apply_cube(pos2_sub_div, x2)
         t2 = jbm2.apply_cnum(pos2_sub_genus, t2)
-        if use_brkline:
-            brk1 = ((jbm1 * brk1_bm) * brkline).points
-            brk2 = ((jbm2 * brk2_bm) * brkline).points
+        if use_curve_points:
+            pts1 = [(jbm1 * pts1_bm) * pt for pt in pts1]
+            pts2 = [(jbm2 * pts2_bm) * pt for pt in pts2]
 
         # common scale
         if pos1.depth == pos2.depth:
@@ -333,8 +345,8 @@ class Estimator:
             mx2, mt2 = N, N**dim
             x2 = [xj * mx2 for xj in x2]
             t2 *= mt2
-            if use_brkline:
-                brk2 = [([xj * mx2 for xj in x], t * mt2) for x, t in brk2]
+            if use_curve_points:
+                pts2 = [pt.scale(mx2) for pt in pts2]
         else:
             raise ValueError("Unbalanced positions!")
 
@@ -362,16 +374,12 @@ class Estimator:
         up = self.ratio_func(dim, max_dx, min_dt)
 
         argmax = None
-        if use_brkline:
-            brk_mx, brk_mt = brkline.mx, brkline.mt
-            x1 = [xj * brk_mx for xj in x1]
-            x2 = [xj * brk_mx for xj in x2]
-            t1 *= brk_mt
-            t2 *= brk_mt
-            for x1rel, t1rel in brk1:
+        if use_curve_points:
+            # x1,x2,t1,t2; mx,mt; 
+            for x1rel, t1rel in pts1:
                 x1_point = [x1j + x1relj for x1j, x1relj in zip(x1, x1rel)]
                 t1_point = t1 + t1rel
-                for x2rel, t2rel in brk2:
+                for x2rel, t2rel in pts2:
                     x2_point = [x2j + x2relj for x2j, x2relj in zip(x2, x2rel)]
                     t2_point = t2 + t2rel
 
@@ -381,10 +389,10 @@ class Estimator:
 
                     if lo_point > lo or argmax is None:
                         lo = lo_point
-                        x1_real = [Fraction(x1j, mx * brk_mx) for x1j in x1_point]
-                        x2_real = [Fraction(x2j, mx * brk_mx) for x2j in x2_point]
-                        t1_real = Fraction(t1_point, mt * brk_mt)
-                        t2_real = Fraction(t2_point, mt * brk_mt)
+                        x1_real = [Fraction(x1j, mx) for x1j in x1_point]
+                        x2_real = [Fraction(x2j, mx) for x2j in x2_point]
+                        t1_real = Fraction(t1_point, mt)
+                        t2_real = Fraction(t2_point, mt)
                         argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
 
         result = (lo, up, argmax)
@@ -427,7 +435,7 @@ class Estimator:
     _BoundedPair = namedtuple('_BoundedPair', ['pair', 'lo', 'up', 'argmax'])
 
     def _push_tree(self, tree, pair):
-        lo, up, argmax = self._get_bounds(pair, brkline=tree.other.get('brkline'))
+        lo, up, argmax = self._get_bounds(pair, curve_points=tree.other.get('curve_points'))
         item = self._BoundedPair(pair, lo, up, argmax)
         tree.push(item)
 
@@ -474,7 +482,7 @@ class Estimator:
             curve: Curve instance, fully defined polyfractal curve
             rel_tol_inv: inverted relative tolerance (may be set to None)
             max_iter: limit for subdivisions iters
-            use_vertex_moments: use vertex moments (broken line) for dilation lower bounds
+            use_vertex_moments: use vertex moments for dilation lower bounds
             max_depth: allow not to consider pairs of higher depth
               note that fraction depth = junc depth + piece depth;
               if dilation is attained at pair of fractions of depth <= max_depth,
@@ -489,10 +497,10 @@ class Estimator:
 
         tree_kwargs = {'keep_max_lo_item': True}
         if use_vertex_moments:
-            if curve.pcount > 1:
-                raise NotImplementedError("Brklines for multiple patterns not implemented!")
-            vertex_brkline = list(curve.get_vertex_moments().items())
-            tree_kwargs['brkline'] = _IntegerBrokenLine.init_from_rational(curve.dim, vertex_brkline)
+            pts = {}
+            for pnum in range(curve.pcount):
+                pts[pnum] = tuple(_CurvePoint.init_from_rational(x, t) for x, t in curve.get_vertex_moments(pnum).items())
+            tree_kwargs['curve_points'] = pts
 
         if rel_tol_inv is not None:
             tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
@@ -840,28 +848,3 @@ class Estimator:
             'curves': [item.example for item in active],
             'idxs': [item.idx for item in active],
         }
-
-
-class _IntegerBrokenLine(namedtuple('_IntegerBrokenLine', ['mx', 'mt', 'points'])):
-    @classmethod
-    def init_from_rational(cls, dim, brkline):
-        denoms = set()
-        for x, t in brkline:
-            if isinstance(t, Fraction):
-                denoms.add(t.denominator)
-            for xj in x:
-                if isinstance(xj, Fraction):
-                    denoms.add(xj.denominator)
-        lcm = get_lcm(denoms)
-        mx = lcm
-        mt = lcm**dim
-        points = []
-        for x, t in brkline:
-            xp = tuple(int(Fraction(xj) * mx) for xj in x)
-            tp = int(Fraction(t) * mt)
-            points.append((xp, tp))
-        return cls(mx, mt, points)
-
-    def __rmul__(self, base_map):
-        points = [(base_map.apply_x(x, mx=self.mx), base_map.apply_t(t, mt=self.mt)) for x, t in self.points]
-        return type(self)(self.mx, self.mt, points)
