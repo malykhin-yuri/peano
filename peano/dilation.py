@@ -45,15 +45,16 @@ class _PiecePosition:
         self.cnums = tuple(cnums)
         self.cubes = tuple(cubes)
         self.depth = len(self.cnums)
+        self._hash = hash(self._data())
 
     def _data(self):
-        return self.dim, self.div, self.cnums, self.cubes
+        return self.cnums, self.cubes, self.div, self.dim  # dim is least used in comparison
 
     def __eq__(self, other):
         return self._data() == other._data()
 
     def __hash__(self):
-        return hash(self._data())
+        return self._hash
 
     def specify(self, cnum, cube):
         return _PiecePosition(
@@ -145,7 +146,7 @@ class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'p
 
 
 class _BoundedItemsHeap:
-    # Collection of items with lower/uppper bounds on their "values" (item.lo, item.up)
+    # Collection of items with lower/upper bounds on their "values" (item.lo, item.up)
     #
     # Two thresholds may be set:
     # * good - if item.up <= good then item is considered "good" and discarded
@@ -154,7 +155,7 @@ class _BoundedItemsHeap:
     # in this case it is considered as "good"
     # * otherwise item is "active", they are stored in heap with priority=up
 
-    def __init__(self, keep_max_lo_item=False, **kwargs):
+    def __init__(self, keep_max_lo_item=False, stash=None):
         # use heapq algorithm for list of tuples (priority, increment, item)
         self._heap = []
         self._bad_items = []
@@ -166,7 +167,7 @@ class _BoundedItemsHeap:
             self.max_lo_item = None
 
         self.stats = Counter()
-        self.other = kwargs
+        self.stash = stash
         self._inc = 0
 
     def set_good_threshold(self, threshold):
@@ -191,10 +192,6 @@ class _BoundedItemsHeap:
         # good pair is dropped / bad pair is temporarily stored / otherwise node is added to the heap
         self.stats['push'] += 1
 
-        if self._keep_max_lo_item:
-            if self.max_lo_item is None or item.lo > self.max_lo_item.lo:
-                self.max_lo_item = item
-
         # the order of checks may be important
         # is Estimator we add bad pairs to SAT clauses, so it may be more effective to
         # check for goodness first (recall that an item may be good and bad simultaneously)
@@ -206,11 +203,15 @@ class _BoundedItemsHeap:
             self.stats['bad'] += 1
             return
 
+        if self._keep_max_lo_item:
+            if self.max_lo_item is None or item.lo > self.max_lo_item.lo:
+                self.max_lo_item = item
+
         self._inc += 1
         node = (-item.up, self._inc, item)  # first key is priority; _inc to avoid comparing items
         heappush(self._heap, node)
 
-    def extend(self, items):
+    def _extend(self, items):
         for item in items:
             self.push(item)
 
@@ -236,7 +237,7 @@ class _BoundedItemsHeap:
         # rebuild heap with actual thresholds
         items = list(self.items())
         self._heap = []
-        self.extend(items)
+        self._extend(items)
         self.stats['cleanup_push'] += len(items)
         self.stats['cleanup_count'] += 1
 
@@ -248,7 +249,7 @@ class _BoundedItemsHeap:
         new_heap = _BoundedItemsHeap()
         new_heap.set_good_threshold(good_threshold)
         new_heap.set_bad_threshold(bad_threshold)
-        new_heap.extend(self.items())
+        new_heap._extend(self.items())
         new_heap.stats['copy_push'] += len(list(self.items()))
         return new_heap
 
@@ -294,6 +295,7 @@ class Estimator:
         self.max_stats['pair_depth'] = max(self.max_stats.get('pair_depth', 0), pair_depth)
 
         if curve_points is not None:
+            # to avoid using curve in cached _get_pos_bounds method, we rotate points here
             sp1, sp2 = pair.get_last_specs()
             pts1 = tuple(sp1.base_map * pt for pt in curve_points[sp1.pnum])
             pts2 = tuple(sp2.base_map * pt for pt in curve_points[sp2.pnum])
@@ -319,10 +321,8 @@ class Estimator:
         pos2_sub_genus = pos2_sub_div**dim
 
         jbm1, jbm2 = junc.spec1.base_map, junc.spec2.base_map
-        x1 = jbm1.apply_cube(pos1_sub_div, x1)
-        t1 = jbm1.apply_cnum(pos1_sub_genus, t1)
-        x2 = jbm2.apply_cube(pos2_sub_div, x2)
-        t2 = jbm2.apply_cnum(pos2_sub_genus, t2)
+        x1, t1 = jbm1.apply_cube(pos1_sub_div, x1), jbm1.apply_cnum(pos1_sub_genus, t1)
+        x2, t2 = jbm2.apply_cube(pos2_sub_div, x2), jbm2.apply_cnum(pos2_sub_genus, t2)
         if use_curve_points:
             pts1 = [jbm1 * pt for pt in pts1]
             pts2 = [jbm2 * pt for pt in pts2]
@@ -385,26 +385,28 @@ class Estimator:
         return lo, up, argmax
 
     def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
-        # Create initial pairs tree from a curve
+        # Create initial pairs from a curve: for all junctions we take pairs of non-adjacent fractions
         G = curve.genus
         tree = _BoundedItemsHeap(**tree_kwargs)
         tree.set_good_threshold(good_threshold)
         tree.set_bad_threshold(bad_threshold)
+        pair_data = []
         for junc in curve.gen_auto_junctions():
             for cnum1 in range(G):
                 for cnum2 in range(cnum1 + 2, G):
-                    pair = _CurvePiecePair.init_first_order(curve, junc, cnum1, cnum2)
-                    self._push_tree(tree, pair)
+                    pair_data.append((junc, cnum1, cnum2))
 
         for junc in curve.gen_regular_junctions():
             last_cnum1 = 0 if junc.spec1.base_map.time_rev else G - 1
             first_cnum2 = G - 1 if junc.spec2.base_map.time_rev else 0
             for cnum1 in range(G):
                 for cnum2 in range(G):
-                    if (cnum1, cnum2) == (last_cnum1, first_cnum2):
-                        continue
-                    pair = _CurvePiecePair.init_first_order(curve, junc, cnum1, cnum2)
-                    self._push_tree(tree, pair)
+                    if (cnum1, cnum2) != (last_cnum1, first_cnum2):
+                        pair_data.append((junc, cnum1, cnum2))
+
+        for junc, cnum1, cnum2 in pair_data:
+            pair = _CurvePiecePair.init_first_order(curve, junc, cnum1, cnum2)
+            self._push_tree(tree, pair)
 
         return tree
 
@@ -413,7 +415,7 @@ class Estimator:
     _BoundedPair = namedtuple('_BoundedPair', ['pair', 'lo', 'up', 'argmax'])
 
     def _push_tree(self, tree, pair):
-        lo, up, argmax = self._get_bounds(pair, curve_points=tree.other.get('curve_points'))
+        lo, up, argmax = self._get_bounds(pair, curve_points=tree.stash)
         item = self._BoundedPair(pair, lo, up, argmax)
         tree.push(item)
 
@@ -478,7 +480,7 @@ class Estimator:
             pts = {}
             for pnum in range(curve.pcount):
                 pts[pnum] = tuple(_CurvePoint.init_from_rational(x, t) for x, t in curve.get_vertex_moments(pnum).items())
-            tree_kwargs['curve_points'] = pts
+            tree_kwargs['stash'] = pts
 
         if rel_tol_inv is not None:
             tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
@@ -526,8 +528,7 @@ class Estimator:
 
             item = pairs_tree.max_lo_item
             if item.lo > curr_lo:
-                curr_lo = item.lo
-                argmax = item.argmax
+                curr_lo, argmax = item.lo, item.argmax
                 pairs_tree.set_good_threshold(curr_lo)
                 logger.info('new lower bound: %.5f < %.5f', curr_lo, curr_up)
 
