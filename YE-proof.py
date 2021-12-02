@@ -47,8 +47,6 @@ def check_genus5_ye_proto():
     print('got YE paths:', len(paths_list))
     assert len(paths_list) == 1
 
-    assert paths_list[0][0].proto == YE_proto
-
     test_pcurves = []
     ye_pcurve = get_ye_curve().forget()
     for cnum, ye_spec in enumerate(YE_curve.specs):
@@ -71,15 +69,15 @@ def check_ye():
     result = estimator.estimate_dilation_regular(
         get_ye_curve(),
         use_face_moments=True, face_dim=0,
-        max_depth=10,
+        max_depth=5,
         rel_tol_inv=100000,
     )
-    print('lo:', float(result['lo']))
-    print('up:', float(result['up']))
+    print('Lower bound is sharp due to the stabilization theorem (Theorem A)')
+    print('lower bound:', result['lo'])
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     print('The paper by Yuri Malykhin, Evgeny Schepin, "Search of fractal space-filling curves ..."')
     print('The computer-assisted proof of Theorem 1')
     print('')

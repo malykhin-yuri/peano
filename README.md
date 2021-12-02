@@ -4,6 +4,8 @@ Python package "peano" implements regular peano fractal curves on d-dimensional 
 This code is used to obtain results described in the paper:
 https://arxiv.org/abs/2103.07344
 
+Computations from the paper may be reproduced using the search.py script (module):
+
 Computation 1 (Spring 3d curve):
 * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --output-curves
 * time: ~3 min
@@ -12,7 +14,21 @@ Computation 2 (4d curve):
 * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --output-curves
 * time: ~1 hour
 
-See also YE-proof.py for a computer-assisted proof of YE curve minimality.
+* YE curve search
+* $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000 --output-curves
+* time: ~1.5min
+
+See also YE-proof.py for a full computer-assisted proof of YE curve minimality.
+
+In our test examples we use data from several papers:
+
+Haverkort, Walderveen, ``Locality and bounding-box quality of two-dimensional
+space-filling curves'', 2010
+
+Haverkort, ``An inventory of three-dimensional Hilbert space-filling curves'', 2011
+https://arxiv.org/abs/1109.2323
+
+Korneev, Shchepin, ``L-infty-Locality of Three-Dimensional Peano Curves'', 2019
 
 # User guide
 
@@ -22,13 +38,7 @@ Tested on python 3.5 and 3.8.
 
 This repo is mostly frozen, only fixes will appear.
 
-Entry point is the script search.py: try it!
-Results stated in the arXiv paper:
-* YE curve:
-    * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000 --output-curves
-    * time: ~1.5min, result: ye curve
-
-Some other examples:
+Some other examples of search.py:
 * facet-gates search:
     * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --output-gates
     * time: ~20s, result: 35 gates

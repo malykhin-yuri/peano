@@ -123,7 +123,11 @@ class TestCurve(unittest.TestCase):
             },
             {
                 'curve': get_neptunus_curve(),
-                'dilation': {'l2': [18.2, 18.4], 'linf': [9.44, 9.46]},
+                'dilation': {'l2': [18.2, 18.4], 'linf': Fraction(945, 100)},
+            },
+            {
+                'curve': get_ARW_Curve(),
+                'dilation': {'l1': 12, 'l2': Fraction(260, 43), 'linf': Fraction(27, 5)},  # l2,l2inf: Haverkort & Walderveen
             },
         ]
         for data in known_bounds:

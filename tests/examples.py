@@ -189,9 +189,14 @@ def get_luna_curve():
 
 
 def get_spring_curve():
-    """
-    Spring curve - 3D bifractal facet-gated curve with l2-ratio <17
-    """
+    """Spring curve - 3D bifractal facet-gated curve with l2-ratio <17"""
+    # calculations show that WD = 1533\sqrt{6}/221
     p0 = ('jikIJiK', '1KIJ~,0KIj,1kji,0Jki~,1JkI,0kIJ,1KJi,1JiK')
     p1 = ('jkJijKJ', '1KIJ~,0ijK~,0Ikj~,0KJI~,0kiJ~,0Ijk~,0IjK,1iKJ')
     return Curve.parse([p0, p1])
+
+def get_4d_facet_gated_curve():
+    # WD = 1920/31?
+    """4d facet-gated curve with dilation < 61.9354839"""
+    p = ('kljKLkiKlkJLKlI', 'iKLJ,kLij,lJki,jklI,lKjI~,LKIj,IkLj~,ikLj,LKij~,lKji,kjlI,lJkI~,LkIJ,LKji~,iljk~,jIlK~')
+    return Curve.parse([p])
