@@ -598,9 +598,9 @@ class Estimator:
             pairs_tree = init_pairs_tree.copy_and_cleanup(**thrs)
 
         if init_sat_adapter is None:
-            adapter = _sat_adapters.CurveSATAdapter(curve)
+            adapter = _sat_adapters.CurveSATAdapter(curve=curve)
         else:
-            adapter = init_sat_adapter.copy()
+            adapter = _sat_adapters.CurveSATAdapter(adapter=init_sat_adapter)
 
         self._forbid(pairs_tree, adapter)
 
@@ -631,8 +631,7 @@ class Estimator:
         if no_model or not adapter.solve():
             return None
 
-        model = adapter.get_model()
-        return adapter.get_curve_from_model(model)
+        return adapter.get_model_curve()
 
     def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, stop_upper_bound=None,
                                 start_lower_bound=None, start_upper_bound=None, start_curve=None,

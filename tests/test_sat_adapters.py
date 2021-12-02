@@ -1,36 +1,31 @@
 import unittest
 
 from peano._sat_adapters import CurveSATAdapter
+from peano.curves import Curve
 
-from .examples import *  # TODO get rid of *
-
-
-def get_model_from_curve(adapter, curve):
-    for pnum, cnum, sp in curve.gen_defined_specs():
-        adapter.add_spec_clause(pnum=pnum, cnum=cnum, spec=sp)
-
-    if not adapter.solve():
-        raise Exception("Can't get model, no such curve!")
-    return adapter.get_model()
+from .examples import get_peano_curve, get_ye_curve
 
 
 class TestSAT(unittest.TestCase):
     def setUp(self):
         self.curves = [
-            get_peano_curve().forget(disable_time_rev=True),
-            get_meurthe_curve().forget(disable_time_rev=True),
+            get_peano_curve(),
+            get_ye_curve(),
         ]
 
     def test_sat(self):
-        for pcurve in self.curves:
-            for curve in pcurve.gen_possible_curves():
-                adapter = CurveSATAdapter(pcurve)
-                model = get_model_from_curve(adapter, curve)
-                juncs = list(curve.gen_regular_junctions())
-                for junc in juncs:
-                    junc_var = adapter._get_junc_var(junc)
-                    if not model[junc_var]:
-                        raise Exception("Bad junc_var: False for existent junc!")
-                print('.', end='', flush=True)
+        for curve in self.curves:
+            adapter = CurveSATAdapter(curve=curve)
+            adapter.solve()
+            model_curve = adapter.get_model_curve()
+            self.assertEqual(curve, model_curve)
 
-            print('*', flush=True)
+            empty_patterns = []
+            for pattern in curve.patterns:
+                empty_pattern = (pattern.proto, (None,) * curve.genus)
+            empty_curve = Curve(dim=curve.dim, div=curve.div, patterns=empty_patterns)
+
+            for junc in curve.gen_regular_junctions():
+                adapter2 = CurveSATAdapter(curve=curve)
+                adapter2.add_forbid_clause(junc, empty_curve)
+                self.assertFalse(adapter2.solve())
