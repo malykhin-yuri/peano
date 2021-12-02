@@ -30,7 +30,6 @@ def check_genus5_non_ye():
     result = estimator.estimate_dilation_sequence(
         [PathFuzzyCurve.init_from_paths(paths) for paths in paths_list],
         rel_tol_inv=200,
-        sat_strategy={'type': 'geometric', 'multiplier': 1.3},
     )
     print(result)
     print('lower bound:', float(result['lo']))
@@ -61,7 +60,6 @@ def check_genus5_ye_proto():
     result = estimator.estimate_dilation_sequence(
         test_pcurves,
         rel_tol_inv=1000,
-        sat_strategy={'type': 'geometric', 'multiplier': 1.3},
     )
     print(result)
     print('lower bound:', float(result['lo']))

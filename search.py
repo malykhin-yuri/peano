@@ -15,9 +15,6 @@ from peano.gates import GatesGenerator
 from peano.subsets import Link
 
 
-SAT_MULTIPLIER = 1.3  # make this default?
-
-
 def run_estimator(
         dim, div, pcount,
         finish_max_count=None,
@@ -100,7 +97,6 @@ def run_estimator(
     for gen_id, pcurves_generator in pcurve_gens:
         result = estimator.estimate_dilation_sequence(
             pcurves_generator,
-            sat_strategy={'type': 'geometric', 'multiplier': SAT_MULTIPLIER},
             upper_bound=upper_bound,
             **estimate_kwargs
         )

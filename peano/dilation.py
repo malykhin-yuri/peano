@@ -431,20 +431,6 @@ class Estimator:
         for item in tree.pop_bad_items():
             adapter.add_forbid_clause(item.pair.junc, item.pair.curve)
 
-    @staticmethod
-    def _try_by_strategy(info):
-        strategy = info['strategy']
-        info.setdefault('iter', 0)
-        info['iter'] += 1
-        if strategy['type'] == 'equal':
-            if info['iter'] % strategy['count'] == 0:
-                return True
-        elif strategy['type'] == 'geometric':
-            info.setdefault('next_try_iter', 1)
-            if info['iter'] >= info['next_try_iter']:
-                info['next_try_iter'] = int(info['next_try_iter'] * strategy['multiplier']) + 1
-                return True
-
     def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_face_moments=False, face_dim=0, max_depth=None):
         """
         Estimate dilation for a regular peano curve (class Curve).
@@ -540,7 +526,7 @@ class Estimator:
         return res
 
     def bisect_dilation_fuzzy(self, curve, good_threshold, bad_threshold,
-                              max_iter=None, sat_strategy=None,
+                              max_iter=None, sat_iter_multiplier=1.3,
                               init_pairs_tree=None, init_sat_adapter=None):
         """
         Decide if there is a "good" regular curve or all curves are "bad".
@@ -560,9 +546,7 @@ class Estimator:
             bad_threshold: bad curves are those with dilation >= bad_thr
               It is required that bad_threshold < good_threshold
             max_iter: max number of divisions; raise exception if maximum iterations reached
-            sat_strategy: when do we call sat solver:
-              strategy['type'] == 'equal': call every strategy['count'] divisions (default)
-              strategy['type'] == 'geometric': call on strategy['multiplier']**k iterations
+            sat_iter_multiplier: X; we call sat solver on every X**k iteration
             init_pairs_tree: cached _create_tree
             init_sat_adapter: cached initial sat_adapter
 
@@ -585,12 +569,6 @@ class Estimator:
         # then the corresponding curve is good because it avoids bad pairs
         # and all other curve's pairs are good
 
-
-        # how often should we call sat solver? default is equidistant strategy
-        if sat_strategy is None:
-            sat_strategy = {'type': 'equal', 'count': 100}
-        try_sat_info = {'strategy': sat_strategy}
-
         thrs = {'good_threshold': good_threshold, 'bad_threshold': bad_threshold}
         if init_pairs_tree is None:
             pairs_tree = self._create_tree(curve, **thrs)
@@ -606,6 +584,7 @@ class Estimator:
 
         no_model = None
         iter_no = 0
+        sat_iter = 1
         while pairs_tree.has_items():
             iter_no += 1
             if (max_iter is not None) and iter_no > max_iter:
@@ -615,10 +594,11 @@ class Estimator:
             self._forbid(pairs_tree, adapter)
             self.sum_stats['divide_iter'] += 1
 
-            try_sat = self._try_by_strategy(try_sat_info)
-            if not try_sat:
+            if iter_no < sat_iter:
                 continue
 
+            # here we try sat solver
+            sat_iter = int(sat_iter * sat_iter_multiplier) + 1
             logger.debug('iter %d, try SAT solver; stats: %s, %s', iter_no, self.sum_stats, self.max_stats)
             self.sum_stats['sat.solve_calls'] += 1
             if not adapter.solve():
