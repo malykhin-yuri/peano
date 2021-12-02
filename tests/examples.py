@@ -196,7 +196,7 @@ def get_spring_curve():
     return Curve.parse([p0, p1])
 
 def get_4d_facet_gated_curve():
-    # WD = 1920/31?
     """4d facet-gated curve with dilation < 61.9354839"""
+    # WD = 1920/31?
     p = ('kljKLkiKlkJLKlI', 'iKLJ,kLij,lJki,jklI,lKjI~,LKIj,IkLj~,ikLj,LKij~,lKji,kjlI,lJkI~,LkIJ,LKji~,iljk~,jIlK~')
     return Curve.parse([p])
