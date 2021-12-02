@@ -2,7 +2,6 @@
 
 import logging
 import argparse
-import pprint
 from collections import Counter
 
 from quicktions import Fraction
@@ -22,7 +21,7 @@ def run_estimator(
         gate_list=None, facet_gated=False, max_cdist=None,
         upper_bound=None,
         group_by_gates=False,
-        output_gates=False, output_stats=False, output_curves=None,
+        output_gates=False, output_curves=None,
         cache_max_size=None,
     ):
 
@@ -31,6 +30,8 @@ def run_estimator(
     # we prefer to generate gates before curves to calculate timinings
     if gate_list is None:
         gate_list = list(GatesGenerator(dim, div, pcount, only_facet=facet_gated).gen_gates())
+    else:
+        assert all(len(gates) == pcount for gates in gate_list)
 
     logging.info('gate configurations: %d', len(gate_list))
     if output_gates:
@@ -47,14 +48,6 @@ def run_estimator(
 
             logging.info('processing gates: %d', gates_idx + 1)
             paths_gen = PathsGenerator(dim=dim, div=div, links=gates, max_cdist=max_cdist)
-            if output_stats:
-                counts = []
-                for gate in gates:
-                    gcnt = len(list(paths_gen.generate_paths_generic(link=gate, std=True)))
-                    counts.append(gcnt)
-                yield counts
-                continue
-
             kw = {}
             if finish_max_count is not None:
                 kw['finish_max_count'] = finish_max_count
@@ -65,17 +58,6 @@ def run_estimator(
             for paths_idx, paths in enumerate(paths_list):
                 logging.info('processing gate_paths: %d of %d', paths_idx + 1, len(paths_list))
                 yield PathFuzzyCurve.init_from_paths(paths)
-
-    if output_stats:
-        scnt = 0
-        for counts in gen_pcurves(gate_list):
-            prod = 1
-            for cnt in counts:
-                prod *= cnt
-            print(prod)
-            scnt += prod
-        print('TOTAL:', scnt)
-        return
 
     estimator_kwargs = {}
     if cache_max_size is not None:
@@ -144,7 +126,6 @@ if __name__ == "__main__":
     # other
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
     argparser.add_argument('--output-gates', action='store_true', help='only gates, do not estimate ratio')
-    argparser.add_argument('--output-stats', action='store_true', help='only count, do not work')
     argparser.add_argument('--output-curves', action='store_true', help='print curve examples')
     argparser.add_argument('--verbose', '-v', action='count', default=0, help='loglevel (0=warning, 1=info, 2=debug)')
 
@@ -175,7 +156,7 @@ if __name__ == "__main__":
     )
     logging.info('args: %s', args)  # call after loglevel is set!
 
-    if (not args.output_stats) and (not args.output_gates) and (args.metric is None):
+    if (not args.output_gates) and (args.metric is None):
         raise ValueError("Define metric to estimate ratio!")
 
     gates_file = kwargs.pop('gates_file')
@@ -185,8 +166,6 @@ if __name__ == "__main__":
                 gates = [Link.parse_gates(token) for token in line.strip().split('|')]
                 gate_list.append(gates)
         kwargs['gate_list'] = gate_list
-
-    #TODO add assert on pcount!
 
     gates_str = kwargs.pop('gates')
     if gates_str is not None:

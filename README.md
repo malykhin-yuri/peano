@@ -4,25 +4,29 @@ Python package "peano" implements regular peano fractal curves on d-dimensional 
 This code is used to obtain results described in the paper:
 https://arxiv.org/abs/2103.07344
 
+Computation 1 (Spring 3d curve):
+* $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --output-curves
+* time: ~3 min
+
+Computation 2 (4d curve):
+* $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --output-curves
+* time: ~1 hour
+
+See also YE-proof.py for a computer-assisted proof of YE curve minimality.
+
+# User guide
+
 Requirements: see requirements.txt
 
 Tested on python 3.5 and 3.8.
 
 This repo is mostly frozen, only fixes will appear.
 
-# User and developer guide
-
 Entry point is the script search.py: try it!
 Results stated in the arXiv paper:
 * YE curve:
     * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000 --output-curves
     * time: ~1.5min, result: ye curve
-* Spring curve:
-    * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --output-curves
-    * time: ~3min
-* 4D facet-gated curve:
-    * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --output-curves
-    * time: ?
 
 Some other examples:
 * facet-gates search:
@@ -34,7 +38,7 @@ Some other examples:
 
 Some Peano curves may be found in: tests/examples.py.
 
-See also YE-proof.py for a computer-assisted proof of YE curve minimality.
+# Developer guide
 
 Operator usage:
 * b * X means action of b (usually, base_map) on object X (curve, path, etc)
@@ -48,7 +52,7 @@ Common names and notations:
 * cube -- d-tuple of ints, all coordinates range from 0 to div-1
 * cnum -- index of cube, ranges from 0 to genus-1
 * pnum -- index of pattern, ranges from 0 to pcount-1
-* genus = div**dim -- genus of the curve
+* genus = div\*\*dim -- genus of the curve
 * proto -- prototype (sequence of cubes)
 * path -- prototype with entrances/exits in each cube
 

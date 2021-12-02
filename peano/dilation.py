@@ -381,6 +381,7 @@ class Estimator:
         tree = _BoundedItemsHeap(**tree_kwargs)
         tree.set_good_threshold(good_threshold)
         tree.set_bad_threshold(bad_threshold)
+
         pair_data = []
         for junc in curve.gen_auto_junctions():
             for cnum1 in range(G):
@@ -542,8 +543,8 @@ class Estimator:
 
         Args:
             curve: FuzzyCurve instance
-            good_threshold: good curves are those with dilation <= good_thr
-            bad_threshold: bad curves are those with dilation >= bad_thr
+            good_threshold: fraction, good curves are those with dilation <= good_thr
+            bad_threshold: fraction, bad curves are those with dilation >= bad_thr
               It is required that bad_threshold < good_threshold
             max_iter: max number of divisions; raise exception if maximum iterations reached
             sat_iter_multiplier: X; we call sat solver on every X**k iteration
@@ -559,9 +560,9 @@ class Estimator:
         # All possible regular curves from given fuzzy curve are encoded using
         # boolean variables in sat adapter.
         #
-        # We grow the pairs tree with fixed good and bad thresholds
+        # We grow the pairs tree with fixed good and bad thresholds,
         # all bad pairs are added to the list of forbidden configurations,
-        # i.e. a list of boolean clauses in sat adapter.
+        # propagated into a list of boolean clauses in sat adapter.
         #
         # If we can't find a model, then all curves are necessarily bad
         # (i.e., all possible configurations are forbidden)
@@ -626,11 +627,10 @@ class Estimator:
             curve: fuzzy curve
             rel_tol_inv: inverted relative tolerance, integer
             stop_upper_bound: do not proceed if min WD is higher than this
-
             start_lower_bound: known lower bound on min WD, start bisection with it
             start_upper_bound: known upper bound on min WD, start bisection with it
+              all bounds are Fraction instances
             start_curve: known curve with start_upper_bound
-
             **kwargs: passed to bisect_dilation_fuzzy
 
         Returns:
@@ -720,6 +720,7 @@ class Estimator:
             upper_bound: apriori upper bound for best ratio (may return None if violated)
             rel_tol_inv: target tolerance
             rel_tol_inv_mult: current rel_tol_inv is multiplied by this every epoch
+              increase to reduce mem usage
             **kwargs: passed as is to estimate_dilation_fuzzy
 
         Returns:
@@ -754,8 +755,8 @@ class Estimator:
         curr_rel_tol_inv = 1
         epoch = 0
         while curr_up is None or curr_up > curr_lo * tolerance:
-            curr_rel_tol_inv *= rel_tol_inv_mult
             epoch += 1
+            curr_rel_tol_inv *= rel_tol_inv_mult
             total = len(active) if isinstance(active, list) else -1
             new_active = []  # heap of CurveItem
             for cnt, item in enumerate(active):
