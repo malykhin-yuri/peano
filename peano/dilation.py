@@ -118,7 +118,9 @@ class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'p
 
     @property
     def depth(self):
-        return self.junc.depth + min(self.pos1.depth, self.pos2.depth)
+        # we do not look at junc depth as we are not interested in subdivisions of the curve only
+        # instead we just analyze all its junctions
+        return min(self.pos1.depth, self.pos2.depth)
 
     def divide_balanced(self):
         # Divide one of the fractions keeping pair balanced: depth1 == depth2 or depth1 == depth2 + 1.
@@ -144,6 +146,7 @@ class _BoundedItemsHeap:
 
     def __init__(self, keep_max_lo_item=False, stash=None):
         # use heapq algorithm for list of tuples (priority, increment, item)
+        # keep_max_lo_item: subj, note that item may become non-active
         # stash - to store some per-instance data
         self._heap = []
         self._bad_items = []
@@ -171,7 +174,7 @@ class _BoundedItemsHeap:
     def has_items(self):
         return bool(self._heap)
 
-    def items(self):
+    def active_items(self):
         # returns iterator over active items
         return (node[-1] for node in self._heap)
 
@@ -179,6 +182,10 @@ class _BoundedItemsHeap:
         # Add node checking the thresholds:
         # good pair is dropped / bad pair is temporarily stored / otherwise node is added to the heap
         self.stats['push'] += 1
+
+        if self._keep_max_lo_item:
+            if self.max_lo_item is None or item.lo > self.max_lo_item.lo:
+                self.max_lo_item = item
 
         # the order of checks may be important
         # is Estimator we add bad pairs to SAT clauses, so it may be more effective to
@@ -190,10 +197,6 @@ class _BoundedItemsHeap:
             self._bad_items.append(item)
             self.stats['bad'] += 1
             return
-
-        if self._keep_max_lo_item:
-            if self.max_lo_item is None or item.lo > self.max_lo_item.lo:
-                self.max_lo_item = item
 
         self._inc += 1
         node = (-item.up, self._inc, item)  # first key is priority; _inc to avoid comparing items
@@ -217,13 +220,14 @@ class _BoundedItemsHeap:
         self._bad_items = []
         return bad_items
 
-    def can_cleanup(self):
-        # cleanup pushs <= regular pushs
-        return self.stats['cleanup_push'] <= (self.stats['push'] - self.stats['cleanup_push'])
-
     def cleanup(self):
+        # check that cleanup pushs <= regular pushs to avoid too much cleanups
+        if self.stats['cleanup_push'] <= (self.stats['push'] - self.stats['cleanup_push']):
+            self._do_cleanup()
+
+    def _do_cleanup(self):
         # rebuild heap with actual thresholds
-        items = list(self.items())
+        items = list(self.active_items())
         self._heap = []
         self._extend(items)
         self.stats['cleanup_push'] += len(items)
@@ -237,8 +241,9 @@ class _BoundedItemsHeap:
         new_heap = _BoundedItemsHeap()
         new_heap.set_good_threshold(good_threshold)
         new_heap.set_bad_threshold(bad_threshold)
-        new_heap._extend(self.items())
-        new_heap.stats['copy_push'] += len(list(self.items()))
+        old_items = list(self.active_items())
+        new_heap._extend(old_items)
+        new_heap.stats['copy_push'] += len(old_items)
         return new_heap
 
 
@@ -278,9 +283,8 @@ class Estimator:
         # Returns triple (lo, up, argmax), argmax only if curve_points is set
 
         pos1, pos2 = pair.pos1, pair.pos2
-        pair_depth = max(pos1.depth, pos2.depth)  # not count junc.depth
-        self.sum_stats['pair_depth'] += pair_depth
-        self.max_stats['pair_depth'] = max(self.max_stats.get('pair_depth', 0), pair_depth)
+        self.sum_stats['pair_depth'] += pair.depth
+        self.max_stats['pair_depth'] = max(self.max_stats.get('pair_depth', 0), pair.depth)
 
         if curve_points is not None:
             # to avoid using curve in cached _get_pos_bounds method, we rotate points here
@@ -452,7 +456,7 @@ class Estimator:
             use_face_moments: use moments for dilation lower bounds (first+last)
             face_dim: dimension of faces for moments
             max_depth: allow not to consider pairs of higher depth
-              note that fraction depth = junc depth + piece depth;
+              note that fraction depth = min(position1 depth, position2 depth); junc depth is not counted!
               if dilation is attained at pair of fractions of depth <= max_depth,
               then resulting "lo" will be exact
 
@@ -510,11 +514,10 @@ class Estimator:
                 # we wait till all active pairs become deep enough to ensure that
                 # all pairs with depth <= max_depth had been processed;
                 # but we have to cleanup to discard old pairs with not-so-high up
-                if pairs_tree.can_cleanup():
-                    pairs_tree.cleanup()
-                    depth = min(item.pair.depth for item in pairs_tree.items())
-                    if depth > max_depth:
-                        break
+                pairs_tree.cleanup()
+                depth = min(item.pair.depth for item in pairs_tree.active_items())
+                if depth > max_depth:
+                    break
 
             self._divide_tree(pairs_tree)
 

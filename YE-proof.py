@@ -72,8 +72,8 @@ def check_ye():
     estimator = Estimator(ratio_l2, cache_max_size=2**16)
     result = estimator.estimate_dilation_regular(
         get_ye_curve(),
-        use_vertex_moments=True,
-        max_depth=10,  # TODO set real depth!
+        use_face_moments=True, face_dim=0,
+        max_depth=10,
         rel_tol_inv=100000,
     )
     print('lo:', float(result['lo']))

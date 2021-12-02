@@ -40,10 +40,9 @@ def _check_dilation(data, fuzzy=False):
             res = Estimator(func).estimate_dilation_regular(curve, rel_tol_inv=10 ** 5)
             if dilation_eq is not None:
                 res = Estimator(func).estimate_dilation_regular(
-                    curve, use_face_moments=True, face_dim=data.get('face_dim', 0), max_depth=10, rel_tol_inv=10 ** 5,
+                    curve, use_face_moments=True, face_dim=data.get('face_dim', 0), max_depth=5, rel_tol_inv=10 ** 5,
                 )
                 assert res['lo'] == dilation_eq
-                logging.error('POS: %d %d; dt: %d', res['argmax']['pos1'].depth, res['argmax']['pos2'].depth, res['argmax']['junc'].delta_t)
         print(res)
         assert float(res['up']) <= dilation_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], dilation_up)
         assert float(res['lo']) >= dilation_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], dilation_lo)
@@ -101,6 +100,7 @@ class TestCurve(unittest.TestCase):
                 'curve': get_spring_curve(),
                 'dilation': {'l2': [16.9, 17.0]},
             },
+            # Scepin & Korneev
             {
                 'curve': get_tokarev_curve(),
                 'dilation': {'linf': Fraction(896, 37)},
