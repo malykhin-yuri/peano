@@ -157,6 +157,7 @@ class _BoundedItemsHeap:
 
     def __init__(self, keep_max_lo_item=False, stash=None):
         # use heapq algorithm for list of tuples (priority, increment, item)
+        # stash - to store some per-instance data
         self._heap = []
         self._bad_items = []
         self._good_threshold = None
@@ -313,16 +314,16 @@ class Estimator:
         x1, t1 = pos1.get_int_coords()
         x2, t2 = pos2.get_int_coords()
 
+        # scales:
+        div1 = N**pos1.depth
+        genus1 = div1**dim
+        div2 = N**pos2.depth
+        genus2 = div2**dim
+
         # junc: apply base_maps to coordinates
-        pos1_sub_div = N**pos1.depth
-        pos1_sub_genus = pos1_sub_div**dim
-
-        pos2_sub_div = N**pos2.depth
-        pos2_sub_genus = pos2_sub_div**dim
-
         jbm1, jbm2 = junc.spec1.base_map, junc.spec2.base_map
-        x1, t1 = jbm1.apply_cube(pos1_sub_div, x1), jbm1.apply_cnum(pos1_sub_genus, t1)
-        x2, t2 = jbm2.apply_cube(pos2_sub_div, x2), jbm2.apply_cnum(pos2_sub_genus, t2)
+        x1, t1 = jbm1.apply_cube(div1, x1), jbm1.apply_cnum(genus1, t1)
+        x2, t2 = jbm2.apply_cube(div2, x2), jbm2.apply_cnum(genus2, t2)
         if use_curve_points:
             pts1 = [jbm1 * pt for pt in pts1]
             pts2 = [jbm2 * pt for pt in pts2]
@@ -339,19 +340,18 @@ class Estimator:
         else:
             raise ValueError("Unbalanced positions!")
 
-        mx = pos1_sub_div
-        mt = pos1_sub_genus
+        mx, mt = div1, genus1
 
         # now we have the following integer coordinates:
-        # cube1: x1j <= xj <= x1j + 1    -- cube inside [0, mx]^d
-        # cube2: x2j <= xj <= x2j + mx2  -- cube inside [0, mx2 * mx]^d, + shift junc_dx * mx
+        # cube1: x1j <= xj <= x1j + 1    -- [0,  1]^d cube inside [0, mx]^d
+        # cube2: x2j <= xj <= x2j + mx2  -- [0,mx2]^d cube inside [0, mx]^d, + shift junc_dx * mx
         #
         # time1: t1 <= t <= t1 + 1
         # time2: t2 <= t <= t2 + mt2,  + shift junc_dt * mt
 
         # junc: shifts
-        t2 += junc.delta_t * mt
         x2 = [x2j + dxj * mx for x2j, dxj in zip(x2, junc.delta_x)]
+        t2 += junc.delta_t * mt
 
         max_dx = [max(abs(x1j - x2j + 1), abs(x1j - x2j - mx2)) for x1j, x2j in zip(x1, x2)]
 
@@ -377,10 +377,10 @@ class Estimator:
                 if lo_point > lo or argmax is None:
                     lo = lo_point
                     x1_real = [Fraction(x1j, mx) for x1j in x1_point]
-                    x2_real = [Fraction(x2j, mx) for x2j in x2_point]
                     t1_real = Fraction(t1_point, mt)
+                    x2_real = [Fraction(x2j, mx) for x2j in x2_point]
                     t2_real = Fraction(t2_point, mt)
-                    argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc}
+                    argmax = {'x1': x1_real, 't1': t1_real, 'x2': x2_real, 't2': t2_real, 'junc': junc, 'pos1': pos1, 'pos2': pos2}
 
         return lo, up, argmax
 

@@ -1,4 +1,5 @@
 import unittest
+import logging
 
 from quicktions import Fraction
 
@@ -8,22 +9,24 @@ from peano.dilation import Estimator
 from .examples import *
 
 
-def _check_dilation(data, strict=False, fuzzy=False):
+def _check_dilation(data, fuzzy=False):
     curve = data['curve']
     dilation_dict = data['dilation']
     for metric in sorted(dilation_dict.keys()):
         dilation = dilation_dict[metric]
         if isinstance(dilation, list) or isinstance(dilation, tuple):
             dilation_lo, dilation_up = dilation
+            dilation_eq = None
         else:
             dilation_lo = dilation * 0.999
             dilation_up = dilation * 1.001
-            if strict:
-                dilation_lo = dilation
+            dilation_eq = Fraction(dilation)
 
         if metric == 'l2':
             func = utils.ratio_l2_squared
             dilation_lo, dilation_up = dilation_lo ** 2, dilation_up ** 2
+            if dilation_eq is not None:
+                dilation_eq = dilation_eq**2
         elif metric == 'l1':
             func = utils.ratio_l1
         elif metric == 'linf':
@@ -31,13 +34,14 @@ def _check_dilation(data, strict=False, fuzzy=False):
 
         if fuzzy:
             res = Estimator(func).estimate_dilation_fuzzy(curve, rel_tol_inv=10 ** 5)
-        elif strict:
-            res = Estimator(func).estimate_dilation_regular(
-                curve, use_vertex_moments=True, max_depth=data['max_depth'], rel_tol_inv=10 ** 5,
-            )
-            assert res['lo'] == dilation_lo
         else:
             res = Estimator(func).estimate_dilation_regular(curve, rel_tol_inv=10 ** 5)
+            if dilation_eq is not None:
+                res = Estimator(func).estimate_dilation_regular(
+                    curve, use_vertex_moments=True, max_depth=10, rel_tol_inv=10 ** 5,
+                )
+                assert res['lo'] == dilation_eq
+                logging.error('POS: %d %d; dt: %d', res['argmax']['pos1'].depth, res['argmax']['pos2'].depth, res['argmax']['junc'].delta_t)
         print(res)
         assert float(res['up']) <= dilation_up, 'metric {} up failed: {} > {}'.format(metric, res['up'], dilation_up)
         assert float(res['lo']) >= dilation_lo, 'metric {} lo failed: {} < {}'.format(metric, res['lo'], dilation_lo)
@@ -53,7 +57,7 @@ class TestCurve(unittest.TestCase):
             },
             {
                 'curve': get_peano_curve(),
-                'dilation': {'l2': 8, 'l1': 32/3, 'linf': 8},
+                'dilation': {'l2': 8, 'l1': Fraction(32, 3), 'linf': 8},
             },
             {
                 'curve': get_tokarev_curve(),
@@ -61,27 +65,27 @@ class TestCurve(unittest.TestCase):
             },
             {
                 'curve': get_scepin_bauman_curve(),
-                'dilation': {'l1': (10 + 2/3), 'l2': (5 + 2/3), 'linf': (5 + 1/3)},
+                'dilation': {'l1': Fraction(32, 3), 'l2': Fraction(17, 3), 'linf': Fraction(16, 3)},
             },
             {
                 'curve': get_meurthe_curve(),
-                'dilation': {'l1': (10 + 2/3), 'l2': (5 + 2/3), 'linf': (5 + 1/3)},
+                'dilation': {'l1': Fraction(32, 3), 'l2': Fraction(17, 3), 'linf': Fraction(16, 3)},
             },
             {
                 'curve': get_serpentine_curve(),
-                'dilation': {'l1': 10, 'l2': 6.25, 'linf': 5.625},
+                'dilation': {'l1': 10, 'l2': Fraction(25, 4), 'linf': Fraction(45, 8)},
             },
             {
                 'curve': get_coil_curve(),
-                'dilation': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
+                'dilation': {'l1': Fraction(32, 3), 'l2': Fraction(20, 3), 'linf': Fraction(20, 3)},
             },
             {
                 'curve': get_r_curve(),
-                'dilation': {'l1': (10 + 2/3), 'l2': (6 + 2/3), 'linf': (6 + 2/3)},
+                'dilation': {'l1': Fraction(32, 3), 'l2': Fraction(20, 3), 'linf': Fraction(20, 3)},
             },
             {   
                 'curve': get_haverkort_curve_a26(),
-                'dilation': {'l1': (99 + 5/9), 'l2': [22.7,22.9], 'linf': (12 + 4/9)},
+                'dilation': {'l1': Fraction(99 * 9 + 5, 9), 'l2': [22.7,22.9], 'linf': Fraction(12*9 + 4, 9)},
             },
             {   
                 'curve': get_haverkort_curve_f(),
@@ -89,7 +93,7 @@ class TestCurve(unittest.TestCase):
             },
             {
                 'curve': get_ye_curve(),
-                'dilation': {'l2': [5.588, 5.59]},
+                'dilation': {'l2': Fraction(408, 73)},
             },
             {
                 'curve': get_spring_curve(),
@@ -112,24 +116,6 @@ class TestCurve(unittest.TestCase):
         ]
         for data in known_bounds:
             _check_dilation(data)
-
-    def test_dilation_eq(self):
-        known = [
-            {
-                'curve': get_hilbert_curve(),
-                'max_depth': 10,  # TODO move to metric
-                'dilation': {
-                    'l2': 6,
-                },
-            },
-            {
-                'curve': get_ye_curve(),
-                'max_depth': 10,
-                'dilation': {'l2': Fraction(408, 73)},
-            },
-        ]
-        for data in known:
-            _check_dilation(data, strict=True)
 
 
     def test_fuzzy_dilation(self):
