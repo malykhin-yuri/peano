@@ -90,6 +90,16 @@ def get_lcm(iterable):
     return lcm
 
 
+def gen_faces(dim, face_dim):
+    """Face is tuple in {0,1,None}^dim that defines fixed coordinates, e.g. (0,None,1) <=> x0=0, x2=1."""
+    for coords in itertools.combinations(list(range(dim)), r=dim-face_dim):
+        for values in itertools.product((0, 1), repeat=dim-face_dim):
+            face = [None] * dim
+            for val, coord in zip(values, coords):
+                face[coord] = val
+            yield tuple(face)
+
+
 def combinations_product(iter_ids, iter_dict):
     """
     Product of combinations of iterables.

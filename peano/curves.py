@@ -299,9 +299,14 @@ class FuzzyCurve:
             cur_spec = self._compose_specs(cur_spec, cnum)
 
         idx = index[cur_spec]
-        start, period = cubes[0:idx], cubes[idx:]
-        get_coord = lambda cs, j: [c[j] for c in cs]
-        return Point(get_periodic_sum(get_coord(start, j), get_coord(period, j), self.div) for j in range(self.dim))
+        return self._get_limit_point(cubes[0:idx], cubes[idx:])
+
+    def _get_limit_point(self, cubes_start, cubes_period):
+        xs = []
+        for j in range(self.dim):
+            xj = get_periodic_sum([cube[j] for cube in cubes_start], [cube[j] for cube in cubes_period], self.div)
+            xs.append(xj)
+        return Point(xs)
 
     def get_vertex_moments(self, pnum=None):
         """
@@ -318,7 +323,7 @@ class FuzzyCurve:
         """
         return {vertex: self.get_face_moment(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
 
-    def get_face_moment(self, face, pnum=None, last=False):
+    def get_face_moment(self, face, pnum=None, last=False, find_point=False):
         """
         Moment of face touch (default: first moment).
 
@@ -328,25 +333,32 @@ class FuzzyCurve:
               E.g., tuples (0,0,0) or (0,1,1) define vertices
             pnum: select non-default pattern
             last: get last moment instead of first
+            find_point: calculate point of face touch
 
         Returns:
-            rational number, moment of first touch
+            rational t or CurvePoint instance (if find_point)
         """
         if pnum is None:
             pnum = self.pnum
 
         cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
-        cnums = []
-        index = {}
+        cnums, cubes, index = [], [], {}
         while cur_spec not in index:
             index[cur_spec] = len(cnums)
             cur_proto = cur_spec.base_map * self.patterns[cur_spec.pnum].proto
             cnum = self._get_face_cnum(cur_proto, face, last=last)
             cnums.append(cnum)
+            if find_point:
+                cubes.append(cur_proto[cnum])
             cur_spec = self._compose_specs(cur_spec, cnum)
 
         period_start = index[cur_spec]
-        return get_periodic_sum(cnums[0:period_start], cnums[period_start:], self.genus)
+        moment = get_periodic_sum(cnums[0:period_start], cnums[period_start:], self.genus)
+        if find_point:
+            point = self._get_limit_point(cubes[0:period_start], cubes[period_start:])
+            return CurvePoint(point, moment)
+        else:
+            return moment
 
     @staticmethod
     def _get_face_cnum(proto, face, last=False):
@@ -788,3 +800,13 @@ class AutoJunction(Junction):
     def __init__(self, dim, pnum):
         spec = Spec(base_map=BaseMap.id_map(dim), pnum=pnum)
         super().__init__(spec1=spec, spec2=spec, delta_x=(0,) * dim, delta_t=0, depth=0)
+
+
+class CurvePoint(namedtuple('CurvePoint', ['x', 't'])):
+    """Pair (x,t) of a Point and time moment; i.e. a point on the graph of a curve, f(t)=x"""
+
+    def __rmul__(self, base_map):
+        return CurvePoint(base_map * self.x, base_map.apply_t(self.t))
+
+    def scale(self, factor):
+        return CurvePoint(Point(xj * factor for xj in self.x), (factor**self.x.dim) * self.t)

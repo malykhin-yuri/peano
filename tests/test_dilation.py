@@ -31,6 +31,8 @@ def _check_dilation(data, fuzzy=False):
             func = utils.ratio_l1
         elif metric == 'linf':
             func = utils.ratio_linf
+        elif metric == 'l2_squared':
+            func = utils.ratio_l2_squared
 
         if fuzzy:
             res = Estimator(func).estimate_dilation_fuzzy(curve, rel_tol_inv=10 ** 5)
@@ -38,7 +40,7 @@ def _check_dilation(data, fuzzy=False):
             res = Estimator(func).estimate_dilation_regular(curve, rel_tol_inv=10 ** 5)
             if dilation_eq is not None:
                 res = Estimator(func).estimate_dilation_regular(
-                    curve, use_vertex_moments=True, max_depth=10, rel_tol_inv=10 ** 5,
+                    curve, use_face_moments=True, face_dim=data.get('face_dim', 0), max_depth=10, rel_tol_inv=10 ** 5,
                 )
                 assert res['lo'] == dilation_eq
                 logging.error('POS: %d %d; dt: %d', res['argmax']['pos1'].depth, res['argmax']['pos2'].depth, res['argmax']['junc'].delta_t)
@@ -98,6 +100,16 @@ class TestCurve(unittest.TestCase):
             {
                 'curve': get_spring_curve(),
                 'dilation': {'l2': [16.9, 17.0]},
+            },
+            {
+                'curve': get_tokarev_curve(),
+                'dilation': {'linf': Fraction(896, 37)},
+                'face_dim': 2,
+            },
+            {
+                'curve': get_tokarev_curve(),
+                'dilation': {'l2_squared': Fraction(5215408884, 7579009)},
+                'face_dim': 0,
             },
         ]
         for data in known_bounds:

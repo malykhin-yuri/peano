@@ -8,6 +8,7 @@ from peano.curves import Curve, PathFuzzyCurve
 from peano.subsets import Link
 from peano.paths import PathsGenerator
 from peano.gates import GatesGenerator
+from peano.utils import gen_faces
 
 from .examples import *
 
@@ -161,13 +162,6 @@ class TestCurve(unittest.TestCase):
         """
         Check first and last face moments for miscellaneous dimesions.
         """
-        def gen_faces(dim, face_dim):
-            for coords in itertools.combinations(list(range(dim)), r=dim-face_dim):
-                for values in itertools.product((0, 1), repeat=dim-face_dim):
-                    face = [None] * dim
-                    for val, coord in zip(values, coords):
-                        face[coord] = val
-                    yield tuple(face)
 
         # key = face dim; if negative, check last moments instead of first
         known_moments = [

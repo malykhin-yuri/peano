@@ -13,26 +13,13 @@ import logging
 
 from quicktions import Fraction
 
-from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache
+from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache, gen_faces
 from . import _sat_adapters
-from .curves import Curve
+from .curves import Curve, CurvePoint
 from .subsets import Point
 
 
 logger = logging.getLogger(__name__)
-
-
-class _CurvePoint(namedtuple('_CurvePoint', ['x', 't'])):
-    # pair (x,t) of a Point and time moment; i.e. a point on the graph of a curve, f(t)=x
-    @classmethod
-    def init_from_rational(cls, x, t):
-        return cls(Point(Fraction(xj) for xj in x), Fraction(t))
-
-    def __rmul__(self, base_map):
-        return _CurvePoint(base_map * self.x, base_map.apply_t(self.t))
-
-    def scale(self, factor):
-        return _CurvePoint(Point(xj * factor for xj in self.x), (factor**self.x.dim) * self.t)
 
 
 class _PiecePosition:
@@ -454,7 +441,7 @@ class Estimator:
                 info['next_try_iter'] = int(info['next_try_iter'] * strategy['multiplier']) + 1
                 return True
 
-    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_vertex_moments=False, max_depth=None):
+    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_face_moments=False, face_dim=0, max_depth=None):
         """
         Estimate dilation for a regular peano curve (class Curve).
 
@@ -462,7 +449,8 @@ class Estimator:
             curve: Curve instance, fully defined polyfractal curve
             rel_tol_inv: inverted relative tolerance (may be set to None)
             max_iter: limit for subdivisions iters
-            use_vertex_moments: use vertex moments for dilation lower bounds
+            use_face_moments: use moments for dilation lower bounds (first+last)
+            face_dim: dimension of faces for moments
             max_depth: allow not to consider pairs of higher depth
               note that fraction depth = junc depth + piece depth;
               if dilation is attained at pair of fractions of depth <= max_depth,
@@ -476,10 +464,14 @@ class Estimator:
         """
 
         tree_kwargs = {'keep_max_lo_item': True}
-        if use_vertex_moments:
+        if use_face_moments:
             pts = {}
             for pnum in range(curve.pcount):
-                pts[pnum] = tuple(_CurvePoint.init_from_rational(x, t) for x, t in curve.get_vertex_moments(pnum).items())
+                face_pts_set = set()
+                for face in gen_faces(curve.dim, face_dim):
+                    for last in [False, True]:
+                        face_pts_set.add(curve.get_face_moment(face, pnum=pnum, last=last, find_point=True))
+                pts[pnum] = tuple(sorted(face_pts_set))
             tree_kwargs['stash'] = pts
 
         if rel_tol_inv is not None:
