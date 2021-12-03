@@ -47,6 +47,7 @@ class TestCommon(unittest.TestCase):
             get_ARW_Curve(),
             get_neptunus_curve(),
             get_luna_curve(),
+            get_iupiter_curve(),
         ]
         self.curves += get_rev_curves()
 
@@ -110,6 +111,7 @@ class TestCurve(unittest.TestCase):
             get_ARW_Curve(),
             get_neptunus_curve(),
             get_luna_curve(),
+            get_iupiter_curve(),
             get_spring_curve(),
         ]
         self.curves += get_rev_curves()
@@ -213,6 +215,16 @@ class TestCurve(unittest.TestCase):
             {
                 'curve': get_luna_curve(),
                 'gates': [Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
+            },
+            {
+                'curve': get_iupiter_curve(),
+                'gates': [
+                    Link.parse_gates('(0,2/5,1/5)->(4/5,2/5,0)'),
+                    Link.parse_gates('(0,2/5,1/5)->(4/5,0,2/5)'),
+                    Link.parse_gates('(0,2/5,1/5)->(1,2/5,1/5)'),
+                    Link.parse_gates('(0,1/5,2/5)->(4/5,2/5,0)'),
+                    Link.parse_gates('(0,2/5,1/5)->(4/5,1,3/5)'),
+                ],
             },
         ]
         for data in known:

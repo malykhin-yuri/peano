@@ -117,13 +117,22 @@ class TestCurve(unittest.TestCase):
 
     def test_polycurve_dilation(self):
         known_bounds = [
+            # 3D curves from Haverkort Inventory
             {
                 'curve': get_beta_omega_curve(),
                 'dilation': {'l2': 5, 'l1': 9, 'linf': 5},
             },
             {
                 'curve': get_neptunus_curve(),
-                'dilation': {'l2': [18.2, 18.4], 'linf': Fraction(945, 100)},
+                'dilation': {'l1': [88.8, 89.0], 'l2': [18.2, 18.4], 'linf': Fraction(945, 100)},
+            },
+            {
+                'curve': get_luna_curve(),
+                'dilation': {'l1': [75.5, 75.7], 'l2': [18.2, 18.4], 'linf': 14},
+            },
+            {
+                'curve': get_iupiter_curve(),
+                'dilation': {'l1': [88.6, 88.8], 'l2': [24.8, 30.0], 'linf': [16.9, 17.1]},
             },
             {
                 'curve': get_ARW_Curve(),

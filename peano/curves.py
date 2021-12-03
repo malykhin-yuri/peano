@@ -37,7 +37,9 @@ class Pattern(namedtuple('_Pattern', ['proto', 'specs'])):
             Pattern instance
         """
         proto = Proto.parse(chain)
-        specs = [Spec.parse(c) for c in specs.split(',')]
+        if isinstance(specs, str):
+            specs = specs.split(',')
+        specs = [Spec.parse(c) for c in specs]
         return cls(proto, specs)
 
     def __str__(self):

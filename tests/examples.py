@@ -188,6 +188,29 @@ def get_luna_curve():
     return Curve.parse([p0, p1])
 
 
+def get_iupiter_curve():
+    """Inventory, p.17"""
+    pa0 = ('jkJijKJ', ['0ikJ', '4jkI', '1jki~', '0IkJ~', '0ikJ', '1jkI', '0jIK~', '0kIJ~'])
+
+    pb1 = (pa0[0], pa0[1][:])
+    pb1[1][-1] = '2JIK'
+
+    pc2 = (pa0[0], pa0[1][:])
+    pc2[1][-2] = '4jki~'
+    pc2[1][-1] = '0IkJ~'
+
+    pd3 = (pa0[0], pa0[1][:])
+    pd3[1][0] = '4ijK'
+
+    pe4 = ('jkJiKjk', pa0[1][:])
+    pe4[1][-4] = '3iJk'
+    pe4[1][-3] = '1KJI'
+    pe4[1][-2] = '0KIj~'
+    pe4[1][-1] = '0JIk~'
+
+    return Curve.parse([pa0, pb1, pc2, pd3, pe4])
+
+
 def get_spring_curve():
     """Spring curve - 3D bifractal facet-gated curve with l2-ratio <17"""
     # calculations show that WD = 1533\sqrt{6}/221
