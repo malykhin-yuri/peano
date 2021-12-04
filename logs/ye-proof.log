@@ -1,0 +1,322 @@
+The paper by Yuri Malykhin, Evgeny Schepin, "Search of fractal space-filling curves ..."
+The computer-assisted proof of Theorem 1
+
+We consider plain Peano monofractal curves
+
+Genus 2x2:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=29316, misses=1011, maxsize=262144, currsize=1011),
+ 'gates_count': 1,
+ 'idxs': [0],
+ 'lo': Fraction(258129460, 43046721),
+ 'max_stats': {'pair_depth': 6,
+               'sat.problem_size': SATProblemSize(literals=681, clauses=261, variables=53)},
+ 'sum_stats': Counter({'pair_depth': 61471,
+                       'ptree.push': 33438,
+                       'ptree.good': 27011,
+                       'divide_iter': 4592,
+                       'ptree.copy_push': 3111,
+                       'sat.solve_calls': 284,
+                       'ptree.bad': 175,
+                       'ptree.set_good_threshold': 26,
+                       'ptree.set_bad_threshold': 23,
+                       'bisect_iter': 17,
+                       'possible_curves': 16,
+                       'seen_pcurve': 1}),
+ 'up': Fraction(775043740, 129140163)}
+lower bound (float): 5.996495296354861
+upper bound (float): 6.001570092489352
+Curves:
+@0: ijI | 0jI~,0ij,0ij,0JI
+
+
+Genus 3x3:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=4712628, misses=114812, maxsize=262144, currsize=114812),
+ 'gates_count': 2,
+ 'idxs': [6, 4],
+ 'lo': Fraction(2194465195, 387420489),
+ 'max_stats': {'pair_depth': 5,
+               'sat.problem_size': SATProblemSize(literals=480792, clauses=82918, variables=1713)},
+ 'sum_stats': Counter({'pair_depth': 14969162,
+                       'ptree.push': 4895304,
+                       'ptree.good': 4273246,
+                       'possible_curves': 526848,
+                       'ptree.bad': 342639,
+                       'divide_iter': 205475,
+                       'ptree.copy_push': 67864,
+                       'sat.solve_calls': 1090,
+                       'ptree.set_good_threshold': 98,
+                       'ptree.set_bad_threshold': 82,
+                       'bisect_iter': 58,
+                       'seen_pcurve': 7}),
+ 'up': Fraction(732056377, 129140163)}
+lower bound (float): 5.664298242625986
+upper bound (float): 5.668696399275878
+Curves:
+@0: iijIIjii | 0ij,0Ji,0ji,0Ij,0JI,0jI,0ij,0Ji,0ji
+
+@0: jiJijjII | 0ij,0ji,0jI~,0Ij~,0ij,0iJ~,0iJ~,0JI,0Ji~
+
+
+Genus 4x4:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=4291221, misses=846435, maxsize=262144, currsize=262144),
+ 'gates_count': 2,
+ 'idxs': [28],
+ 'lo': Fraction(26188302920, 4433812263),
+ 'max_stats': {'pair_depth': 4,
+               'sat.problem_size': SATProblemSize(literals=36597, clauses=8363, variables=269)},
+ 'sum_stats': Counter({'possible_curves': 10616850,
+                       'pair_depth': 8259000,
+                       'ptree.push': 8123031,
+                       'ptree.good': 6179195,
+                       'ptree.copy_push': 2985375,
+                       'divide_iter': 112605,
+                       'ptree.bad': 102342,
+                       'sat.solve_calls': 5021,
+                       'ptree.set_good_threshold': 1402,
+                       'ptree.set_bad_threshold': 1132,
+                       'bisect_iter': 693,
+                       'seen_pcurve': 180}),
+ 'up': Fraction(78633066200, 13301436789)}
+lower bound (float): 5.9064979224628935
+upper bound (float): 5.911621988462768
+Curves:
+@0: jjiJJiijIjijIII | 0ij,0iJ~,0ji,0jI~,0Ij~,0Ij~,0ji,0ij,0iJ~,0Ji~,0ji,0ij,0iJ~,0Ji~,0Ji~,0Ji~
+
+
+Genus 6x6
+Plain monofractal curves fall into 3 categories:
+"side", (0,0)->(1,0)
+"diag", (0,0)->(1,1) -- no such curves for even genus
+"med",  (0,0)->(1,1/2)
+Check side curves without diagonal steps:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=34068562, misses=8617113, maxsize=262144, currsize=262144),
+ 'gates_count': 1,
+ 'idxs': [519],
+ 'lo': Fraction(82589944, 14703201),
+ 'max_stats': {'pair_depth': 3,
+               'sat.problem_size': SATProblemSize(literals=16592, clauses=5956, variables=629)},
+ 'sum_stats': Counter({'possible_curves': 61641370632192,
+                       'ptree.push': 94156325,
+                       'ptree.good': 66943429,
+                       'pair_depth': 51721639,
+                       'ptree.copy_push': 51470650,
+                       'ptree.bad': 416907,
+                       'divide_iter': 230639,
+                       'sat.solve_calls': 21955,
+                       'ptree.set_good_threshold': 6280,
+                       'ptree.set_bad_threshold': 5075,
+                       'bisect_iter': 3190,
+                       'seen_pcurve': 897}),
+ 'up': Fraction(9207608, 1633689)}
+lower bound (float): 5.617140376439117
+upper bound (float): 5.636083734419464
+Curves:
+@0: ijIjiijIIjjiJijiJijiJJJIjIJJIJiijiJ | 0ij,0Ji~,0ji,0IJ,0ij,0ij,0Ji~,0ji,0iJ~,0IJ,0Ji~,0Ij~,0ij,0JI,0Ji~,0Ij~,0ij,0JI,0Ji~,0Ij~,0ij,0jI~,0JI,0iJ~,0IJ,0ji,0jI~,0JI,0iJ~,0jI~,0jI~,0ij,0Ji~,0ij,0ij,0jI~
+
+
+Check median curves without diagonal steps:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=30007940, misses=327724, maxsize=262144, currsize=262144),
+ 'gates_count': 1,
+ 'idxs': [756, 757],
+ 'lo': Fraction(10464842, 1594323),
+ 'max_stats': {'pair_depth': 3,
+               'sat.problem_size': SATProblemSize(literals=1036, clauses=609, variables=79)},
+ 'sum_stats': Counter({'ptree.push': 62754624,
+                       'ptree.good': 33142172,
+                       'ptree.copy_push': 32418960,
+                       'pair_depth': 30641448,
+                       'ptree.bad': 141192,
+                       'divide_iter': 24294,
+                       'ptree.set_good_threshold': 7982,
+                       'sat.solve_calls': 6988,
+                       'ptree.set_bad_threshold': 6390,
+                       'bisect_iter': 3356,
+                       'seen_pcurve': 1476,
+                       'possible_curves': 1476}),
+ 'up': Fraction(17494822, 2657205)}
+lower bound (float): 6.563815487827749
+upper bound (float): 6.5839188169524
+Curves:
+@0: jiJijjIIjiijIIjiiiJijiJJIIJJJiijIji | 0ji,0JI~,0Ji,0jI~,0ji,0JI~,0Ij,0ij~,0jI,0JI~,0iJ,0IJ~,0Ij,0ij~,0jI,0JI~,0iJ,0IJ~,0Ji,0jI~,0ji,0JI~,0Ji,0jI~,0IJ,0iJ~,0JI,0jI~,0JI,0jI~,0ij,0IJ~,0Ij,0iJ~,0ij,0IJ~
+
+@0: jiJijjIIjiijIIjiiiJijiJJIIJJJiijIji | 0ji,0JI~,0Ji,0jI~,0ji,0JI~,0Ij,0ij~,0jI,0JI~,0iJ,0IJ~,0Ij,0ij~,0jI,0JI~,0iJ,0IJ~,0Ji,0jI~,0ji,0JI~,0Ji,0jI~,0IJ,0iJ~,0JI,0ji~,0Ji,0jI~,0ij,0IJ~,0Ij,0iJ~,0ij,0IJ~
+
+
+Genus 5x5
+Check diagonal curves without diagonal steps:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=7662120, misses=3499030, maxsize=262144, currsize=262144),
+ 'gates_count': 1,
+ 'idxs': [10, 7],
+ 'lo': Fraction(9543280, 1594323),
+ 'max_stats': {'pair_depth': 3,
+               'sat.problem_size': SATProblemSize(literals=418105, clauses=108110, variables=5873)},
+ 'sum_stats': Counter({'possible_curves': 12384898975268864,
+                       'pair_depth': 25005175,
+                       'ptree.push': 11758978,
+                       'ptree.good': 11089184,
+                       'ptree.copy_push': 597828,
+                       'ptree.bad': 289504,
+                       'divide_iter': 116942,
+                       'sat.solve_calls': 1220,
+                       'ptree.set_good_threshold': 126,
+                       'ptree.set_bad_threshold': 111,
+                       'bisect_iter': 77,
+                       'seen_pcurve': 11}),
+ 'up': Fraction(3192016, 531441)}
+lower bound (float): 5.985788325201355
+upper bound (float): 6.006341249546046
+Curves:
+@0: iijIIjjjiJJiiJJijjjIIjii | 0ij,0Ji,0ij,0jI,0IJ,0jI,0ij,0jI,0ij,0Ji,0IJ,0Ji,0ij,0Ji,0IJ,0Ji,0ij,0jI,0ij,0jI,0IJ,0jI,0ij,0Ji,0ij
+
+@0: iiiijIIjjIJJIjjjiiiJJijj | 0JI~,0Ji,0ji,0Ji,0ji,0Ij,0ji~,0iJ~,0IJ~,0Ji~,0JI,0Ij~,0IJ,0iJ~,0ij,0Ij,0ij,0jI~,0ji,0Ji,0IJ,0iJ,0IJ~,0iJ~,0ij
+
+
+Check median curves without diagonal steps:
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=1045202, misses=48690, maxsize=262144, currsize=48690),
+ 'gates_count': 1,
+ 'idxs': [76, 77],
+ 'lo': Fraction(27740299, 4251528),
+ 'max_stats': {'pair_depth': 3,
+               'sat.problem_size': SATProblemSize(literals=598, clauses=338, variables=56)},
+ 'sum_stats': Counter({'ptree.push': 2854916,
+                       'ptree.good': 1818870,
+                       'ptree.copy_push': 1761024,
+                       'pair_depth': 1112642,
+                       'ptree.bad': 6360,
+                       'divide_iter': 2864,
+                       'sat.solve_calls': 1054,
+                       'ptree.set_good_threshold': 834,
+                       'ptree.set_bad_threshold': 706,
+                       'bisect_iter': 448,
+                       'seen_pcurve': 124,
+                       'possible_curves': 124}),
+ 'up': Fraction(83470753, 12754584)}
+lower bound (float): 6.5247833249598735
+upper bound (float): 6.544372830975907
+Curves:
+@0: ijIjijIjiiiiJIIJiJIJiijj | 0ij,0IJ~,0Ij,0iJ~,0ij,0IJ~,0Ij,0iJ~,0ij,0Ij~,0ij,0IJ~,0Ji,0ji~,0Ij,0ij~,0iJ,0Ij~,0IJ,0ij~,0iJ,0Ij~,0ji,0Ji~,0ij
+
+@0: ijIjijIjiiiiJIIJiJIJiijj | 0ij,0IJ~,0Ij,0iJ~,0ij,0IJ~,0Ij,0iJ~,0ij,0IJ~,0iJ,0IJ~,0Ji,0ji~,0Ij,0ij~,0iJ,0Ij~,0IJ,0ij~,0iJ,0Ij~,0ji,0Ji~,0ij
+
+
+Check side curves with Non-YE prototype:
+got paths: 43
+got non-YE paths: 42
+{'bounds_cache': CacheInfo(hits=1597012, misses=758901, maxsize=262144, currsize=262144),
+ 'curves': [<peano.curves.Curve object at 0x7fbace883850>],
+ 'idxs': [27],
+ 'lo': Fraction(88735750, 15411789),
+ 'max_stats': {'pair_depth': 3,
+               'sat.problem_size': SATProblemSize(literals=12623, clauses=4549, variables=431)},
+ 'sum_stats': Counter({'possible_curves': 1409286144,
+                       'ptree.push': 3980737,
+                       'pair_depth': 3477263,
+                       'ptree.good': 3143878,
+                       'ptree.copy_push': 1624824,
+                       'divide_iter': 32896,
+                       'ptree.bad': 29883,
+                       'sat.solve_calls': 1950,
+                       'ptree.set_good_threshold': 387,
+                       'ptree.set_bad_threshold': 320,
+                       'bisect_iter': 210,
+                       'seen_pcurve': 42}),
+ 'up': Fraction(267077650, 46235367)}
+lower bound: 5.7576540919422134
+upper bound: 5.776479507559657
+Check side curves with YE prototype
+got paths: 43
+got YE paths: 1
+{'bounds_cache': CacheInfo(hits=12862328, misses=61976, maxsize=262144, currsize=61976),
+ 'curves': [<peano.curves.Curve object at 0x7fbac8098340>,
+            <peano.curves.Curve object at 0x7fbac3629e20>,
+            <peano.curves.Curve object at 0x7fbac13b54c0>,
+            <peano.curves.Curve object at 0x7fbac5e46610>,
+            <peano.curves.Curve object at 0x7fbab83dcd00>,
+            <peano.curves.Curve object at 0x7fbac72f6280>,
+            <peano.curves.Curve object at 0x7fbac72f6580>,
+            <peano.curves.Curve object at 0x7fbac43a6bb0>,
+            <peano.curves.Curve object at 0x7fbacac36a90>,
+            <peano.curves.Curve object at 0x7fbad0048130>,
+            <peano.curves.Curve object at 0x7fbac0ee99a0>,
+            <peano.curves.Curve object at 0x7fbad027e520>,
+            <peano.curves.Curve object at 0x7fbac6096c40>,
+            <peano.curves.Curve object at 0x7fbac73a9dc0>,
+            <peano.curves.Curve object at 0x7fbabf5af2b0>,
+            <peano.curves.Curve object at 0x7fbad027e0a0>,
+            <peano.curves.Curve object at 0x7fbacb3cf070>,
+            <peano.curves.Curve object at 0x7fbac5e5bdc0>,
+            <peano.curves.Curve object at 0x7fbacb3cff40>,
+            <peano.curves.Curve object at 0x7fbace1dff10>],
+ 'idxs': [0,
+          2,
+          5,
+          7,
+          8,
+          9,
+          6,
+          11,
+          12,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          13,
+          24],
+ 'lo': Fraction(7047671725, 1248354909),
+ 'max_stats': {'pair_depth': 4,
+               'sat.problem_size': SATProblemSize(literals=10483, clauses=3514, variables=414)},
+ 'sum_stats': Counter({'possible_curves': 419430400,
+                       'pair_depth': 23503179,
+                       'ptree.push': 16208476,
+                       'ptree.good': 14709574,
+                       'ptree.copy_push': 3284172,
+                       'divide_iter': 258308,
+                       'ptree.bad': 82515,
+                       'sat.solve_calls': 8422,
+                       'ptree.set_good_threshold': 616,
+                       'ptree.set_bad_threshold': 566,
+                       'bisect_iter': 423,
+                       'seen_pcurve': 25}),
+ 'up': Fraction(21156941575, 3745064727)}
+lower bound: 5.645567357639957
+upper bound: 5.649285958255749
+Check YE curve:
+{'argmax': {'junc': <peano.curves.AutoJunction object at 0x7fbacb832880>,
+            'pos1': <peano.dilation._PiecePosition object at 0x7fbac05b66d0>,
+            'pos2': <peano.dilation._PiecePosition object at 0x7fbac05b6bb0>,
+            't1': Fraction(13, 75),
+            't2': Fraction(5, 12),
+            'x1': [Fraction(3, 5), Fraction(0, 1)],
+            'x2': [Fraction(0, 1), Fraction(1, 1)]},
+ 'bounds_cache': CacheInfo(hits=0, misses=10295, maxsize=262144, currsize=10295),
+ 'lo': Fraction(408, 73),
+ 'max_stats': {'pair_depth': 4},
+ 'sum_stats': Counter({'ptree.push': 20191,
+                       'pair_depth': 14570,
+                       'ptree.good': 10043,
+                       'ptree.cleanup_push': 9896,
+                       'ptree.cleanup_count': 89,
+                       'ptree.set_good_threshold': 2,
+                       'ptree.set_bad_threshold': 1}),
+ 'up': Fraction(13281250, 2376291)}
+Lower bound is sharp due to the stabilization theorem (Theorem A)
+lower bound: 408/73

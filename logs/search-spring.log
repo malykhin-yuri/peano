@@ -1,0 +1,126 @@
+2021-12-04 19:40:08,631:WARNING:root:gates: ['(0,1/3,1/3) -> (0,1/3,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:08,632:WARNING:root:paths: 1
+2021-12-04 19:40:08,724:WARNING:root:gates: ['(0,1/6,1/3) -> (0,5/6,1/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:08,724:WARNING:root:paths: 1
+2021-12-04 19:40:08,798:WARNING:root:gates: ['(0,1/6,1/3) -> (0,1/6,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:08,798:WARNING:root:paths: 1
+2021-12-04 19:40:08,875:WARNING:root:gates: ['(0,1/6,1/6) -> (0,1/6,5/6)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:08,875:WARNING:root:paths: 1
+2021-12-04 19:40:08,919:WARNING:root:gates: ['(0,1/3,1/3) -> (1/3,1/3,1)', '(0,1/3,1/3) -> (1,2/3,2/3)']
+2021-12-04 19:40:08,919:WARNING:root:paths: 2
+2021-12-04 19:40:09,120:WARNING:root:gates: ['(0,1/6,1/6) -> (1,1/3,1/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,120:WARNING:root:paths: 1
+2021-12-04 19:40:09,204:WARNING:root:gates: ['(0,1/6,1/3) -> (1,1/3,1/6)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,204:WARNING:root:paths: 2
+2021-12-04 19:40:09,311:WARNING:root:gates: ['(0,1/3,1/3) -> (1/3,1/3,1)', '(0,1/3,1/3) -> (1,1/3,1/3)']
+2021-12-04 19:40:09,311:WARNING:root:paths: 2
+2021-12-04 19:40:09,456:WARNING:root:gates: ['(0,1/6,1/3) -> (1,1/6,1/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,456:WARNING:root:paths: 2
+2021-12-04 19:40:09,570:WARNING:root:gates: ['(0,1/6,1/6) -> (1,1/6,1/6)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,570:WARNING:root:paths: 1
+2021-12-04 19:40:09,614:WARNING:root:gates: ['(0,1/6,1/6) -> (1,2/3,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,614:WARNING:root:paths: 1
+2021-12-04 19:40:09,654:WARNING:root:gates: ['(0,1/6,1/3) -> (1,2/3,5/6)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,654:WARNING:root:paths: 2
+2021-12-04 19:40:09,762:WARNING:root:gates: ['(0,1/6,1/6) -> (1/3,1/3,1)', '(0,1/6,1/6) -> (2/3,0,1/3)']
+2021-12-04 19:40:09,762:WARNING:root:paths: 1
+2021-12-04 19:40:09,832:WARNING:root:gates: ['(0,1/6,1/6) -> (1/3,0,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:09,832:WARNING:root:paths: 16
+2021-12-04 19:40:11,598:WARNING:root:gates: ['(0,1/3,1/3) -> (1/3,0,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:40:11,598:WARNING:root:paths: 696
+2021-12-04 19:41:50,237:WARNING:root:gates: ['(0,1/6,1/3) -> (1/6,0,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:50,237:WARNING:root:paths: 1
+2021-12-04 19:41:50,283:WARNING:root:gates: ['(0,1/6,1/3) -> (1/3,5/6,0)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:50,283:WARNING:root:paths: 1
+2021-12-04 19:41:50,326:WARNING:root:gates: ['(0,1/6,1/6) -> (1/3,1/3,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:50,326:WARNING:root:paths: 16
+2021-12-04 19:41:51,377:WARNING:root:gates: ['(0,1/6,1/3) -> (1/3,1/6,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:51,377:WARNING:root:paths: 1
+2021-12-04 19:41:51,417:WARNING:root:gates: ['(0,1/6,1/3) -> (1/6,1,1/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:51,417:WARNING:root:paths: 1
+2021-12-04 19:41:51,466:WARNING:root:gates: ['(0,1/5,1/5) -> (3/5,0,2/5)', '(0,2/5,2/5) -> (2/5,2/5,1)']
+2021-12-04 19:41:51,466:WARNING:root:paths: 8
+2021-12-04 19:41:51,900:WARNING:root:gates: ['(0,1/6,1/6) -> (2/3,0,1/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:51,900:WARNING:root:paths: 8
+2021-12-04 19:41:52,388:WARNING:root:gates: ['(0,1/5,1/5) -> (1/5,1/5,1)', '(0,1/5,1/5) -> (3/5,0,2/5)']
+2021-12-04 19:41:52,388:WARNING:root:paths: 8
+2021-12-04 19:41:52,904:WARNING:root:gates: ['(0,1/6,1/3) -> (2/3,5/6,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:52,905:WARNING:root:paths: 2
+2021-12-04 19:41:53,013:WARNING:root:gates: ['(0,1/6,1/3) -> (5/6,1,2/3)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:53,014:WARNING:root:paths: 2
+2021-12-04 19:41:53,126:WARNING:root:gates: ['(0,1/3,1/3) -> (1/3,1/3,1)', '(0,1/3,1/3) -> (2/3,2/3,1)']
+2021-12-04 19:41:53,127:WARNING:root:paths: 42
+2021-12-04 19:41:58,337:WARNING:root:gates: ['(0,1/6,1/6) -> (2/3,2/3,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:41:58,337:WARNING:root:paths: 48
+2021-12-04 19:42:01,055:WARNING:root:gates: ['(0,1/5,2/5) -> (1/5,2/5,1)', '(0,1/5,2/5) -> (3/5,1,4/5)']
+2021-12-04 19:42:01,055:WARNING:root:paths: 32
+2021-12-04 19:42:03,972:WARNING:root:gates: ['(0,1/6,1/6) -> (1/3,0,2/3)', '(0,1/6,1/6) -> (2/3,2/3,1)']
+2021-12-04 19:42:03,972:WARNING:root:paths: 3
+2021-12-04 19:42:04,188:WARNING:root:gates: ['(0,1/3,1/3) -> (1/3,1/3,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:42:04,188:WARNING:root:paths: 1
+2021-12-04 19:42:04,978:WARNING:root:gates: ['(0,1/6,1/3) -> (1/3,1,1/6)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:42:04,979:WARNING:root:paths: 1
+2021-12-04 19:42:05,053:WARNING:root:gates: ['(0,1/6,1/3) -> (1/6,1/3,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:42:05,053:WARNING:root:paths: 1
+2021-12-04 19:42:05,196:WARNING:root:gates: ['(0,1/6,1/6) -> (1/6,1/6,1)', '(0,1/3,1/3) -> (1/3,1/3,1)']
+2021-12-04 19:42:05,196:WARNING:root:paths: 1
+2021-12-04 19:42:05,258:WARNING:root:gates: ['(0,1/5,1/5) -> (1/5,1/5,1)', '(0,2/5,2/5) -> (2/5,2/5,1)']
+2021-12-04 19:42:05,258:WARNING:root:paths: 1
+2021-12-04 19:42:05,371:WARNING:root:gates: ['(0,1/5,2/5) -> (1/5,2/5,1)', '(0,1/5,2/5) -> (2/5,1,1/5)']
+2021-12-04 19:42:05,372:WARNING:root:paths: 1
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=7304496, misses=36287, maxsize=262144, currsize=36287),
+ 'gates_count': 35,
+ 'idxs': [691, 693, 347, 575, 577, 343, 459, 345, 461],
+ 'lo': Fraction(17178538614640771072, 59502537175353561),
+ 'max_stats': {'pair_depth': 8,
+               'sat.problem_size': SATProblemSize(literals=19515, clauses=7019, variables=819)},
+ 'sum_stats': Counter({'pair_depth': 10713575,
+                       'ptree.push': 10419887,
+                       'ptree.good': 7677849,
+                       'ptree.copy_push': 3079104,
+                       'divide_iter': 463197,
+                       'possible_curves': 122955,
+                       'ptree.bad': 40840,
+                       'sat.solve_calls': 35764,
+                       'ptree.set_good_threshold': 9323,
+                       'ptree.set_bad_threshold': 5597,
+                       'bisect_iter': 3301,
+                       'seen_pcurve': 909}),
+ 'up': Fraction(154606988269255294976, 535522834578182049)}
+lower bound (float): 288.70262395729003
+upper bound (float): 288.702886761188
+Curves:
+@0: jkiKJkI | 1JKI~,1KIJ~,0Ikj~,1kjI~,0jKi~,0JKi,1kJI,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0kJI,0jik,0jIk~,1JIk
+
+@0: jkiKJkI | 1JKI~,1KIJ~,0Ikj~,1kjI~,0jKi~,0JKi,1kJI,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0Jki~,1ikJ~,1IkJ,1JIk
+
+@0: jkiKJkI | 1JKI~,0jKI,1kji,1kjI~,0jKi~,1Kij~,0kij,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0Jki~,0ijK~,1jKi~,0KJI~
+
+@0: jkiKJkI | 1JKI~,0jKI,1kji,0kiJ~,1KiJ,0JKi,1kJI,1IkJ
+@1: jiJkjIJ | 1JKI~,0Ijk~,0jiK~,0KJI~,0Jki~,0ijK~,0IjK,1JIk
+
+@0: jkiKJkI | 1JKI~,0Kji~,1kji,0kiJ~,1KiJ,0JKi,1kJI,1IkJ
+@1: jiJkjIJ | 1JKI~,0Ijk~,0jiK~,0KJI~,0Jki~,1ikJ~,1IkJ,1JIk
+
+@0: jkiKJkI | 1JKI~,0jKI,1kji,1kjI~,0jKi~,1Kij~,0ikJ~,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0Jki~,0ijK~,0jIk~,1JIk
+
+@0: jkiKJkI | 1JKI~,0jKI,1kji,1kjI~,0jKi~,0KJI~,1kJI,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0Jki~,0ijK~,0jIk~,1JIk
+
+@0: jkiKJkI | 1JKI~,0jKI,1kji,1kjI~,0jKi~,1Kij~,0ikJ~,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0Jki~,1ikJ~,1IkJ,1JIk
+
+@0: jkiKJkI | 1JKI~,0jKI,1kji,1kjI~,0jKi~,0JKi,1kJI,1IkJ
+@1: jiJkjIJ | 1JKI~,0jIK,0ijk,0JKi,0kJI,1ikJ~,1IkJ,1JIk
+
+
+
+real	3m50.888s
+user	3m49.616s
+sys	0m1.160s

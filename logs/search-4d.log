@@ -1,0 +1,51 @@
+2021-12-04 20:34:53,060:WARNING:root:gates: ['(0,1/3,1/3,1/3) -> (1/3,1/3,1/3,1)']
+2021-12-04 20:34:53,060:WARNING:root:paths: 66
+2021-12-04 20:35:26,428:WARNING:root:gates: ['(0,1/3,1/3,1/3) -> (1/3,2/3,2/3,1)']
+2021-12-04 20:35:26,428:WARNING:root:paths: 72
+2021-12-04 20:36:02,836:WARNING:root:gates: ['(0,1/3,1/3,1/3) -> (1/3,0,1/3,2/3)']
+2021-12-04 20:36:02,836:WARNING:root:paths: 1623
+======
+GENERATOR: all_gates
+{'bounds_cache': CacheInfo(hits=103292048, misses=1082950, maxsize=262144, currsize=262144),
+ 'gates_count': 3,
+ 'idxs': [744, 766, 745, 1016, 1034, 1018, 746, 1017],
+ 'lo': Fraction(675852788177649664, 10912230001016397),
+ 'max_stats': {'pair_depth': 6,
+               'sat.problem_size': SATProblemSize(literals=7825, clauses=2405, variables=275)},
+ 'sum_stats': Counter({'pair_depth': 170217222,
+                       'ptree.push': 142961133,
+                       'ptree.good': 118075770,
+                       'possible_curves': 115408896,
+                       'ptree.copy_push': 38586135,
+                       'divide_iter': 2655409,
+                       'ptree.bad': 815466,
+                       'sat.solve_calls': 98164,
+                       'ptree.set_good_threshold': 17662,
+                       'ptree.set_bad_threshold': 13283,
+                       'bisect_iter': 8345,
+                       'seen_pcurve': 1761}),
+ 'up': Fraction(225284995733635072, 3637410000338799)}
+lower bound (float): 61.9353503467851
+upper bound (float): 61.9355518659297
+Curves:
+@0: jlkLilKLJlkLIlK | 0JiLk~,0LjiK~,0KliJ~,0klJi,0ILkj~,0iLkj,0klJI~,0KlIJ,0jLKi~,0JLKi,0KlJi~,0kliJ,0Lijk,0ILjK,0lkjI,0Kjli
+
+@0: jlkLiKlkJKLkIlK | 0JiLk~,0LjiK~,0KliJ~,0klJi,0ILkj~,0ikLj,0KLiJ,0KljI~,0kjlI,0kJlI~,0lKJi~,0LKiJ,0kiLj,0ILkJ,0lkjI,0Kjli
+
+@0: jlkLilKLJlkLIlK | 0JiLk~,0LjiK~,0KliJ~,0klJi,0ILkj~,0iLkj,0klJI~,0KlIJ,0jLKi~,0JLKi,0KlIj~,0kljI,0Lijk,0ILjK,0lkjI,0Kjli
+
+@0: jlkLilKLJlkLIlK | 0JiLk~,0LjiK~,0KljI~,0klIj,0LIkJ,0iLkj,0klJI~,0KlIJ,0jLKi~,0JLKi,0KlJi~,0kliJ,0Lijk,0ILjK,0lkjI,0Kjli
+
+@0: jlkLiKlkJKLkIlK | 0JiLk~,0LjiK~,0KljI~,0klIj,0LIkJ,0ikLj,0KLiJ,0KljI~,0kjlI,0Jkli,0lKJi~,0LKiJ,0kiLj,0ILkJ,0lkjI,0Kjli
+
+@0: jlkLilKLJlkLIlK | 0JiLk~,0LjiK~,0KljI~,0klIj,0ILkj~,0iLkj,0klJI~,0KlIJ,0jLKi~,0LJKI~,0KlJi~,0kliJ,0Likj,0ILkJ,0lkjI,0Kjli
+
+@0: jlkLilKLJlkLIlK | 0JiLk~,0LjiK~,0KliJ~,0klJi,0ILkj~,0iLkj,0klJI~,0KlIJ,0jLKi~,0JLKi,0lKJI,0lkij~,0Likj,0ILkJ,0lkjI,0Kjli
+
+@0: jlkLilKLJlkLIlK | 0JiLk~,0LjiK~,0KljI~,0klIj,0LIkJ,0iLkj,0klJI~,0KlIJ,0jLKi~,0JLKi,0KlIj~,0kljI,0Lijk,0ILjK,0lkjI,0Kjli
+
+
+
+real	45m55.303s
+user	45m49.940s
+sys	0m5.088s
