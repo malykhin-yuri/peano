@@ -221,6 +221,14 @@ class FuzzyCurve:
 
             yield Curve(dim=self.dim, div=self.div, patterns=patterns, pnum=self.pnum)
 
+    def count_possible_curves(self):
+        """Count all curves, compatible with self."""
+        result = 1
+        for pnum in range(self.pcount):
+            for cnum in range(self.genus):
+                result *= len(list(self.gen_allowed_specs(pnum, cnum)))
+        return result
+
     def gen_defined_specs(self):
         """Generate triples (pnum, cnum, spec) of defined specs."""
         for pnum, pattern in enumerate(self.patterns):

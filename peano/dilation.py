@@ -769,6 +769,7 @@ class Estimator:
             for cnt, item in enumerate(active):
                 if epoch == 1:
                     self.sum_stats['seen_pcurve'] += 1
+                    self.sum_stats['possible_curves'] += item.curve.count_possible_curves()
                 logger.info('Epoch #%d, curve %d / %d', epoch, cnt + 1, total)
                 res = self.estimate_dilation_fuzzy(
                     item.curve, rel_tol_inv=curr_rel_tol_inv, stop_upper_bound=curr_up,

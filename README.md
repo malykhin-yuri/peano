@@ -7,11 +7,11 @@ https://arxiv.org/abs/2103.07344
 Computations from the paper may be reproduced using the search.py script (module):
 
 Computation 1 (Spring 3d curve):
-* $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared
+* $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --rel-tol-inv 1000000
 * time: ~3 min
 
 Computation 2 (4d curve):
-* $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2
+* $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
 * time: ~1 hour
 
 * YE curve search
