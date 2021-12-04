@@ -25,8 +25,6 @@ def run_estimator(
         cache_max_size=None,
     ):
 
-    global_stats = Counter()
-
     # we prefer to generate gates before curves to calculate timinings
     if gate_list is None:
         gate_list = list(GatesGenerator(dim, div, pcount, only_facet=facet_gated).gen_gates())
@@ -41,11 +39,6 @@ def run_estimator(
 
     def gen_pcurves(gates_iterable):
         for gates_idx, gates in enumerate(gates_iterable):
-            global_stats['seen_gates'] += 1
-            if output_gates:
-                yield gates
-                continue
-
             logging.info('processing gates: %d', gates_idx + 1)
             paths_gen = PathsGenerator(dim=dim, div=div, links=gates, max_cdist=max_cdist)
             kw = {}
@@ -82,10 +75,10 @@ def run_estimator(
             upper_bound=upper_bound,
             **estimate_kwargs
         )
-        result['global_stats'] = global_stats
+        result['gates'] = len(gate_list)
         result['sum_stats'] = estimator.sum_stats
         result['max_stats'] = estimator.max_stats
-        result['cache_info'] = estimator._get_pos_bounds.cache_info()
+        result['cache_info'] = estimator.get_cache_info()
 
         print('======')
         print('GENERATOR:', gen_id)
