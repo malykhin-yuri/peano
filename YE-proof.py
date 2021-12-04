@@ -1,4 +1,5 @@
 import logging
+import pprint
 
 from peano.utils import ratio_l2
 from peano.subsets import Link
@@ -8,7 +9,7 @@ from peano.curves import PathFuzzyCurve
 from peano.dilation import Estimator
 from tests.examples import get_ye_curve
 
-import search
+from search import run_search
 
 
 DIAG_LINK = Link.parse_gates('(0,0)->(1,1)')
@@ -25,13 +26,14 @@ def check_genus5_non_ye():
     paths_list = [paths for paths in paths_list if paths[0].proto not in YE_protos]
     print('got non-YE paths:', len(paths_list))
 
-    estimator = Estimator(ratio_l2, cache_max_size=2**16)
+    estimator = Estimator(ratio_l2)
 
     result = estimator.estimate_dilation_sequence(
         [PathFuzzyCurve.init_from_paths(paths) for paths in paths_list],
         rel_tol_inv=200,
     )
-    print(result)
+    result.update(estimator.get_info())
+    pprint.pprint(result)
     print('lower bound:', float(result['lo']))
     print('upper bound:', float(result['up']))
 
@@ -53,25 +55,28 @@ def check_genus5_ye_proto():
         allowed = ye_pcurve.gen_allowed_specs(pnum=0, cnum=cnum)
         test_pcurves += [ye_pcurve.specify(pnum=0, cnum=cnum, spec=sp) for sp in allowed if sp != ye_spec]
 
-    estimator = Estimator(ratio_l2, cache_max_size=2**16)
+    estimator = Estimator(ratio_l2)
 
     result = estimator.estimate_dilation_sequence(
         test_pcurves,
         rel_tol_inv=1000,
     )
-    print(result)
+    result.update(estimator.get_info())
+    pprint.pprint(result)
     print('lower bound:', float(result['lo']))
     print('upper bound:', float(result['up']))
 
 
 def check_ye():
-    estimator = Estimator(ratio_l2, cache_max_size=2**16)
+    estimator = Estimator(ratio_l2)
     result = estimator.estimate_dilation_regular(
         get_ye_curve(),
         use_face_moments=True, face_dim=0,
         max_depth=5,
         rel_tol_inv=100000,
     )
+    result.update(estimator.get_info())
+    pprint.pprint(result)
     print('Lower bound is sharp due to the stabilization theorem (Theorem A)')
     print('lower bound:', result['lo'])
 
@@ -84,13 +89,13 @@ def main():
     print('We consider plain Peano monofractal curves')
     print('')
     print('Genus 2x2:')
-    search.run_estimator(dim=2, div=2, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    search.run_search(dim=2, div=2, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 3x3:')
-    search.run_estimator(dim=2, div=3, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    search.run_search(dim=2, div=3, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 4x4:')
-    search.run_estimator(dim=2, div=4, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    search.run_search(dim=2, div=4, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 6x6')
     print('Plain monofractal curves fall into 3 categories:')
@@ -98,14 +103,14 @@ def main():
     print('"diag", (0,0)->(1,1) -- no such curves for even genus')
     print('"med",  (0,0)->(1,1/2)')
     print('Check side and median curves without diagonal steps:')
-    search.run_estimator(
+    search.run_search(
         dim=2, div=6, pcount=1, ratio_func=ratio_l2,
         gate_list=[(SIDE_LINK,), (MEDIAN_LINK,)], max_cdist=1, rel_tol_inv=200, group_by_gates=True,
     )
 
     print('Genus 5x5')
     print('Check diagonal and median curves without diagonal steps:')
-    search.run_estimator(
+    search.run_search(
         dim=2, div=5, pcount=1, ratio_func=ratio_l2,
         gate_list=[(DIAG_LINK,), (MEDIAN_LINK,)], max_cdist=1, rel_tol_inv=200, group_by_gates=True,
     )

@@ -375,8 +375,12 @@ class Estimator:
 
         return lo, up, argmax
 
-    def get_cache_info(self):
-        return self._get_pos_bounds.cache_info()
+    def get_info(self):
+        return {
+            'bounds_cache': self._get_pos_bounds.cache_info(),
+            'sum_stats': self.sum_stats,
+            'max_stats': self.max_stats,
+        }
 
     def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
         # Create initial pairs from a curve: for all junctions we take pairs of non-adjacent fractions

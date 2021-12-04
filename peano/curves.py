@@ -103,7 +103,7 @@ class FuzzyCurve:
         return self.patterns[self.pnum].specs
 
     def __str__(self):
-        return ''.join('@{}: {}\n'.format(pnum, pattern) for pnum, pattern in enumerate(self.patterns))
+        return '\n'.join('@{}: {}'.format(pnum, pattern) for pnum, pattern in enumerate(self.patterns))
 
     def _changed(self, patterns=None, pnum=None, **kwargs):
         return type(self)(

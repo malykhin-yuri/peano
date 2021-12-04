@@ -3,6 +3,7 @@
 import logging
 import argparse
 from collections import Counter
+import pprint
 
 from quicktions import Fraction
 
@@ -14,14 +15,14 @@ from peano.gates import GatesGenerator
 from peano.subsets import Link
 
 
-def run_estimator(
+def run_search(
         dim, div, pcount,
         finish_max_count=None,
         ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None,
         gate_list=None, facet_gated=False, max_cdist=None,
         upper_bound=None,
         group_by_gates=False,
-        output_gates=False, output_curves=None,
+        output_gates=False,
         cache_max_size=None,
     ):
 
@@ -75,23 +76,22 @@ def run_estimator(
             upper_bound=upper_bound,
             **estimate_kwargs
         )
-        result['gates'] = len(gate_list)
-        result['sum_stats'] = estimator.sum_stats
-        result['max_stats'] = estimator.max_stats
-        result['cache_info'] = estimator.get_cache_info()
+        result.update(estimator.get_info())
+        result['gates_count'] = len(gate_list)
+        curves = result.pop('curves')
 
         print('======')
         print('GENERATOR:', gen_id)
         if not result:
             print('NOT FOUND!')
         else:
-            print(result)
-            print('lower bound:', float(result['lo']))
-            print('upper bound:', float(result['up']))
-            if output_curves:
-                for curve in result['curves']:
-                    print(curve)
-                    print('')
+            pprint.pprint(result)
+            print('lower bound (float):', float(result['lo']))
+            print('upper bound (float):', float(result['up']))
+            print('Curves:')
+            for curve in curves:
+                print(curve)
+                print('')
 
         print('', flush=True)
 
@@ -119,7 +119,6 @@ if __name__ == "__main__":
     # other
     argparser.add_argument('--group-by-gates', action='store_true', help='estimate ratio for each gate')
     argparser.add_argument('--output-gates', action='store_true', help='only gates, do not estimate ratio')
-    argparser.add_argument('--output-curves', action='store_true', help='print curve examples')
     argparser.add_argument('--verbose', '-v', action='count', default=0, help='loglevel (0=warning, 1=info, 2=debug)')
 
     args = argparser.parse_args()
@@ -168,4 +167,4 @@ if __name__ == "__main__":
     if args.upper_bound is not None:
         kwargs['upper_bound'] = Fraction(args.upper_bound)
 
-    run_estimator(**kwargs)
+    run_search(**kwargs)

@@ -7,15 +7,15 @@ https://arxiv.org/abs/2103.07344
 Computations from the paper may be reproduced using the search.py script (module):
 
 Computation 1 (Spring 3d curve):
-* $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --output-curves
+* $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared
 * time: ~3 min
 
 Computation 2 (4d curve):
-* $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --output-curves
+* $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2
 * time: ~1 hour
 
 * YE curve search
-* $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000 --output-curves
+* $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
 * time: ~1.5min
 
 See also YE-proof.py for a full computer-assisted proof of YE curve minimality.
