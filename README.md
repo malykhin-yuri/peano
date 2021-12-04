@@ -8,11 +8,11 @@ Computations from the paper may be reproduced using the search.py script (module
 
 Computation 1 (Spring 3d curve):
 * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --rel-tol-inv 1000000
-* time: ~3 min
+* time: ~4 min
 
 Computation 2 (4d curve):
 * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
-* time: ~1 hour
+* time: ~45 min
 
 * YE curve search
 * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
