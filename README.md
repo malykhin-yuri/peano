@@ -4,13 +4,14 @@ Python package "peano" implements regular peano fractal curves on d-dimensional 
 This code is used to obtain results described in the paper:
 https://arxiv.org/abs/2103.07344
 
-Computations from the paper may be reproduced using the [a relative link](search.py) script:
+Computations from the paper may be reproduced using the [search.py](search.py) script:
 
 Computation 1 (Spring 3d curve):
 * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --rel-tol-inv 1000000
 * time: ~4 min
+
 Note that output curves differ from the description in the paper.
-See also ``get_spring_curve'' method in [a relative link](tests/examples.py).
+See also ``get_spring_curve'' method in [examples](tests/examples.py).
 
 Computation 2 (4d curve):
 * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
