@@ -21,7 +21,9 @@ Computation 2 (4d curve):
 * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
 * time: ~1.5min
 
-See also [a relative link](YE-proof.py) for a full computer-assisted proof of YE curve minimality.
+See also [YE-proof](YE-proof.py) for a full computer-assisted proof of YE curve minimality.
+
+In the [logs](logs) directory we put the output of three mentioned computations.
 
 In our test examples we use data from several papers:
 
