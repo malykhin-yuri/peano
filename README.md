@@ -11,11 +11,13 @@ Computation 1 (Spring 3d curve):
 * time: ~4 min
 
 Note that output curves differ from the description in the paper.
-See also ``get_spring_curve'' method in [examples](tests/examples.py).
+See also method ``get_spring_curve'' in [examples](tests/examples.py).
 
 Computation 2 (4d curve):
 * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
 * time: ~45 min
+
+See an example of an output curve in the method ``get_4d_facet_gated_curve'' in [examples](tests/examples.py).
 
 * YE curve search
 * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
