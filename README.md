@@ -4,11 +4,13 @@ Python package "peano" implements regular peano fractal curves on d-dimensional 
 This code is used to obtain results described in the paper:
 https://arxiv.org/abs/2103.07344
 
-Computations from the paper may be reproduced using the search.py script (module):
+Computations from the paper may be reproduced using the [a relative link](search.py) script:
 
 Computation 1 (Spring 3d curve):
 * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --rel-tol-inv 1000000
 * time: ~4 min
+Note that output curves differ from the description in the paper.
+See also ``get_spring_curve'' method in [a relative link](tests/examples.py).
 
 Computation 2 (4d curve):
 * $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
@@ -18,7 +20,7 @@ Computation 2 (4d curve):
 * $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
 * time: ~1.5min
 
-See also YE-proof.py for a full computer-assisted proof of YE curve minimality.
+See also [a relative link](YE-proof.py) for a full computer-assisted proof of YE curve minimality.
 
 In our test examples we use data from several papers:
 
