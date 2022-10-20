@@ -90,7 +90,7 @@ class FuzzyCurve:
             pattern_objects.append(pattern)
 
         self.patterns = tuple(pattern_objects)
-        self.pcount = len(self.patterns)
+        self.mult = len(self.patterns)
         self.pnum = pnum
         self.genus = div**dim
 
@@ -209,7 +209,7 @@ class FuzzyCurve:
         G = self.genus
 
         # large list of generators of specs for each (pnum, cnum); flatten by pnum * G + cnum
-        for pnum in range(self.pcount):
+        for pnum in range(self.mult):
             for cnum in range(G):
                 sp_variant_generators.append(self.gen_allowed_specs(pnum, cnum))
 
@@ -224,7 +224,7 @@ class FuzzyCurve:
     def count_possible_curves(self):
         """Count all curves, compatible with self."""
         result = 1
-        for pnum in range(self.pcount):
+        for pnum in range(self.mult):
             for cnum in range(self.genus):
                 result *= len(list(self.gen_allowed_specs(pnum, cnum)))
         return result
@@ -390,7 +390,7 @@ class FuzzyCurve:
     #
 
     def gen_auto_junctions(self):
-        for pnum in range(self.pcount):
+        for pnum in range(self.mult):
             yield AutoJunction(dim=self.dim, pnum=pnum)
 
     def _gen_junctions_from_base(self, base_juncs):
@@ -465,7 +465,7 @@ class FuzzyCurve:
         # - specs at (pnum, cnum) and (pnum, cnum+1)
         templates = []
         G = self.genus
-        P = self.pcount
+        P = self.mult
         variants = []
         for pnum in range(P):
             variants.append(self.gen_allowed_specs(pnum=pnum, cnum=0))
@@ -540,12 +540,12 @@ class Curve(FuzzyCurve):
 
     def get_paths(self):
         """Get curve pointed prototypes (Path objects tuple)."""
-        links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.pcount)]
+        links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.mult)]
         paths = []
         for pattern in self.patterns:
             pattern_links = [spec.base_map * links[spec.pnum] for spec in pattern.specs]
             paths.append(Path(pattern.proto, pattern_links))
-        return paths
+        return tuple(paths)
 
     def forget(self, **kwargs):
         """Convert curve to a fuzzy curve, saving entrance/exit and forgetting all specs."""
@@ -585,7 +585,7 @@ class Curve(FuzzyCurve):
     def _gen_base_junctions(self):
         # junctions from first subdivision
         seen = set()
-        for pnum in range(self.pcount):
+        for pnum in range(self.mult):
             for cnum in range(self.genus - 1):
                 junc = self._get_base_junction(pnum=pnum, cnum=cnum)
                 if junc not in seen:
@@ -688,7 +688,7 @@ class PathFuzzyCurve(FuzzyCurve):
         Create PathFuzzyCurve from a tuple of pointed paths (Path instances).
 
         Args:
-            paths: tuple of Path instances (so, pcount is len(paths))
+            paths: tuple of Path instances (so, mult is len(paths))
             base_maps_group: subgroup of all base maps to use in curve
             disable_time_rev: boolean, disable time_rev in curve base_maps
         """

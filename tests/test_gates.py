@@ -21,17 +21,17 @@ class TestGates(unittest.TestCase):
 
     def test_gen_gates(self):
         configs = [
-            {'dim': 2, 'div': 2, 'pcount': 1, 'count': 1, 'result': ['(0,0)->(0,1)']},
-            {'dim': 2, 'div': 3, 'pcount': 1, 'count': 2, 'result': ['(0,0)->(0,1)', '(0,0)->(1,1)']},
-            {'dim': 2, 'div': 4, 'pcount': 1, 'count': 2, 'result': ['(0,0)->(0,1)', '(0,0)->(1,1/2)']},
-            {'dim': 2, 'div': 5, 'pcount': 1, 'count': 3, 'result': ['(0,0)->(0,1)', '(0,0)->(1,1)', '(0,0)->(1,1/2)']},
+            {'dim': 2, 'div': 2, 'mult': 1, 'count': 1, 'result': ['(0,0)->(0,1)']},
+            {'dim': 2, 'div': 3, 'mult': 1, 'count': 2, 'result': ['(0,0)->(0,1)', '(0,0)->(1,1)']},
+            {'dim': 2, 'div': 4, 'mult': 1, 'count': 2, 'result': ['(0,0)->(0,1)', '(0,0)->(1,1/2)']},
+            {'dim': 2, 'div': 5, 'mult': 1, 'count': 3, 'result': ['(0,0)->(0,1)', '(0,0)->(1,1)', '(0,0)->(1,1/2)']},
 
-            {'dim': 2, 'div': 2, 'pcount': 2, 'only_facet': True,  'count': 1},  # beta-omega
-            {'dim': 2, 'div': 3, 'pcount': 2, 'only_facet': True,  'count': 2},
-            {'dim': 2, 'div': 2, 'pcount': 3, 'only_facet': True,  'count': 6},
+            {'dim': 2, 'div': 2, 'mult': 2, 'only_facet': True,  'count': 1},  # beta-omega
+            {'dim': 2, 'div': 3, 'mult': 2, 'only_facet': True,  'count': 2},
+            {'dim': 2, 'div': 2, 'mult': 3, 'only_facet': True,  'count': 6},
 
             {
-                'dim': 3, 'div': 2, 'pcount': 1,  'count': 6,
+                'dim': 3, 'div': 2, 'mult': 1,  'count': 6,
                 'result': [  # Haverkort's inventory paper
                     '(0,0,0)->(1,0,0)',  # type A
                     '(0,0,0)->(0,1,1)',  # type B
@@ -41,11 +41,11 @@ class TestGates(unittest.TestCase):
                     '(0,1/3,1/3)->(2/3,1/3,0)',  # type F
                 ],
             },
-            {'dim': 3, 'div': 2, 'pcount': 1, 'only_facet': True,  'count': 1},
-            {'dim': 3, 'div': 2, 'pcount': 2, 'only_facet': True,  'count': 35},
+            {'dim': 3, 'div': 2, 'mult': 1, 'only_facet': True,  'count': 1},
+            {'dim': 3, 'div': 2, 'mult': 2, 'only_facet': True,  'count': 35},
         ]
         for conf in configs:
-            generator = GatesGenerator(dim=conf['dim'], div=conf['div'], pcount=conf['pcount'], only_facet=conf.get('only_facet'))
+            generator = GatesGenerator(dim=conf['dim'], div=conf['div'], mult=conf['mult'], only_facet=conf.get('only_facet'))
             gen_list = list(generator.gen_gates())
             self.assertEqual(len(gen_list), conf['count'])
             if 'result' in conf:
@@ -53,10 +53,10 @@ class TestGates(unittest.TestCase):
                 self.assertEqual(std_links_list(true_list), std_links_list(gen_list))
 
     def test_hyper_by_all(self):
-        for dim, div, pcount in [(3, 2, 1)]:  # TODO: add 2,2,2
-            all_gates = list(GatesGenerator(dim=dim, div=div, pcount=pcount).gen_gates())
+        for dim, div, mult in [(3, 2, 1)]:  # TODO: add 2,2,2
+            all_gates = list(GatesGenerator(dim=dim, div=div, mult=mult).gen_gates())
             hyper_in_all = [gates for gates in all_gates if all(check_hyper(gate, dim) for gate in gates)]
             hyper_in_all.sort()
-            hyper_gates = list(GatesGenerator(dim=dim, div=div, pcount=pcount, only_facet=True).gen_gates())
+            hyper_gates = list(GatesGenerator(dim=dim, div=div, mult=mult, only_facet=True).gen_gates())
             hyper_gates.sort()
             self.assertEqual(hyper_in_all, hyper_gates)

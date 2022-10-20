@@ -139,7 +139,7 @@ class TestCurve(unittest.TestCase):
     def test_compose(self):
         for curve in self.curves:
             for bm in BaseMap.gen_base_maps(dim=curve.dim):
-                for pnum in range(curve.pcount):
+                for pnum in range(curve.mult):
                     for cnum in range(curve.genus):
                         spec = Spec(base_map=bm, pnum=pnum)
                         C = spec * curve
@@ -229,7 +229,7 @@ class TestCurve(unittest.TestCase):
         ]
         for data in known:
             curve = data['curve']
-            gates = [Link(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.pcount)]
+            gates = [Link(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.mult)]
             self.assertEqual(gates, data['gates'])
 
             for pnum, gate in enumerate(gates):
@@ -288,10 +288,10 @@ class TestFuzzyCurves(unittest.TestCase):
 
     def test_3D(self):
         # Haverkort inventory: 920 face-continuous vertex-gated order-preserving
-        dim, div, pcount = 3, 2, 1
+        dim, div, mult = 3, 2, 1
         all_bms = list(BaseMap.gen_base_maps(dim=dim))
         seen = set()
-        gates_gen = GatesGenerator(dim=dim, div=div, pcount=pcount)
+        gates_gen = GatesGenerator(dim=dim, div=div, mult=mult)
         for gates in gates_gen.gen_gates():
             link = gates[0]
             if link.entrance.face_dim() > 0 or link.exit.face_dim() > 0:

@@ -36,14 +36,14 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
     axs = []
     ticks = [j/div for j in range(1, div)]
     print(ticks)
-    for pnum in range(curve.pcount):
+    for pnum in range(curve.mult):
         pnum_axs = []
         if separate:
-            ax1 = fig.add_subplot(curve.pcount, 2, pnum + 1, **kws)
-            ax2 = fig.add_subplot(curve.pcount, 2, pnum + 1 + curve.pcount, **kws)
+            ax1 = fig.add_subplot(curve.mult, 2, pnum + 1, **kws)
+            ax2 = fig.add_subplot(curve.mult, 2, pnum + 1 + curve.mult, **kws)
             pnum_axs = [ax1, ax2]
         else:
-            pnum_axs = [fig.add_subplot(curve.pcount, 1, pnum + 1, **kws)]
+            pnum_axs = [fig.add_subplot(curve.mult, 1, pnum + 1, **kws)]
         for idx, ax in enumerate(pnum_axs):
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
@@ -55,7 +55,7 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
             else:
                 ax.set_xticks([])
                 ax.set_yticks([])
-            if curve.pcount > 1:
+            if curve.mult > 1:
                 if (not separate) or (separate and idx == 0):
                     ax.set_title('pattern ({})'.format(pattern_names[pnum]))
             if dim == 2:
@@ -92,7 +92,7 @@ def plot_curve(curve, grid=True, separate=False, subdivision=0, output_file=None
             pname = pattern_names[spec.pnum]
             if spec.base_map.time_rev:
                 pname = r'$\overline{\mathrm{' + pname + '}}$'
-            if curve.pcount > 1:
+            if curve.mult > 1:
                 glob_ax.text(*[(cj + 0.37)/curve.div for cj in cube], s=pname, fontsize='medium', alpha=0.7)
             line = _get_proto_center_line(spec.base_map * subcurve.patterns[spec.pnum].proto)
             abs_line = [_get_abs_point(point, shift=cube, scale=1/curve.div) for point in line]

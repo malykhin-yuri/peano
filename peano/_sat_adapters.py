@@ -41,7 +41,7 @@ class CurveSATAdapter:
         self._curve = curve  # used in get_model
 
         # possible specs
-        for pnum in range(curve.pcount):
+        for pnum in range(curve.mult):
             for cnum in range(curve.genus):
                 self._make_only([self._get_sp_var(pnum, cnum, sp) for sp in curve.gen_allowed_specs(pnum, cnum)])
 
@@ -186,7 +186,7 @@ class CurveSATAdapter:
         curve = self._curve
         specs_allowed_by_model = []
         G = curve.genus
-        for pnum in range(curve.pcount):
+        for pnum in range(curve.mult):
             for cnum in range(G):
                 good_spec = None
                 for sp in curve.gen_allowed_specs(pnum, cnum):

@@ -63,9 +63,9 @@ Operator usage:
 * ~X means time reversal (in base map or curve)
 
 Common names and notations:
-* dim -- dimension of the curve image: [0,1]->[0,1]^d
+* dim -- dimension of the curve image: [0,1]->[0,1]^{dim}
 * div -- number of divisions for each coordinate
-* pcount -- number of patterns (monofractal: 1, bifractal: 2, etc)
+* mult -- multiplicity of the curve, i.e. number of patterns (monofractal: 1, bifractal: 2, etc)
 * cube -- d-tuple of ints, all coordinates range from 0 to div-1
 * cnum -- index of cube, ranges from 0 to genus-1
 * pnum -- index of pattern, ranges from 0 to pcount-1

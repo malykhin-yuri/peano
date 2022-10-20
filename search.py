@@ -16,7 +16,7 @@ from peano.subsets import Link
 
 
 def run_search(
-        dim, div, pcount,
+        dim, div, mult,
         finish_max_count=None,
         ratio_func=None, rel_tol_inv=None, rel_tol_inv_mult=None,
         gate_list=None, facet_gated=False, max_cdist=None,
@@ -28,9 +28,9 @@ def run_search(
 
     # we prefer to generate gates before curves to calculate timinings
     if gate_list is None:
-        gate_list = list(GatesGenerator(dim, div, pcount, only_facet=facet_gated).gen_gates())
+        gate_list = list(GatesGenerator(dim, div, mult, only_facet=facet_gated).gen_gates())
     else:
-        assert all(len(gates) == pcount for gates in gate_list)
+        assert all(len(gates) == mult for gates in gate_list)
 
     logging.info('gate configurations: %d', len(gate_list))
     if output_gates:
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     # configuration args
     argparser.add_argument('--dim', type=int, required=True)
-    argparser.add_argument('--pcount', type=int, required=True)
+    argparser.add_argument('--mult', type=int, required=True)
     argparser.add_argument('--div', type=int, required=True)
     argparser.add_argument('--facet-gated', action='store_true', help='only facet-gated curves (exit/entrance on facets)')
     argparser.add_argument('--gates', type=str, help='one tuple of "|"-separated gates')

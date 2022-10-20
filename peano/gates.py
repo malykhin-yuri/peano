@@ -12,21 +12,21 @@ logger = logging.getLogger(__name__)
 
 
 class GatesGenerator:
-    def __init__(self, dim, div, pcount, only_facet=False):
+    def __init__(self, dim, div, mult, only_facet=False):
         """
         Generate gates for given configuration.
 
         Args:
-            dim, div, pcount: base configuration
+            dim, div, mult: base configuration
             only_facet: generate facet-gated curves only, i.e. having entrance/exit
               strictly on facets (hyperfaces)
         """
         self.dim = dim
         self.div = div
-        self.pcount = pcount
+        self.mult = mult
         self.only_facet = only_facet
         self.stats = Counter()
-        self._boundary_pnum_cnums = tuple((pnum, cnum) for pnum in range(pcount) for cnum in [0, -1])
+        self._boundary_pnum_cnums = tuple((pnum, cnum) for pnum in range(mult) for cnum in [0, -1])
 
     def gen_gates(self):
         """
@@ -49,7 +49,7 @@ class GatesGenerator:
             yield from self._gen_all_gates()
 
     def _gen_facet_gates(self):
-        dim, div, pcount = self.dim, self.div, self.pcount
+        dim, div, mult = self.dim, self.div, self.mult
 
         facet0 = FacetDivSubset(dim=dim, div=div, facet=(0, 0))  # x0=0
         facet1 = FacetDivSubset(dim=dim, div=div, facet=(0, 1))  # x0=1
@@ -57,7 +57,7 @@ class GatesGenerator:
 
         # we either go to the opposite facet, either to the neighbour facet, or return to the same facet
         link_variants = [Link(facet0, facet0), Link(facet0, facet1), Link(facet0, facet2)]
-        links_list = list(itertools.combinations_with_replacement(link_variants, r=pcount))
+        links_list = list(itertools.combinations_with_replacement(link_variants, r=mult))
 
         for links_idx, links in enumerate(links_list):
             logger.info('processing global links %d of %d', links_idx + 1, len(links_list))
@@ -72,14 +72,14 @@ class GatesGenerator:
                     specs_dict = {}
                     for pnum, cnum in self._boundary_pnum_cnums:
                         specs = []
-                        for pn in range(self.pcount):
+                        for pn in range(self.mult):
                             bms = narrow[pn].link.argmul_intersect(narrow[pnum].links[cnum])
                             specs += [Spec(bm, pnum=pn) for bm in bms]
                         specs_dict[pnum, cnum] = specs
                     yield from self._check_variants(protos, specs_dict)
 
     def _gen_all_gates(self):
-        dim, div, pcount = self.dim, self.div, self.pcount
+        dim, div, mult = self.dim, self.div, self.mult
 
         # curves are non-internal, so first and last cubes are on the boundary
         all_bms = list(BaseMap.gen_base_maps(dim=dim))
@@ -97,7 +97,7 @@ class GatesGenerator:
 
         # as base_maps are not defined yet, we can standartize everything
         std_pairs = set(std_pair(pair) for pair in facet_pairs)
-        std_pairs_list = list(itertools.combinations_with_replacement(sorted(std_pairs), r=pcount))
+        std_pairs_list = list(itertools.combinations_with_replacement(sorted(std_pairs), r=mult))
 
         # to find gates, we should specify:
         # * first and last cubes in proto (for each pattern) -- will use std_pairs_list for that
@@ -117,7 +117,7 @@ class GatesGenerator:
             specs_dict = {}
             for pnum, cnum in self._boundary_pnum_cnums:
                 specs = []
-                for pn in range(pcount):
+                for pn in range(mult):
                     specs += [Spec(bm, pnum=pn) for bm in all_bms if touch_same_facet(protos[pnum][cnum], (bm * protos[pn])[cnum])]
                 specs_dict[pnum, cnum] = specs
             yield from self._check_variants(protos, specs_dict)
@@ -137,9 +137,9 @@ class GatesGenerator:
                 yield gates
 
     def _check_and_std(self, protos, spec_list):
-        dim, div, pcount = self.dim, self.div, self.pcount
+        dim, div, mult = self.dim, self.div, self.mult
 
-        pattern_specs = [[None] * (div**dim) for _ in range(pcount)]
+        pattern_specs = [[None] * (div**dim) for _ in range(mult)]
         for (pnum, cnum), spec in zip(self._boundary_pnum_cnums, spec_list):
             pattern_specs[pnum][cnum] = spec
 
@@ -147,7 +147,7 @@ class GatesGenerator:
         curve = FuzzyCurve(dim=dim, div=div, patterns=patterns)
 
         gates = []
-        for pnum in range(pcount):
+        for pnum in range(mult):
             entr = curve.get_entrance(pnum)
             if (self.only_facet and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
                 return

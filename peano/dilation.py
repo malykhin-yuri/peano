@@ -464,7 +464,7 @@ class Estimator:
         tree_kwargs = {'keep_max_lo_item': True}
         if use_face_moments:
             pts = {}
-            for pnum in range(curve.pcount):
+            for pnum in range(curve.mult):
                 face_pts_set = set()
                 for face in gen_faces(curve.dim, face_dim):
                     for last in [False, True]:

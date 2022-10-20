@@ -89,13 +89,13 @@ def main():
     print('We consider plain Peano monofractal curves')
     print('')
     print('Genus 2x2:')
-    run_search(dim=2, div=2, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    run_search(dim=2, div=2, mult=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 3x3:')
-    run_search(dim=2, div=3, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    run_search(dim=2, div=3, mult=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 4x4:')
-    run_search(dim=2, div=4, pcount=1, ratio_func=ratio_l2, rel_tol_inv=1000)
+    run_search(dim=2, div=4, mult=1, ratio_func=ratio_l2, rel_tol_inv=1000)
 
     print('Genus 6x6')
     print('Plain monofractal curves fall into 3 categories:')
@@ -103,15 +103,15 @@ def main():
     print('"diag", (0,0)->(1,1) -- no such curves for even genus')
     print('"med",  (0,0)->(1,1/2)')
     print('Check side curves without diagonal steps:')
-    run_search(dim=2, div=6, pcount=1, ratio_func=ratio_l2, gate_list=[(SIDE_LINK,)], max_cdist=1, rel_tol_inv=200)
+    run_search(dim=2, div=6, mult=1, ratio_func=ratio_l2, gate_list=[(SIDE_LINK,)], max_cdist=1, rel_tol_inv=200)
     print('Check median curves without diagonal steps:')
-    run_search(dim=2, div=6, pcount=1, ratio_func=ratio_l2, gate_list=[(MEDIAN_LINK,)], max_cdist=1, rel_tol_inv=200)
+    run_search(dim=2, div=6, mult=1, ratio_func=ratio_l2, gate_list=[(MEDIAN_LINK,)], max_cdist=1, rel_tol_inv=200)
 
     print('Genus 5x5')
     print('Check diagonal curves without diagonal steps:')
-    run_search(dim=2, div=5, pcount=1, ratio_func=ratio_l2, gate_list=[(DIAG_LINK,)], max_cdist=1, rel_tol_inv=200)
+    run_search(dim=2, div=5, mult=1, ratio_func=ratio_l2, gate_list=[(DIAG_LINK,)], max_cdist=1, rel_tol_inv=200)
     print('Check median curves without diagonal steps:')
-    run_search(dim=2, div=5, pcount=1, ratio_func=ratio_l2, gate_list=[(MEDIAN_LINK,)], max_cdist=1, rel_tol_inv=200)
+    run_search(dim=2, div=5, mult=1, ratio_func=ratio_l2, gate_list=[(MEDIAN_LINK,)], max_cdist=1, rel_tol_inv=200)
 
     print('Check side curves with Non-YE prototype:')
     check_genus5_non_ye()

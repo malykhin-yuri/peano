@@ -213,6 +213,7 @@ def get_iupiter_curve():
 
 def get_spring_curve():
     """Spring curve - 3D bifractal facet-gated curve with l2-ratio <17"""
+    # this curve coincides with the spring example in the Scepin-Malykhin paper
     # calculations show that WD = 1533\sqrt{6}/221
     p0 = ('jikIJiK', '1KIJ~,0KIj,1kji,0Jki~,1JkI,0kIJ,1KJi,1JiK')
     p1 = ('jkJijKJ', '1KIJ~,0ijK~,0Ikj~,0KJI~,0kiJ~,0Ijk~,0IjK,1iKJ')
