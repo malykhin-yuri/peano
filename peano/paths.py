@@ -45,7 +45,15 @@ class Proto(tuple):
         """
         Convert chain code like 'ijK' to curve prototype.
 
-        If proto is not facet-continuous, use grouping: i(jk)J, here (jk) means j+k
+        What is chain code: we encode basis vectors e_1,...,e_d by latin letters
+        i,j,k,...; capital-letters I,J,K,.. denote -e_1,...,-e_d respectively.
+        Each cube in the prototype is obtained from previous by some shift, which
+        is a sum of +/- basis vectors. We encode this shifts, if it equals one
+        +/- e_m, use a corresponding letter; in the other case, use grouping by
+        parentheses.
+
+        Example: the sequence of squares (0,0)->(1,1)->(0,1)->(1,0) is encoded as
+            (ij)I(iJ)
         """
         chain_groups = [grp.strip('()') for grp in re.findall('\w|\(\w+\)', chain_code)]
         dim = len(set(c.lower() for grp in chain_groups for c in grp))
