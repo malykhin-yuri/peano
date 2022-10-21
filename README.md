@@ -47,8 +47,8 @@ fractions -- we divide [0,1]^d on sub-cubes with side 1/q; on each fraction p_j
 is isometric to one of the curves {p_i}.
 
 So, multifractal curve has three main characteristics: **dimension** (i.e., d),
-**multiplicity** -- number of patterns (1 for monofractal, 2 for bifractal, etc)
-and **genus** -- number of first-order fractions. Genus equals d^q.
+**multiplicity** (i.e., m) -- number of patterns (m=1 is called a monofractal, m=2 a bifractal, etc)
+and **genus** -- number of first-order fractions; genus equals d^q.
 
 To completely define a multifractal curve, we must specify two things. First,
 **prototypes** for each pattern. A prototype is a sequence of sub-cubes of
