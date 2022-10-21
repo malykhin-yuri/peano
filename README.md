@@ -41,21 +41,22 @@ In the [logs](logs) directory we put the output of three mentioned computations.
 ## Peano multifractals
 
 Peano curve is a surjective map [0,1]->[0,1]^d. We consider the class of Peano
-multifractals which is precisely defined in our paper. Briefly speaking, each
-multifractal is a tuple of Peano curves (p_1,...,p_m), each curve p_j is divided on cubic
-fractions -- we divide [0,1]^d on sub-cubes with side 1/q; on each fraction p_j
-is isometric to one of the curves {p_i}.
+multifractals which is precisely defined in our paper. Divide [0,1]^d to s^d
+cubes with side 1/s; let us call them s-cubes.
+We say that a tuple of Peano curves (p_1,...,p_m) is 
+a **Peano multifractal** if each curve p_j on each s-cube is similar
+to one of the curves {p_i}. Similarity is defined by a **base_map** which
+is an isometry of [0,1]^d and isometry of [0,1] (time reversal or identity map).
 
 So, multifractal curve has three main characteristics: **dimension** (i.e., d),
 **multiplicity** (i.e., m) -- number of patterns (m=1 is called a monofractal, m=2 a bifractal, etc)
-and **genus** -- number of first-order fractions; genus equals d^q.
+and **genus** -- number of first-order fractions; genus equals d^s.
 
 To completely define a multifractal curve, we must specify m **patterns**. For each
 pattern two things are required. First is a **prototype** -- a sequence of
 sub-cubes of [0,1]^d that defines curve order. Next, for each cube in the
-prototype we define **spec** -- i.e. we specify what **base_map** and what
-pattern may be used to obtain sub-curve on that cube. A base map is a pair of
-cube isometry and [0,1] isometry (time reversal or identity map).
+prototype we define **spec** -- i.e. we specify what base_map and what
+pattern may be used to obtain sub-curve on that cube.
 
 Many examples of the curves may be found in tests: [examples.py](tests/examples.py).
 There we use compact notation to define multifractals; it is briefly exaplained
@@ -74,9 +75,9 @@ Korneev, Shchepin, ``L_infty-Locality of Three-Dimensional Peano Curves'', 2019
 
 Here are some common notations used in code:
 * `dim` -- dimension of the curve
-* `div` -- number of divisions for each coordinate
+* `div` -- number of divisions for each coordinate (called s above)
 * `mult` -- multiplicity of the curve, i.e. number of patterns
-* `cube` -- d-tuple of integers, all coordinates range from 0 to div-1
+* `cube` -- div-cube {c_i/div <= x_i <= (c_i+1)/div}, coded as d-tuple of integers (c_0,...,c_{d-1}), where 0 <= c_i < div
 * `cnum` -- index of cube, ranges from 0 to genus-1
 * `pnum` -- index of pattern, ranges from 0 to mult-1
 * `genus` = div\*\*dim -- genus of the curve
@@ -93,7 +94,9 @@ curves:
 * `get_vertex_moments` -- get moments of time when curve visits cube vertices 
 * apply isometry to the curve: b * C, where b is an ``BaseMap`` instance
 
-See also examples in [tests](tests).
+Specs and base maps are defined in the corresponding module [base_maps](peano/base_maps.py).
+
+See also examples in [tests](tests). 
 
 ## Dilation
 
