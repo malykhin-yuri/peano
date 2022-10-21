@@ -99,13 +99,15 @@ See also examples in [tests](tests).
 
 The main purpose of this module is to search curves with minimal dilation. It is
 defined as
+
 ```max_{0<=s<t<=1} ||p(s)-p(t)||^d / |s-t|```
+
 Here ||.|| is some norm, e.g. l_p-norm.
-This maximum is always attained. To work with the dilation you require
+This maximum is always attained. To work with the dilation you need
 some theory that is given in our cited paper and other papers of E.V.Shchepin.
-You have to use `Junctions` from [curves](peano/curves.py). The main tool to
+E.g. you have to use `curves.Junctions`. The main tool to
 estimate dilation and search of minimal-dilation curves is the class `Estimator`
-from [dilation](peano/dilation.py) module. See also its documentation.
+from the [dilation](peano/dilation.py) module. See also its documentation.
 
 Estimator uses SAT-solvers to estimate the minimum dilation of the class of all
 curves with given pointed prototype (prototype with fixed entrances/exits in
@@ -130,3 +132,8 @@ mentioned a couple of cases, here are some other:
 The library is open source and you are encouraged to fork and extend it.
 Note that we prefer to use generators if possible and we use immutable
 hashable objects if possible (e.g., tuples intead of lists).
+
+Please note the essential restriction of the `Estimator`: fuzzy curves must
+have independent fractions, i.e. all possible combinations of variants for each
+fraction must give a correct curve. This may be avoided somehow, but it will
+require changes in the SAT-adapter.
