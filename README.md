@@ -16,35 +16,25 @@ https://arxiv.org/abs/2103.07344
 Computations from the paper may be reproduced using the [search.py](search.py) script:
 
 Computation 1 (Spring 3d curve):
-* $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --metric l2_squared --rel-tol-inv 1000000
+* $ ./search.py --dim 3 --mult 2 --div 2 --facet-gated --metric l2_squared --rel-tol-inv 1000000
 * time: ~4 min
 
 Note that output curves may differ from the description in the paper (by some base\_map).
 See also method `get_spring_curve` in [examples](tests/examples.py).
 
 Computation 2 (4d curve):
-* $ ./search.py --dim 4 --pcount 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
+* $ ./search.py --dim 4 --mult 1 --div 2 --facet-gated --metric l2 --rel-tol-inv 100000
 * time: ~45 min
 
 See an example of an output curve in the method `get_4d_facet_gated_curve` in examples.
 
 YE curve search:
-* $ ./search.py --dim 2 --pcount 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
+* $ ./search.py --dim 2 --mult 1 --div 5 --gates '(0,0)->(0,1)' --max-cdist 1 --metric l2 --rel-tol-inv 1000000
 * time: ~1.5min
 
 See also [YE-proof](YE-proof.py) for a full computer-assisted proof of YE curve minimality.
 
 In the [logs](logs) directory we put the output of three mentioned computations.
-
-In our test examples we use data from several papers:
-
-Haverkort, Walderveen, ``Locality and bounding-box quality of two-dimensional
-space-filling curves'', 2010
-
-Haverkort, ``An inventory of three-dimensional Hilbert space-filling curves'', 2011
-https://arxiv.org/abs/1109.2323
-
-Korneev, Shchepin, ``L_infty-Locality of Three-Dimensional Peano Curves'', 2019
 
 # Tutorial
 
@@ -71,6 +61,16 @@ Many examples of the curves may be found in tests: [examples.py](tests/examples.
 There we use compact notation to define multifractals; it is briefly exaplained
 in `Proto.parse` method in [paths](peano/paths.py) module; `Spec.parse` and
 `BaseMap.parse` methods in [base_maps](peano/base_maps.py) module.
+
+In that examples we use data from several papers:
+
+Haverkort, Walderveen, ``Locality and bounding-box quality of two-dimensional
+space-filling curves'', 2010
+
+Haverkort, ``An inventory of three-dimensional Hilbert space-filling curves'', 2011
+https://arxiv.org/abs/1109.2323
+
+Korneev, Shchepin, ``L_infty-Locality of Three-Dimensional Peano Curves'', 2019
 
 Here are some common notations used in code:
 * `dim` -- dimension of the curve
@@ -116,13 +116,13 @@ generate all possible **gates** (entrance/exit configurations). Second, using
 [paths](peano/paths.py) we generate all possible pointed prototypes (in our
 code, we use alias `path` for it) with given gates.
 
-All described logic is combined in the [search](search.py) script. We already
+All described machinery is combined in the [search](search.py) script. We already
 mentioned a couple of cases, here are some other:
 * facet-gates search:
-    * $ ./search.py --dim 3 --pcount 2 --div 2 --facet-gated --output-gates
+    * $ ./search.py --dim 3 --mult 2 --div 2 --facet-gated --output-gates
     * time: ~20s, result: 35 gates
 * bifractal gates search:
-    * $ ./search.py --dim 2 --pcount 2 --div 2 --output-gates
+    * $ ./search.py --dim 2 --mult 2 --div 2 --output-gates
     * time: ~2m30s, result: 9 gates
 
 ## Development
