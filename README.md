@@ -50,12 +50,12 @@ So, multifractal curve has three main characteristics: **dimension** (i.e., d),
 **multiplicity** (i.e., m) -- number of patterns (m=1 is called a monofractal, m=2 a bifractal, etc)
 and **genus** -- number of first-order fractions; genus equals d^q.
 
-To completely define a multifractal curve, we must specify two things. First,
-**prototypes** for each pattern. A prototype is a sequence of sub-cubes of
-[0,1]^d that defines curve order. Next, for each cube in each prototype we
-define **spec** -- i.e. we specify what **base_map** and what pattern may be
-used to obtain sub-curve on that cube. A base map is a pair of cube isometry and
-[0,1] isometry (time reversal or identity map).
+To completely define a multifractal curve, we must specify m **patterns**. For each
+pattern two things are required. First is a **prototype** -- a sequence of
+sub-cubes of [0,1]^d that defines curve order. Next, for each cube in the
+prototype we define **spec** -- i.e. we specify what **base_map** and what
+pattern may be used to obtain sub-curve on that cube. A base map is a pair of
+cube isometry and [0,1] isometry (time reversal or identity map).
 
 Many examples of the curves may be found in tests: [examples.py](tests/examples.py).
 There we use compact notation to define multifractals; it is briefly exaplained
