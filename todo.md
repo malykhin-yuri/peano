@@ -4,4 +4,4 @@ To-do list:
 * docs: add how to benchmark
 * docs: fix link to paper-search.md
 * code: run linters
-* docs: fix all (python ver, repo rev) for paper-search computatitions -- we need to move on!
+* docs: freeze all (python ver, repo rev) for paper-search computatitions -- we need to move on!
