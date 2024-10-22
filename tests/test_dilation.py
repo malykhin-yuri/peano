@@ -69,6 +69,10 @@ class TestCurve(unittest.TestCase):
                 'dilation': {'l1': Fraction(32, 3), 'l2': Fraction(17, 3), 'linf': Fraction(16, 3)},
             },
             {
+                'curve': get_bauman_curve(),
+                'dilation': {'l2': Fraction(17, 3), 'linf': Fraction(9, 2)},
+            },
+            {
                 'curve': get_meurthe_curve(),
                 'dilation': {'l1': Fraction(32, 3), 'l2': Fraction(17, 3), 'linf': Fraction(16, 3)},
             },
@@ -86,11 +90,19 @@ class TestCurve(unittest.TestCase):
             },
             {   
                 'curve': get_haverkort_curve_a26(),
-                'dilation': {'l1': Fraction(99 * 9 + 5, 9), 'l2': [22.7,22.9], 'linf': Fraction(12*9 + 4, 9)},
+                'dilation': {
+                    'l1': Fraction(99, 1) + Fraction(5, 9),
+                    'l2': [22.7,22.9],
+                    'linf': Fraction(12, 1) + Fraction(4, 9),
+                },
             },
             {   
                 'curve': get_haverkort_curve_f(),
-                'dilation': {'l1': [89.7, 89.8], 'l2': [18,19], 'linf': 14},
+                'dilation': {'l1': [89.754, 89.758], 'l2': [18.5,18.7], 'linf': 14},
+            },
+            {
+                'curve': get_3d_l1_best_curve(),
+                'dilation': {'l1': [89.742, 89.745]},
             },
             {
                 'curve': get_ye_curve(),
@@ -98,12 +110,12 @@ class TestCurve(unittest.TestCase):
             },
             {
                 'curve': get_spring_curve(),
-                'dilation': {'l2': [16.9, 17.0]},
+                'dilation': {'l1': [82.9, 83.0], 'l2': [16.9, 17.0]},
             },
             # Scepin & Korneev
             {
                 'curve': get_tokarev_curve(),
-                'dilation': {'linf': Fraction(896, 37)},
+                'dilation': {'l1': [98.2, 98.4], 'l2': [26.1, 26.3], 'linf': Fraction(896, 37)},
                 'face_dim': 2,
             },
             {

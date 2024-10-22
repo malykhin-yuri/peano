@@ -21,6 +21,14 @@ def get_peano_curve():
     return Curve.parse([pattern])
 
 
+def get_bauman_curve():
+    """
+    TODO: add description
+    """
+    pattern = ('ijIjiiJJ', 'ij,ji,Ji~,iJ~,ij,ij,Ij~,jI~,jI~')
+    return Curve.parse([pattern])
+
+
 def get_scepin_bauman_curve():
     """
     Minimal 3*3 Peano Curve by E.V. Shchepin and K.E. Bauman.
@@ -218,6 +226,16 @@ def get_spring_curve():
     p0 = ('jikIJiK', '1KIJ~,0KIj,1kji,0Jki~,1JkI,0kIJ,1KJi,1JiK')
     p1 = ('jkJijKJ', '1KIJ~,0ijK~,0Ikj~,0KJI~,0kiJ~,0Ijk~,0IjK,1iKJ')
     return Curve.parse([p0, p1])
+
+
+def get_3d_l1_best_curve():
+    """
+    3d-curve with best l1-dilation 89.74, found by:
+    $ python search.py --dim 3 --mult 1 --div 2 --gates '(0,0,0)->(0,0,1)' --metric l1 --rel-tol-inv 100000
+    """
+    p0 = ('jiJkjIJ', 'ikJ~,kjI~,kjI~,JIk,JIK~,KjI,jKi~,iKj~')
+    return Curve.parse([p0])
+
 
 def get_4d_facet_gated_curve():
     """4d facet-gated curve with dilation < 61.9354839"""
