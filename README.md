@@ -117,3 +117,6 @@ Please note the essential restriction of the `Estimator`: fuzzy curves must
 have independent fractions, i.e. all possible combinations of variants for each
 fraction must give a correct curve. This may be avoided somehow, but it will
 require changes in the SAT-adapter.
+
+# Additional links
+Another python library about Peano curves, with useful table of records: https://github.com/Anton495/space-filling-curves
