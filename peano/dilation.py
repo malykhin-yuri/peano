@@ -8,6 +8,8 @@ import itertools
 import functools
 from collections import Counter, namedtuple
 from collections.abc import Sized
+from dataclasses import asdict
+from heapq import heappop, heappush
 import logging
 
 from quicktions import Fraction
@@ -272,9 +274,7 @@ class Estimator:
     def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
         # Create initial pairs from a curve: for all junctions we take pairs of non-adjacent fractions
         G = curve.genus
-        tree = BoundedItemsHeap(**tree_kwargs)
-        tree.set_good_threshold(good_threshold)
-        tree.set_bad_threshold(bad_threshold)
+        tree = BoundedItemsHeap(good_threshold=good_threshold, bad_threshold=bad_threshold, **tree_kwargs)
 
         pair_data = []
         for junc in curve.gen_auto_junctions():
@@ -312,7 +312,7 @@ class Estimator:
             self._push_tree(tree, new_pair)
 
     def _add_tree_stats(self, tree):
-        self.sum_stats.update({'ptree.{}'.format(k): v for k, v in tree.stats.items()})
+        self.sum_stats.update({'ptree.{}'.format(k): v for k, v in asdict(tree.stats).items()})
 
     def _update_max_stats(self, k, v):
         max_stats = self.max_stats
@@ -375,7 +375,7 @@ class Estimator:
         # and we do not need to consider pairs with less-or-equal upper bound
         curr_lo = pairs_tree.max_lo_item.lo
         argmax = pairs_tree.max_lo_item.argmax
-        pairs_tree.set_good_threshold(curr_lo)
+        pairs_tree.update_good_threshold(curr_lo)
 
         # upper bound for worst active pair gives us upper bound for the curve
         curr_up = pairs_tree.top().up
@@ -394,10 +394,7 @@ class Estimator:
                 # to obtain good up bounds and truncate tree faster;
                 # we wait till all active pairs become deep enough to ensure that
                 # all pairs with depth <= max_depth had been processed;
-                # but we have to cleanup to discard old pairs with not-so-high up
-                pairs_tree.cleanup()
-                depth = min(item.pair.depth for item in pairs_tree.active_items())
-                if depth > max_depth:
+                if all(item.pair.depth > max_depth for item in pairs_tree.active_items()):
                     break
 
             self._divide_tree(pairs_tree)
@@ -405,7 +402,7 @@ class Estimator:
             item = pairs_tree.max_lo_item
             if item.lo > curr_lo:
                 curr_lo, argmax = item.lo, item.argmax
-                pairs_tree.set_good_threshold(curr_lo)
+                pairs_tree.update_good_threshold(curr_lo)
                 logger.info('new lower bound: %.5f < %.5f', curr_lo, curr_up)
 
             new_up = pairs_tree.top().up
