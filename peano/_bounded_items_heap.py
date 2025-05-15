@@ -23,8 +23,6 @@ class BoundedItemsHeap:
     # in this case it is considered as "good"
     # * otherwise item is "active", they are stored in heap with priority=up
 
-    # TODO: describe how to use this (e.g. after threshold change something may break; we can only increase(?) bad_thr etc)
-
     # TODO: get rid of stash
 
     def __init__(self, good_threshold, bad_threshold, keep_max_lo_item=False, stash=None):
@@ -59,10 +57,10 @@ class BoundedItemsHeap:
             self._extend(active_items)
             self.stats.rebuild_count += 1
 
-    def has_items(self):
-        return bool(self._heap)
+    def size(self):
+        return len(self._heap)
 
-    def active_items(self):
+    def items(self):
         for node in self._heap:
             yield node[-1]
 
@@ -115,7 +113,6 @@ class BoundedItemsHeap:
         assert self._bad_threshold is None
         assert not self._keep_max_lo_item
         new_heap = BoundedItemsHeap(good_threshold, bad_threshold)
-        old_items = list(self.active_items())
-        new_heap._extend(old_items)
-        new_heap.stats.copy_push += len(old_items)
+        new_heap._extend(self.items())
+        new_heap.stats.copy_push += self.size()
         return new_heap

@@ -394,7 +394,7 @@ class Estimator:
                 # to obtain good up bounds and truncate tree faster;
                 # we wait till all active pairs become deep enough to ensure that
                 # all pairs with depth <= max_depth had been processed;
-                if all(item.pair.depth > max_depth for item in pairs_tree.active_items()):
+                if all(item.pair.depth > max_depth for item in pairs_tree.items()):
                     break
 
             self._divide_tree(pairs_tree)
@@ -477,7 +477,7 @@ class Estimator:
         no_model = None
         iter_no = 0
         sat_iter = 1
-        while pairs_tree.has_items():
+        while pairs_tree.size() > 0:
             iter_no += 1
             if (max_iter is not None) and iter_no > max_iter:
                 raise self._RunOutOfIterationsException()
