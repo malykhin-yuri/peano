@@ -1,13 +1,12 @@
 from collections import Counter
 from dataclasses import dataclass
-from heapq import heappop, heappush, heapify
+from heapq import heappop, heappush
 
 
 @dataclass
 class _HeapStat:
     update_good_threshold: int = 0
     rebuild_count: int = 0
-    set_bad_threshold: int = 0
     push: int = 0
     copy_push: int = 0
     good: int = 0
@@ -54,13 +53,11 @@ class BoundedItemsHeap:
         self.stats.update_good_threshold += 1
 
         # cleanup to maintain heap invariant
-        active_nodes = [node for node in self._heap if node[-1].up > threshold]
-        if len(active_nodes) == len(self._heap):
-            return
-
-        heapify(active_nodes)
-        self._heap = active_nodes
-        self.stats.rebuild_count += 1
+        active_items = [node[-1] for node in self._heap if node[-1].up > threshold]
+        if len(active_items) < len(self._heap):
+            self._heap = []
+            self._extend(active_items)
+            self.stats.rebuild_count += 1
 
     def has_items(self):
         return bool(self._heap)
@@ -94,6 +91,7 @@ class BoundedItemsHeap:
         heappush(self._heap, node)
 
     def _extend(self, items):
+        # one may use append+heapify instead of heappush, but this is not faster
         for item in items:
             self.push(item)
 
