@@ -3,7 +3,9 @@
 Python package "peano" implements regular peano fractal curves on d-dimensional cube
 and the algorithm for the search of minimal dilation curves.
 
-Code was tested on python 3.8 on Ubuntu Linux, see also the [requirements](requirements.txt).
+Code now uses modern typing syntax and requires Python 3.12+
+(use the commit da691a2c2f262f559445be2d2ede70563c3ea1f1 for Python 3.8 version).
+The dependencies are listed here: [requirements](requirements.txt).
 We rely on `python-sat` module for SAT-solvers and `quicktions` module for fast `Fractions`.
 
 This repo is mostly frozen, only fixes will appear.
@@ -117,6 +119,12 @@ Please note the essential restriction of the `Estimator`: fuzzy curves must
 have independent fractions, i.e. all possible combinations of variants for each
 fraction must give a correct curve. This may be avoided somehow, but it will
 require changes in the SAT-adapter.
+
+Useful:
+* static type check:
+    $ python -m mypy peano tests  # ensure using venv python
+* unit tests:
+    $ python -m unittest discover -f
 
 # Additional links
 Another python library about Peano curves, with useful table of records: https://github.com/Anton495/space-filling-curves

@@ -1,6 +1,10 @@
+from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from heapq import heappop, heappush
+from typing import Any, Iterable
+from numbers import Number
+from quicktions import Fraction  # type: ignore
 
 
 @dataclass
@@ -13,8 +17,15 @@ class _HeapStat:
     bad: int = 0
 
 
-class BoundedItemsHeap:
+@dataclass(frozen=True)
+class BoundedItem:
+    lo: Fraction
+    up: Fraction
+
+
+class BoundedItemsHeap[T: BoundedItem]:
     # Collection of items with lower/upper bounds on their "values" (item.lo, item.up)
+    # T = items type
     #
     # Two thresholds may be set:
     # * good - if item.up <= good then item is considered "good" and discarded
@@ -25,8 +36,12 @@ class BoundedItemsHeap:
 
     # TODO: get rid of stash
 
-    def __init__(self, good_threshold, bad_threshold, keep_max_lo_item=False, stash=None):
-        # use heapq algorithm for list of tuples (priority, increment, item)
+    _heap: list[tuple[Fraction, int, T]]
+    _bad_items: list[T]
+    max_lo_item: T
+
+    def __init__(self, good_threshold: Fraction | None, bad_threshold: Fraction | None, keep_max_lo_item: bool = False, stash: Any = None) -> None:
+        # use heapq algorithm for nodes in _heap (priority, increment, item)
         # keep_max_lo_item: subj, note that item may become non-active
         # stash - to store some per-instance data
         self._heap = []
@@ -36,13 +51,13 @@ class BoundedItemsHeap:
 
         self._keep_max_lo_item = keep_max_lo_item
         if self._keep_max_lo_item:
-            self.max_lo_item = None
+            self.seen_items = False
 
         self.stats = _HeapStat()
         self.stash = stash
         self._inc = 0
 
-    def update_good_threshold(self, threshold):
+    def update_good_threshold(self, threshold: Fraction) -> None:
         # we can only raise threshold to keep heap invariant correct
         if (self._good_threshold is not None) and threshold < self._good_threshold:
             raise ValueError("Can't set lower good threshold!")
@@ -57,21 +72,22 @@ class BoundedItemsHeap:
             self._extend(active_items)
             self.stats.rebuild_count += 1
 
-    def size(self):
+    def size(self) -> int:
         return len(self._heap)
 
-    def items(self):
+    def items(self) -> Iterable[T]:
         for node in self._heap:
             yield node[-1]
 
-    def push(self, item):
+    def push(self, item: T) -> None:
         # Add node checking the thresholds:
         # good pair is dropped / bad pair is temporarily stored / otherwise node is added to the heap
         self.stats.push += 1
 
         if self._keep_max_lo_item:
-            if self.max_lo_item is None or item.lo > self.max_lo_item.lo:
+            if (not self.seen_items) or item.lo > self.max_lo_item.lo:
                 self.max_lo_item = item
+                self.seen_items = True
 
         # the order of checks may be important
         # is Estimator we add bad pairs to SAT clauses, so it may be more effective to
@@ -88,31 +104,31 @@ class BoundedItemsHeap:
         node = (-item.up, self._inc, item)  # first key is priority; _inc to avoid comparing items
         heappush(self._heap, node)
 
-    def _extend(self, items):
+    def _extend(self, items: Iterable[T]) -> None:
         # one may use append+heapify instead of heappush, but this is not faster
         for item in items:
             self.push(item)
 
-    def top(self):
+    def top(self) -> T:
         # Active item with highest priority (up)
         return self._heap[0][-1]
 
-    def pop(self):
+    def pop(self) -> T:
         # Pop and return active item with highest priority (up)
         return heappop(self._heap)[-1]
 
-    def pop_bad_items(self):
+    def pop_bad_items(self) -> list[T]:
         # Return bad pairs list and empty it.
         bad_items = self._bad_items
         self._bad_items = []
         return bad_items
 
-    def copy_and_cleanup(self, good_threshold=None, bad_threshold=None):
+    def copy_and_cleanup(self, good_threshold: Fraction | None = None, bad_threshold: Fraction | None = None) -> BoundedItemsHeap[T]:
         # copy initial tree and apply thresholds, if any
         assert self._good_threshold is None
         assert self._bad_threshold is None
         assert not self._keep_max_lo_item
-        new_heap = BoundedItemsHeap(good_threshold, bad_threshold)
+        new_heap: BoundedItemsHeap[T] = BoundedItemsHeap(good_threshold, bad_threshold)
         new_heap._extend(self.items())
         new_heap.stats.copy_push += self.size()
         return new_heap

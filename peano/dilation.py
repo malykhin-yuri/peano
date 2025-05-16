@@ -4,21 +4,25 @@ regular curve or fuzzy curve dilation.
 SAT-solvers are used for fuzzy curves.
 """
 
+from __future__ import annotations
 import itertools
 import functools
 from collections import Counter, namedtuple
 from collections.abc import Sized
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
+from typing import Iterable, Sequence, Callable, Any
 from heapq import heappop, heappush
 import logging
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from .utils import get_lcm, get_int_cube_with_cache, get_int_time_with_cache, gen_faces
 from . import _sat_adapters
-from .curves import Curve, CurvePoint
+from .curves import FuzzyCurve, Curve, CurvePoint, Junction
 from .subsets import Point
-from ._bounded_items_heap import BoundedItemsHeap
+from .paths import CubeType
+from .base_maps import Spec
+from ._bounded_items_heap import BoundedItem, BoundedItemsHeap
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +32,7 @@ class _PiecePosition:
     # Time (cnums) and space (cubes) location of a fraction in a curve.
     # A support of the fraction is the last cube in the nested sequence of cubes.
 
-    def __init__(self, dim, div, cnums, cubes):
+    def __init__(self, dim: int, div: int, cnums: Iterable[int], cubes: Iterable[CubeType]):
         self.dim = dim
         self.div = div
         self.cnums = tuple(cnums)
@@ -45,7 +49,7 @@ class _PiecePosition:
     def __hash__(self):
         return self._hash
 
-    def specify(self, cnum, cube):
+    def specify(self, cnum: int, cube: CubeType) -> _PiecePosition:
         return _PiecePosition(
             dim=self.dim,
             div=self.div,
@@ -53,7 +57,7 @@ class _PiecePosition:
             cubes=self.cubes + (cube,),
         )
 
-    def get_int_coords(self):
+    def get_int_coords(self) -> tuple[CubeType, int]:
         # Natural integer coordinates - time and lower-left cube vertex
         # Returns pair x, t:
         #    x: int cube, cj <= xj <= cj+1; where abs cube: cj/N^l <= xj <= (cj+1)/N^l
@@ -65,18 +69,22 @@ class _PiecePosition:
         )
 
 
-class _CurvePiece(namedtuple('_CurvePiece', ['curve', 'pnum', 'pos'])):
+@dataclass(frozen=True)
+class _CurvePiece:
     # Fraction of a curve, defined by a fuzzy curve, pnum and _PiecePosition
     # The specs in the curve must be specified in all cubes of the position, except last one.
     # Helper class, used in _CurvePiecePair only.
+    curve: FuzzyCurve
+    pnum: int
+    pos: _PiecePosition
 
-    def get_last_spec(self):
+    def get_last_spec(self) -> Spec:
         # Get spec X such that the curve on fraction equals X * self.curve.
         # Use this for fully defined fractal curves, because in the fuzzy case
         # the spec on the last cube is not defined.
         return self.curve.get_deep_spec(self.pnum, self.pos.cnums)
 
-    def divide(self):
+    def divide(self) -> Iterable[_CurvePiece]:
         # Divide the fraction in all possible ways.
 
         # define orientation of last_but_one fraction of a curve
@@ -94,37 +102,38 @@ class _CurvePiece(namedtuple('_CurvePiece', ['curve', 'pnum', 'pos'])):
                 yield _CurvePiece(specified_curve, self.pnum, self.pos.specify(cnum, cube))
 
 
-class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'pos2'])):
+@dataclass(frozen=True)
+class _CurvePiecePair:
     # Pair or curve fractions.
-    # curve: fuzzy curve
-    # junc: junction that defines pair
-    # pos1: position of first fraction; in the original curve, not rotated(!)
-    # pos2: the same for second fraction
+    curve: FuzzyCurve
+    junc: Junction  # junc: junction that defines pair
+    pos1: _PiecePosition  # pos1: position of first fraction; in the original curve, not rotated(!)
+    pos2: _PiecePosition  # pos2: the same for second fraction
 
-    def _get_piece(self, piece_no):
+    def _get_piece(self, piece_no: int) -> _CurvePiece:
         pnum = self.junc.spec1.pnum if piece_no == 1 else self.junc.spec2.pnum
         pos = self.pos1 if piece_no == 1 else self.pos2
         return _CurvePiece(self.curve, pnum, pos)
 
     @classmethod
-    def init_first_order(cls, curve, junc, cnum1, cnum2):
+    def init_first_order(cls, curve: FuzzyCurve, junc: Junction, cnum1: int, cnum2: int) -> _CurvePiecePair:
         # Init a pair or first-order fractions.
         # cnum1, cnum2: cnum of the first/second fraction (in the original curve)
-        def get_pos(pnum, cnum):
+        def get_pos(pnum: int, cnum: int) -> _PiecePosition:
             cube = curve.patterns[pnum].proto[cnum]
             return _PiecePosition(dim=curve.dim, div=curve.div, cnums=[cnum], cubes=[cube])
         return cls(curve, junc, get_pos(junc.spec1.pnum, cnum1), get_pos(junc.spec2.pnum, cnum2))
 
-    def get_last_specs(self):
+    def get_last_specs(self) -> tuple[Spec, Spec]:
         return self._get_piece(1).get_last_spec(), self._get_piece(2).get_last_spec()
 
     @property
-    def depth(self):
+    def depth(self) -> int:
         # we do not look at junc depth as we are not interested in subdivisions of the curve only
         # instead we just analyze all its junctions
         return min(self.pos1.depth, self.pos2.depth)
 
-    def divide_balanced(self):
+    def divide_balanced(self) -> Iterable[_CurvePiecePair]:
         # Divide one of the fractions keeping pair balanced: depth1 == depth2 or depth1 == depth2 + 1.
 
         # use curve from divided piece because it has specified curve
@@ -134,6 +143,13 @@ class _CurvePiecePair(namedtuple('_CurvePiecePair', ['curve', 'junc', 'pos1', 'p
         else:
             for subpiece in self._get_piece(1).divide():
                 yield _CurvePiecePair(subpiece.curve, self.junc, subpiece.pos, self.pos2)
+
+
+# items for heap = pairs of curve fractions together with lo/up bounds on their dilation
+@dataclass(frozen=True)
+class _BoundedPair(BoundedItem):
+    pair: _CurvePiecePair
+    argmax: Any
 
 
 class Estimator:
@@ -150,26 +166,28 @@ class Estimator:
     class _RunOutOfIterationsException(Exception):
         pass
 
-    def __init__(self, ratio_func, cache_max_size=2**18):
+    def __init__(self, ratio_func: Callable[[int, Sequence[int], Fraction], Fraction], cache_max_size: int = 2**18) -> None:
         """
         Init Estimator instance.
 
         Args:
-            ratio_func: function (dim, dx, dt) -> Fraction
+            ratio_func: function ratio(dim, dx, dt)
               it is assumed to be d-uniform and coordinate-monotone
             cache_max_size: cache size for pairs bounds
         """
 
         self.ratio_func = ratio_func
-        self.sum_stats = Counter()
-        self.max_stats = {}
-        self._get_pos_bounds = functools.lru_cache(cache_max_size)(self._get_pos_bounds)  # TODO: use methodtools?
+        self.sum_stats: dict[str, int] = Counter()
+        self.max_stats: dict[str, Any] = {}
 
-    def _get_bounds(self, pair, curve_points=None):
+        # TODO: use methodtools?
+        self._get_pos_bounds = functools.lru_cache(cache_max_size)(self._get_pos_bounds)  # type: ignore
+
+    def _get_bounds(self, pair: _CurvePiecePair, curve_points: dict[int, Sequence[CurvePoint]] | None = None) -> tuple[Fraction, Fraction, dict | None]:
         # Get lower and upper bounds for max ratio of given fractions pair:
         #   WD(f1,f2) := sup ||gamma(s)-gamma(t)||^d/|s-t|:  gamma(s) in f1, gamma(t) in f2
-        # curve_points: dict {pnum: curve points list}
-        # Returns triple (lo, up, argmax), argmax only if curve_points is set
+        # curve_points: dict {pnum: curve points list} TODO - change to Sequence
+        # Returns (lo, up, argmax), argmax only if curve_points is set; TODO - typing for argmax
 
         pos1, pos2 = pair.pos1, pair.pos2
         self.sum_stats['pair_depth'] += pair.depth
@@ -181,16 +199,25 @@ class Estimator:
             pts1 = tuple(sp1.base_map * pt for pt in curve_points[sp1.pnum])
             pts2 = tuple(sp2.base_map * pt for pt in curve_points[sp2.pnum])
         else:
-            pts1 = pts2 = None
+            pts1 = pts2 = ()
 
         return self._get_pos_bounds(pair.junc, pos1, pos2, pts1, pts2)
 
-    def _get_pos_bounds(self, junc, pos1, pos2, pts1, pts2):
+    def _get_pos_bounds(
+            self,
+            junc: Junction,
+            pos1: _PiecePosition,
+            pos2: _PiecePosition,
+            pts1: tuple[CurvePoint, ...],
+            pts2: tuple[CurvePoint, ...],
+        ) -> tuple[Fraction, Fraction, dict | None]:
         dim, N = pos1.dim, pos1.div
-        use_curve_points = (pts1 is not None)
+        use_curve_points = (len(pts1) > 0 and len(pts2) > 0)
 
         # these are integer positions in original curve patterns
         # we will transform them to absolute coords
+        x1: Sequence[int]
+        x2: Sequence[int]
         x1, t1 = pos1.get_int_coords()
         x2, t2 = pos2.get_int_coords()
 
@@ -205,8 +232,8 @@ class Estimator:
         x1, t1 = jbm1.apply_cube(div1, x1), jbm1.apply_cnum(genus1, t1)
         x2, t2 = jbm2.apply_cube(div2, x2), jbm2.apply_cnum(genus2, t2)
         if use_curve_points:
-            pts1 = [jbm1 * pt for pt in pts1]
-            pts2 = [jbm2 * pt for pt in pts2]
+            pts1 = tuple(jbm1 * pt for pt in pts1)
+            pts2 = tuple(jbm2 * pt for pt in pts2)
 
         # common scale
         if pos1.depth == pos2.depth:
@@ -216,7 +243,7 @@ class Estimator:
             x2 = [xj * mx2 for xj in x2]
             t2 *= mt2
             if use_curve_points:
-                pts2 = [pt.scale(mx2) for pt in pts2]
+                pts2 = tuple(pt.scale(mx2) for pt in pts2)
         else:
             raise ValueError("Unbalanced positions!")
 
@@ -244,7 +271,10 @@ class Estimator:
 
         argmax = None
         if use_curve_points:
-            for (x1rel, t1rel), (x2rel, t2rel) in itertools.product(pts1, pts2):
+            for pt1, pt2 in itertools.product(pts1, pts2):
+                x1rel, t1rel = pt1.x, pt1.t
+                x2rel, t2rel = pt2.x, pt2.t
+
                 x1_point = [x1j + x1relj for x1j, x1relj in zip(x1, x1rel)]
                 t1_point = t1 + t1rel
                 x2_point = [x2j + x2relj for x2j, x2relj in zip(x2, x2rel)]
@@ -264,19 +294,26 @@ class Estimator:
 
         return lo, up, argmax
 
-    def get_info(self):
+    def get_info(self) -> dict[str, Any]:
         return {
-            'bounds_cache': self._get_pos_bounds.cache_info(),
+            'bounds_cache': self._get_pos_bounds.cache_info(),  # type: ignore
             'sum_stats': self.sum_stats,
             'max_stats': self.max_stats,
         }
 
-    def _create_tree(self, curve, good_threshold=None, bad_threshold=None, **tree_kwargs):
+    def _create_tree(
+            self,
+            curve: FuzzyCurve,
+            good_threshold: Fraction | None = None,
+            bad_threshold: Fraction | None = None,
+            **tree_kwargs
+        ) -> BoundedItemsHeap:
         # Create initial pairs from a curve: for all junctions we take pairs of non-adjacent fractions
         G = curve.genus
-        tree = BoundedItemsHeap(good_threshold=good_threshold, bad_threshold=bad_threshold, **tree_kwargs)
+        tree: BoundedItemsHeap[_BoundedPair] = BoundedItemsHeap(good_threshold=good_threshold, bad_threshold=bad_threshold, **tree_kwargs)
 
-        pair_data = []
+        pair_data: list[tuple[Junction, int, int]] = []
+        junc: Junction
         for junc in curve.gen_auto_junctions():
             for cnum1 in range(G):
                 for cnum2 in range(cnum1 + 2, G):
@@ -296,37 +333,39 @@ class Estimator:
 
         return tree
 
-    # items for heap = pairs of curve fractions ( _CurvePiecePair)
-    # together with lo/up bounds on their dilation
-    _BoundedPair = namedtuple('_BoundedPair', ['pair', 'lo', 'up', 'argmax'])
-
-    def _push_tree(self, tree, pair):
+    def _push_tree(self, tree: BoundedItemsHeap, pair: _CurvePiecePair) -> None:
         lo, up, argmax = self._get_bounds(pair, curve_points=tree.stash)
-        item = self._BoundedPair(pair, lo, up, argmax)
+        item = _BoundedPair(lo=lo, up=up, pair=pair, argmax=argmax)
         tree.push(item)
 
-    def _divide_tree(self, tree):
+    def _divide_tree(self, tree: BoundedItemsHeap) -> None:
         # Divide worst pair
         worst_item = tree.pop()
         for new_pair in worst_item.pair.divide_balanced():
             self._push_tree(tree, new_pair)
 
-    def _add_tree_stats(self, tree):
+    def _add_tree_stats(self, tree: BoundedItemsHeap) -> None:
         self.sum_stats.update({'ptree.{}'.format(k): v for k, v in asdict(tree.stats).items()})
 
-    def _update_max_stats(self, k, v):
+    def _update_max_stats(self, k: str, v: Any) -> None:
         max_stats = self.max_stats
         if k in max_stats:
             max_stats[k] = max(max_stats[k], v)
         else:
             max_stats[k] = v
 
-    def _forbid(self, tree, adapter):
+    def _forbid(self, tree: BoundedItemsHeap, adapter: _sat_adapters.CurveSATAdapter) -> None:
         # forbid bad configurations and drop them from the tree
         for item in tree.pop_bad_items():
             adapter.add_forbid_clause(item.pair.junc, item.pair.curve)
 
-    def estimate_dilation_regular(self, curve, rel_tol_inv=100, max_iter=None, use_face_moments=False, face_dim=0, max_depth=None):
+    def estimate_dilation_regular(
+            self,
+            curve: Curve,
+            rel_tol_inv: int = 100, max_iter: int | None = None,
+            use_face_moments: bool = False, face_dim: int = 0,
+            max_depth: int | None = None
+        ) -> dict:  # TODO typing for estimate* results
         """
         Estimate dilation for a regular peano curve (class Curve).
 
@@ -348,7 +387,7 @@ class Estimator:
             'argmax': pair of points where lo is achieved (if use_vertex_moments is set)
         """
 
-        tree_kwargs = {'keep_max_lo_item': True}
+        tree_kwargs: dict = {'keep_max_lo_item': True}
         if use_face_moments:
             pts = {}
             for pnum in range(curve.mult):
@@ -417,9 +456,15 @@ class Estimator:
 
         return res
 
-    def bisect_dilation_fuzzy(self, curve, good_threshold, bad_threshold,
-                              max_iter=None, sat_iter_multiplier=1.3,
-                              init_pairs_tree=None, init_sat_adapter=None):
+    def bisect_dilation_fuzzy(
+            self,
+            curve: FuzzyCurve,
+            good_threshold: Fraction, bad_threshold: Fraction,
+            max_iter: int | None = None,
+            sat_iter_multiplier: float = 1.3,
+            init_pairs_tree: BoundedItemsHeap | None = None,
+            init_sat_adapter: _sat_adapters.CurveSATAdapter | None = None
+        ) -> Curve | None:
         """
         Decide if there is a "good" regular curve or all curves are "bad".
 
@@ -434,8 +479,8 @@ class Estimator:
 
         Args:
             curve: FuzzyCurve instance
-            good_threshold: fraction, good curves are those with dilation <= good_thr
-            bad_threshold: fraction, bad curves are those with dilation >= bad_thr
+            good_threshold: good curves are those with dilation <= good_thr
+            bad_threshold: bad curves are those with dilation >= bad_thr
               It is required that bad_threshold < good_threshold
             max_iter: max number of divisions; raise exception if maximum iterations reached
             sat_iter_multiplier: X; we call sat solver on every X**k iteration
@@ -505,9 +550,16 @@ class Estimator:
 
         return adapter.get_model_curve()
 
-    def estimate_dilation_fuzzy(self, curve, rel_tol_inv=1000, stop_upper_bound=None,
-                                start_lower_bound=None, start_upper_bound=None, start_curve=None,
-                                **kwargs):
+    def estimate_dilation_fuzzy(
+            self,
+            curve: FuzzyCurve,
+            rel_tol_inv: int = 1000,
+            stop_upper_bound: Fraction | None = None,
+            start_lower_bound: Fraction | None = None,
+            start_upper_bound: Fraction | None = None,
+            start_curve: Curve | None = None,
+            **kwargs
+        ) -> dict:
         """
         Estimate minimal dilation of a fuzzy curve.
 
@@ -538,10 +590,12 @@ class Estimator:
         else:
             curr_lo = start_lower_bound
 
+        curr_curve: Any  # TODO: ensure Curve here; problem with get_curve_example typing
+
         if start_upper_bound is None:
             # got from first regular curve
             curve0 = curve.get_curve_example()
-            curr_up = self.estimate_dilation_regular(curve0, rel_tol_inv=rel_tol_inv)['up']
+            curr_up = self.estimate_dilation_regular(curve0, rel_tol_inv=rel_tol_inv)['up']  # type: ignore
             curr_curve = curve0
         else:
             curr_up = start_upper_bound
@@ -600,14 +654,20 @@ class Estimator:
             'up': curr_up,
         }
 
-    def estimate_dilation_sequence(self, curves, rel_tol_inv=1000, rel_tol_inv_mult=4, upper_bound=None, **kwargs):
+    def estimate_dilation_sequence(
+            self,
+            curves: Iterable[FuzzyCurve],
+            rel_tol_inv: int = 1000, rel_tol_inv_mult: int = 4,
+            upper_bound: Fraction | None = None,
+            **kwargs
+        ) -> dict | None:
         """
         Estimate minimal dilation for sequence of fuzzy curves.
 
         We estimate min_{fuzzy} min_{curve in fuzzy} WD(curve).
 
         Args:
-            curves: iterable of fuzzy curves
+            curves: fuzzy curves to find best
             upper_bound: apriori upper bound for best ratio (may return None if violated)
             rel_tol_inv: target tolerance
             rel_tol_inv_mult: current rel_tol_inv is multiplied by this every epoch
@@ -625,7 +685,7 @@ class Estimator:
         # We iterate over curves many times with increasing up/lo estimation tolerance.
 
         tolerance = Fraction(rel_tol_inv + 1, rel_tol_inv)
-        CurveItem = namedtuple('CurveItem', 'priority idx lo up curve example'.split())
+        CurveItem = namedtuple('CurveItem', ['priority', 'idx', 'lo', 'up', 'curve', 'example'])
 
         def get_item(curve, idx, lo=None, up=None, example=None):
             # store idx in second field to avoid lo/up/... comparison
@@ -640,6 +700,7 @@ class Estimator:
         # (curr_up will be defined after first call to estimate_dilation_fuzzy)
         # * curve with min dilation is in active list
 
+        active: Any  # TODO fix this
         active = (get_item(curve, idx) for idx, curve in enumerate(curves))
         if isinstance(curves, Sized):
             active = list(active)
@@ -649,7 +710,7 @@ class Estimator:
             epoch += 1
             curr_rel_tol_inv *= rel_tol_inv_mult
             total = len(active) if isinstance(active, list) else -1
-            new_active = []  # heap of CurveItem
+            new_active: list[CurveItem] = []  # heap
             for cnt, item in enumerate(active):
                 if epoch == 1:
                     self.sum_stats['seen_pcurve'] += 1

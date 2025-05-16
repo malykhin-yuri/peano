@@ -1,7 +1,8 @@
 import unittest
 import logging
+from typing import Any
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from peano import utils
 from peano.dilation import Estimator
@@ -9,7 +10,7 @@ from peano.dilation import Estimator
 from .examples import *
 
 
-def _check_dilation(data, fuzzy=False):
+def _check_dilation(data: Any, fuzzy: bool = False) -> None:
     curve = data['curve']
     dilation_dict = data['dilation']
     for metric in sorted(dilation_dict.keys()):
@@ -50,7 +51,7 @@ def _check_dilation(data, fuzzy=False):
 
 class TestCurve(unittest.TestCase):
 
-    def test_curve_dilation(self):
+    def test_curve_dilation(self) -> None:
         known_bounds = [
             {
                 'curve': get_hilbert_curve(),
@@ -127,7 +128,7 @@ class TestCurve(unittest.TestCase):
         for data in known_bounds:
             _check_dilation(data)
 
-    def test_polycurve_dilation(self):
+    def test_polycurve_dilation(self) -> None:
         known_bounds = [
             # 3D curves from Haverkort Inventory
             {
@@ -155,7 +156,7 @@ class TestCurve(unittest.TestCase):
             _check_dilation(data)
 
 
-    def test_fuzzy_dilation(self):
+    def test_fuzzy_dilation(self) -> None:
         known_bounds = [
             {
                 'curve': get_ye_curve().forget(),

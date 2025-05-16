@@ -1,7 +1,10 @@
+from __future__ import annotations
 import itertools
 from collections import Counter
+from collections.abc import Sequence, Iterable
+from typing import TypeVar, ClassVar, Any, Generator
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from .utils import BASIS_LETTERS
 
@@ -14,9 +17,21 @@ class BaseMap:
     Acts on function f:[0,1]->[0,1]^d as  Bf: [0,1]--B_time-->[0,1]--f-->[0,1]^d--B_cube-->[0,1]^d
     """
 
-    _obj_cache = {}
+    type CoordType = tuple[int, bool]
+    type CacheKeyType = tuple[tuple[CoordType, ...], bool]
 
-    def __new__(cls, coords, time_rev=False):
+    _obj_cache: ClassVar[dict[CacheKeyType, BaseMap]] = {}
+    _id_map_cache: ClassVar[dict[int, BaseMap]] = {}
+
+    dim: int
+    coords: tuple[CoordType, ...]
+    time_rev: bool
+    _key: CacheKeyType
+    _mul_cache: dict[CacheKeyType, BaseMap]
+    _inv_cache: BaseMap | None
+    _hash: int
+
+    def __new__(cls, coords: Iterable[CoordType], time_rev: bool = False) -> BaseMap:
         """
         Create a BaseMap instance.
         Args:
@@ -48,9 +63,8 @@ class BaseMap:
         cache[key] = obj
         return obj
 
-    _id_map_cache = {}
     @classmethod
-    def id_map(cls, dim):
+    def id_map(cls, dim: int) -> BaseMap:
         """Identity map."""
         bm = cls._id_map_cache.get(dim)
         if bm is None:
@@ -59,7 +73,7 @@ class BaseMap:
         return bm
 
     @classmethod
-    def parse(cls, text):
+    def parse(cls, text: str) -> BaseMap:
         """
         Get base map from a convenient string representation.
 
@@ -93,7 +107,7 @@ class BaseMap:
         coords = tuple(cmap[i] for i in range(len(cmap)))
         return cls(coords, time_rev)
 
-    def cube_map(self):
+    def cube_map(self) -> BaseMap:
         """Isometry without time reversal."""
         return BaseMap(self.coords)
 
@@ -110,7 +124,7 @@ class BaseMap:
             basis[k] = img.upper() if b else img
         return ''.join(basis) + ('~' if self.time_rev else '')
 
-    def __mul__(self, other):
+    def __mul__(self, other: BaseMap) -> BaseMap:
         """Composition of base maps: A * B."""
         if not isinstance(other, BaseMap):
             return NotImplemented
@@ -119,7 +133,7 @@ class BaseMap:
         val = self._mul_cache.get(key)
         if val is None:
             assert self.dim == other.dim
-            coords = [None] * self.dim
+            coords: list[Any] = [None] * self.dim
             for i in range(self.dim):
                 p, b1 = self.coords[i]  # A: y->z; z_i = y_p^b1
                 k, b2 = other.coords[p]  # B: x->y; y_p = x_k^b2
@@ -127,17 +141,17 @@ class BaseMap:
             self._mul_cache[key] = val = BaseMap(coords, self.time_rev ^ other.time_rev)
         return val
 
-    def get_inverse(self):
+    def get_inverse(self) -> BaseMap:
         """Group inverse of base map B: such X that B*X=X*B=id."""
         val = self._inv_cache
         if val is None:
-            coords = [None] * self.dim
+            coords: list[Any] = [None] * self.dim
             for i, (k, b) in enumerate(self.coords):
                 coords[k] = (i, b)  # y_i = x_k^b <=> x_k = y_i^b
             self._inv_cache = val = BaseMap(coords, self.time_rev)
         return val
 
-    def __pow__(self, power):
+    def __pow__(self, power: int) -> BaseMap:
         if power < 0:
             return self.get_inverse()**(-power)
         elif power == 1:
@@ -151,39 +165,39 @@ class BaseMap:
             t = self**p1
             return t*t*self
 
-    def __invert__(self):
+    def __invert__(self) -> BaseMap:
         """Time reversion, do not confuse with group inverse."""
         return BaseMap(self.coords, not self.time_rev)
 
-    def conjugate_by(self, other):
+    def conjugate_by(self, other: BaseMap) -> BaseMap:
         """Conjugation: g * X * g^{-1}."""
         return other * self * other.get_inverse()
 
-    def apply_x(self, x, mx=Fraction(1)):
+    def apply_x(self, x: Sequence[Fraction], mx: Fraction = Fraction(1)) -> tuple[Fraction, ...]:
         """Apply cube isometry to a point x of [0,mx]^d."""
         return tuple(mx-x[k] if b else x[k] for k, b in self.coords)
 
-    def apply_t(self, t, mt=Fraction(1)):
+    def apply_t(self, t: Fraction, mt: Fraction = Fraction(1)) -> Fraction:
         """Apply time isometry to a point t of [0,mt]."""
         return mt - t if self.time_rev else t
 
-    def apply_vec(self, v):
+    def apply_vec(self, v: Sequence[Fraction]) -> tuple[Fraction, ...]:
         """Apply linear part of isometry to a vector."""
         return tuple(-v[k] if b else v[k] for k, b in self.coords)
 
-    def apply_cube(self, div, cube):
+    def apply_cube(self, div: int, cube: Sequence[int]) -> tuple[int, ...]:
         """Apply isometry to a sub-cube."""
         return tuple(div-cube[k]-1 if b else cube[k] for k, b in self.coords)
 
-    def apply_cube_start(self, cube_start, cube_length):
+    def apply_cube_start(self, cube_start: Sequence[int], cube_length: int) -> tuple[int, ...]:
         """Apply isometry to a cube of given length, return it's min (start) vertex."""
         return tuple(1-cube_start[k]-cube_length if b else cube_start[k] for k, b in self.coords)
 
-    def apply_cnum(self, genus, cnum):
+    def apply_cnum(self, genus: int, cnum: int) -> int:
         return genus - 1 - cnum if self.time_rev else cnum
 
     @classmethod
-    def gen_base_maps(cls, dim, time_rev=None):
+    def gen_base_maps(cls, dim: int, time_rev: bool | None = None) -> Generator[BaseMap]:
         """
         Generate all base maps of given dimension.
 
@@ -197,19 +211,20 @@ class BaseMap:
                     yield cls(zip(perm, flip), time_rev)
 
     @classmethod
-    def gen_constraint_fast(cls, src, dst):
+    def gen_constraint_fast(cls, src: Sequence[Fraction], dst: Sequence[Fraction]) -> Generator[BaseMap]:
         """
         Generate cube maps that map src to dst.
 
         Args:
-            src, dst: points, i.e. iterables of fractions (dim=length)
+            src: source point
+            dst: target point
 
         Yields:
-            bm: bm*src == dst, bm without time_rev
+            bm such that bm*src == dst, without time_rev
         """
         dim = len(src)
-        group_id = {}
-        group_coords = []
+        group_id: dict[int, int] = {}
+        group_coords: list[list[int]] = []
         for k, xj in enumerate(dst):
             gid = group_id.get(xj)
             if gid is None:
@@ -233,7 +248,7 @@ class BaseMap:
 
         for flip_list in itertools.product(*flip_variants):
             good = True
-            gcnt = Counter()
+            gcnt: Counter = Counter()
 
             # try to check if there exists a bm that maps src->dst
             for _, g in flip_list:
@@ -246,10 +261,10 @@ class BaseMap:
                 continue
 
             for perms in group_perm_list:
-                perms = tuple(list(perm) for perm in perms)
-                coords = [None] * dim
+                perms_copy = tuple(list(perm) for perm in perms)
+                coords: list[Any] = [None] * dim
                 for k, (b, g) in enumerate(flip_list):
-                    new_k = perms[g].pop(0)
+                    new_k = perms_copy[g].pop(0)
                     coords[new_k] = (k, b)
                 yield cls(coords)
 
@@ -262,9 +277,16 @@ class Spec:
     i.e. Sf=(bm,pnum)f means bm-mapped curve f with pnum pattern selected.
     """
 
-    _obj_cache = {}
+    type CacheKeyType = tuple[BaseMap.CacheKeyType, int]
 
-    def __new__(cls, base_map, pnum=0):
+    _obj_cache: ClassVar[dict[CacheKeyType, Spec]] = {}
+
+    base_map: BaseMap
+    pnum: int
+    _key: CacheKeyType
+    _hash: int
+
+    def __new__(cls, base_map: BaseMap, pnum: int = 0) -> Spec:
         key = (base_map._key, pnum)
         cache = cls._obj_cache
         if key in cache:
@@ -285,7 +307,7 @@ class Spec:
         return self._hash
 
     @classmethod
-    def parse(cls, text):
+    def parse(cls, text: str) -> Spec:
         """Parse spec, e.g. 3ijk for pnum=3 and bm=ijk."""
         if text[0].isdigit():
             pnum = int(text[0])
@@ -295,10 +317,10 @@ class Spec:
             basis = text
         return cls(base_map=BaseMap.parse(basis), pnum=pnum)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{}{}'.format(self.pnum, self.base_map)
 
-    def __mul__(self, other):
+    def __mul__(self, other: BaseMap | Spec) -> Spec:
         """
         Composition of specs, i.e., (S1*S2) f = S1(S2 f).
 
@@ -313,7 +335,7 @@ class Spec:
             return NotImplemented
         return Spec(self.base_map * other_bm, self.pnum)
 
-    def __rmul__(self, other):
+    def __rmul__(self, other: BaseMap | Spec) -> Spec:
         if isinstance(other, BaseMap):
             other_bm = other
             pnum = self.pnum
@@ -324,10 +346,11 @@ class Spec:
             return NotImplemented
         return Spec(other_bm * self.base_map, pnum)
 
-    def __invert__(self):
+    def __invert__(self) -> Spec:
         return Spec(~self.base_map, self.pnum)
 
-    def conjugate_by(self, other):
+    def conjugate_by(self, other: BaseMap) -> Spec:
         """Conjugate by base map (not spec!)."""
-        assert isinstance(other, BaseMap)
+        if not isinstance(other, BaseMap):
+            return NotImplemented
         return Spec(self.base_map.conjugate_by(other), self.pnum)

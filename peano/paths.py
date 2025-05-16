@@ -1,17 +1,22 @@
+from __future__ import annotations
 from collections import defaultdict
+from collections.abc import Iterable
 import logging
 import itertools
 import re
+from typing import TypeVar, Self, Any
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from .base_maps import BaseMap
-from .subsets import Link, Point
+from .subsets import Link, Point, Subset
 from ._cube_path_trees import CubePathTree
 from .utils import combinations_product, BASIS_LETTERS
 
 
 logger = logging.getLogger(__name__)
+
+type CubeType = tuple[int, ...]
 
 
 class Proto(tuple):
@@ -21,14 +26,18 @@ class Proto(tuple):
     We allow None-s for some of cubes, to support usage of get_entrance/get_exit methods.
     """
 
-    def __new__(cls, dim, div, cubes):
+    dim: int
+    div: int
+    cubes: tuple[CubeType | None, ...]
+
+    def __new__(cls, dim: int, div: int, cubes: Iterable[CubeType | None]) -> "Proto":
         cubes = tuple(tuple(cube) if cube is not None else None for cube in cubes)
         obj = super().__new__(cls, cubes)
         obj.dim = dim
         obj.div = div
         return obj
 
-    def __rmul__(self, base_map):
+    def __rmul__(self, base_map: BaseMap) -> "Proto":  # type: ignore[override]
         """Apply a base map to prototype."""
         if base_map.dim != self.dim:
             raise Exception("Incompatible base map!")
@@ -36,12 +45,12 @@ class Proto(tuple):
         cubes = (base_map.apply_cube(self.div, cube) if cube is not None else None for cube in src_cubes)
         return Proto(self.dim, self.div, cubes)
 
-    def __invert__(self):
+    def __invert__(self) -> "Proto":
         """Time-reversed prototype."""
         return Proto(self.dim, self.div, reversed(self))
 
     @classmethod
-    def parse(cls, chain_code):
+    def parse(cls, chain_code: str) -> "Proto":
         """
         Convert chain code like 'ijK' to curve prototype.
 
@@ -77,7 +86,7 @@ class Proto(tuple):
         div = 1 + max(cj for cube in cubes for cj in cube)
         return cls(dim, div, cubes)
 
-    def __str__(self):
+    def __str__(self) -> str:
         res = []
         for idx in range(len(self) - 1):
             delta = (nj - cj for nj, cj in zip(self[idx+1], self[idx]))
@@ -91,7 +100,7 @@ class Proto(tuple):
         return ''.join(res)
 
 
-class Path:
+class Path[ST: Subset]:
     """
     Prototype with links.
 
@@ -99,7 +108,7 @@ class Path:
     Most important is the case of point links; such path may be also called
     "Pointed prototype"; it is the basis for dilation estimation using SAT-solvers.
     """
-    def __init__(self, proto, links):
+    def __init__(self, proto: Proto, links: Iterable[Link[ST]]) -> None:
         self.proto = proto
         self.dim = proto.dim
         self.div = proto.div
@@ -107,17 +116,18 @@ class Path:
 
         entr = self.links[0].entrance.map_to_cube(self.div, proto[0])
         exit = self.links[-1].exit.map_to_cube(self.div, proto[-1])
-        self.link = Link(entr, exit)
+        self.link = Link(entr, exit)  # TODO: make this LT type
 
-    def __rmul__(self, base_map):
-        src_links = reversed(self.links) if base_map.time_rev else self.links
+    def __rmul__(self, base_map: BaseMap) -> Path[ST]:
+        src_links: Iterable[Link[ST]] = reversed(self.links) if base_map.time_rev else self.links
         new_links = (base_map * link for link in src_links)
         return Path(base_map * self.proto, new_links)
 
-    def __invert__(self):
+    def __invert__(self) -> Path[ST]:
         return ~BaseMap.id_map(self.dim) * self
 
-    def _data(self):
+    def _data(self) -> tuple[Link, Proto, tuple[Link[ST], ...]]:
+        # TODO: make link LT type
         return self.link, self.proto, self.links
 
     def __lt__(self, other):
@@ -129,7 +139,7 @@ class Path:
     def __hash__(self):
         return hash(self._data())
 
-    def is_continuous(self):
+    def is_continuous(self) -> bool:
         """
         Check if path is continuous.
 
@@ -152,7 +162,7 @@ class Path:
 class PathsGenerator:
     """Generate continuous paths with given links."""
 
-    def __init__(self, dim, div, links, max_cdist=None):
+    def __init__(self, dim: int, div: int, links: Iterable[Link[Any]], max_cdist: int | None = None) -> None:
         """
         Init paths generator.
 

@@ -21,7 +21,7 @@ class TestCubePathTree(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
-    def test_king(self):
+    def test_king(self) -> None:
         # https://oeis.org/A272445 - Numbers of paths for moving a king from a corner to the opposite one
         # in a n X n chessboard, provided that each cell must be reached exactly once
         true_results = [0, 1, 2, 30, 4942]
@@ -34,7 +34,7 @@ class TestCubePathTree(unittest.TestCase):
             found_paths = list(tree.grow(start=[(start_cube, None)], finish=[(finish_cube, None)], finish_max_count=finish_max_count))
             self.assertEqual(len(found_paths), true_results[N])
 
-    def test_grow_proto(self):
+    def test_grow_proto(self) -> None:
         state = None
         dim = 2
         div = 3

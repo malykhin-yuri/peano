@@ -1,10 +1,10 @@
 import unittest
 import itertools
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from peano.base_maps import BaseMap, Spec
-from peano.curves import Curve, PathFuzzyCurve
+from peano.curves import Curve, Junction, PathFuzzyCurve
 from peano.subsets import Link
 from peano.paths import PathsGenerator
 from peano.gates import GatesGenerator
@@ -14,7 +14,7 @@ from .examples import *
 
 
 # some additional curves for testing
-def get_rev_curves():
+def get_rev_curves() -> list[Curve]:
     chain = 'jiJ'
     bases_list = [
         'ji,Ij~,ij,JI',  # time rev at the middle
@@ -51,14 +51,14 @@ class TestCommon(unittest.TestCase):
         ]
         self.curves += get_rev_curves()
 
-    def test_rrev(self):
+    def test_rrev(self) -> None:
         """Double reverse does not change curve."""
         for curve in self.curves:
             rrcurve = ~(~curve)
             self.assertEqual(curve.proto, rrcurve.proto)
             self.assertEqual(curve.specs, rrcurve.specs)
 
-    def test_apply_base_map_unit(self):
+    def test_apply_base_map_unit(self) -> None:
         """Test that the application of a sequence of base_maps with unit product does not change the curve."""
         rot_90 = BaseMap([(1,True), (0,False)])  # поворот на 90 градусов
         rot_90_t = BaseMap.parse('jI~')
@@ -116,27 +116,27 @@ class TestCurve(unittest.TestCase):
         ]
         self.curves += get_rev_curves()
 
-    def test_check(self):
+    def test_check(self) -> None:
         for curve in self.curves:
             curve.check()
             (~curve).check()
 
-    def test_fractions(self):
+    def test_fractions(self) -> None:
         for curve in self.curves:
             for cnum in range(curve.genus):
                 fraction = curve.specs[cnum] * curve
                 fraction.check()
 
-    def test_subdivision(self):
+    def test_subdivision(self) -> None:
         for curve in self.curves:
             curve.get_subdivision().check()
 
-    def test_subsubdivision(self):
+    def test_subsubdivision(self) -> None:
         for curve in self.curves:
             curve.get_subdivision(2).check()
             self.assertEqual(curve.get_subdivision().get_subdivision(), curve.get_subdivision(3))
 
-    def test_compose(self):
+    def test_compose(self) -> None:
         for curve in self.curves:
             for bm in BaseMap.gen_base_maps(dim=curve.dim):
                 for pnum in range(curve.mult):
@@ -145,8 +145,8 @@ class TestCurve(unittest.TestCase):
                         C = spec * curve
                         assert C.specs[cnum] * C == curve._compose_specs(spec, cnum) * curve
 
-    def test_junc(self):
-        def is_continuous(curve, junc):
+    def test_junc(self) -> None:
+        def is_continuous(curve: Curve, junc: Junction) -> bool:
             link1 = junc.spec1.base_map * Link(curve.get_entrance(junc.spec1.pnum), curve.get_exit(junc.spec1.pnum))
             link2 = junc.spec2.base_map * Link(curve.get_entrance(junc.spec2.pnum), curve.get_exit(junc.spec2.pnum))
             return link1.exit == link2.entrance.transform(shift=junc.delta_x)
@@ -160,7 +160,7 @@ class TestCurve(unittest.TestCase):
                     raise Exception("Too many juncs!")
             self.assertEqual(set(curve.gen_regular_junctions()), set(curve.get_junction_templates()))
 
-    def test_face_moments(self):
+    def test_face_moments(self):  # TODO
         """
         Check first and last face moments for miscellaneous dimesions.
         """
@@ -198,7 +198,7 @@ class TestCurve(unittest.TestCase):
                 got_moments = [curve.get_face_moment(face, last=last) for face in gen_faces(curve.dim, abs(face_dim))]
                 self.assertEqual(list(sorted(true_moments)), list(sorted((got_moments))))
 
-    def test_gate(self):
+    def test_gate(self):  # TODO
         known = [
             {
                 'curve': get_haverkort_curve_f(),
@@ -239,7 +239,7 @@ class TestCurve(unittest.TestCase):
                 exit_face = [1 if pj == Fraction(1) else 0 if pj == Fraction(0) else None for pj in gate.exit]
                 assert curve.get_face_moment(exit_face, pnum, last=True) == Fraction(1)
 
-    def test_known_junctions(self):
+    def test_known_junctions(self):  # TODO
         known = [
             {'curve': get_tokarev_curve(), 'junctions_count': 9},  # Scepin & Korneev
         ]
@@ -247,7 +247,7 @@ class TestCurve(unittest.TestCase):
             juncs = list(data['curve'].gen_regular_junctions())
             self.assertEqual(len(juncs), data['junctions_count'])
 
-    def test_depth(self):
+    def test_depth(self):  # TODO
         known = [
             {'curve': get_hilbert_curve(), 'depth': 2},
             {'curve': get_peano_curve(), 'depth': 1},
@@ -268,13 +268,13 @@ class TestFuzzyCurves(unittest.TestCase):
             get_tokarev_curve(),
         ]
 
-    def test_check(self):
+    def test_check(self) -> None:
         for curve in [get_hilbert_curve()]:
             pcurve = curve.forget()
             for c in pcurve.gen_possible_curves():
                 c.check()
 
-    def test_GP(self):
+    def test_GP(self) -> None:
         # Haverkort & Walderveen, p.135: "... 272 orders"""
         all_bms = list(BaseMap.gen_base_maps(dim=2))
         pg = PathsGenerator(dim=2, div=3, links=[Link.parse_gates('(0,0)->(1,1)')], max_cdist=1)
@@ -286,7 +286,7 @@ class TestFuzzyCurves(unittest.TestCase):
                 seen.add(curve)
         self.assertEqual(len(seen), 272)
 
-    def test_3D(self):
+    def test_3D(self) -> None:
         # Haverkort inventory: 920 face-continuous vertex-gated order-preserving
         dim, div, mult = 3, 2, 1
         all_bms = list(BaseMap.gen_base_maps(dim=dim))
@@ -304,7 +304,7 @@ class TestFuzzyCurves(unittest.TestCase):
                         seen.add(curve)
         self.assertEqual(len(seen), 920)
 
-    def test_junc(self):
+    def test_junc(self) -> None:
         def is_specialization(curve, tmpl):
             # Check if curve has all of defined specs of the given template, and they are the same."""
             return all(curve.patterns[pnum].specs[cnum] == sp for pnum, cnum, sp in tmpl.gen_defined_specs())
@@ -330,7 +330,7 @@ class TestFuzzyCurves(unittest.TestCase):
 
 
 class TestMisc(unittest.TestCase):
-    def test_diag(self):
+    def test_diag(self) -> None:
         gates = Link.parse_gates('(0,0)->(1,1/2)')
         pgen = PathsGenerator(dim=2, div=5, links=[gates], max_cdist=1)
         paths = next(pgen.generate_paths())

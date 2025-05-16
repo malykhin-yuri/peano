@@ -7,12 +7,17 @@ first/last cubes are defined, then you already can
 determine entrance/exit points.
 """
 
+from __future__ import annotations
 from collections import namedtuple, defaultdict
+from dataclasses import dataclass
 import itertools
+from typing import Iterable, Sequence, Self, Any
+
+from quicktions import Fraction  # type: ignore
 
 from .base_maps import BaseMap, Spec
 from .utils import get_periodic_sum
-from .paths import Proto, Path, Link
+from .paths import Proto, Path, Link, CubeType
 from .subsets import Point
 
 
@@ -21,11 +26,11 @@ class Pattern(namedtuple('_Pattern', ['proto', 'specs'])):
     Pattern - one component of a multifractal, prototype + specifications.
     """
 
-    def __new__(cls, proto, specs):
+    def __new__(cls, proto: Proto, specs: Iterable[Spec | None]) -> Pattern:
         return super().__new__(cls, proto=proto, specs=tuple(specs))
 
     @classmethod
-    def parse(cls, chain, specs):
+    def parse(cls, chain: str, specs: str | Iterable[str]) -> Pattern:
         """
         Parse pattern from bases string.
 
@@ -37,15 +42,18 @@ class Pattern(namedtuple('_Pattern', ['proto', 'specs'])):
             Pattern instance
         """
         proto = Proto.parse(chain)
+        specs_strs: list[str]
         if isinstance(specs, str):
-            specs = specs.split(',')
-        specs = [Spec.parse(c) for c in specs]
-        return cls(proto, specs)
+            specs_strs = specs.split(',')
+        else:
+            specs_strs = list(specs)
+        specs_list = [Spec.parse(c) for c in specs_strs]
+        return cls(proto, specs_list)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{} | {}'.format(self.proto, ','.join(str(spec) for spec in self.specs))
 
-    def __invert__(self):
+    def __invert__(self) -> Pattern:
         """Time-reversed pattern."""
         # each base_map does not change:
         #   - pnums are the same
@@ -67,7 +75,9 @@ class FuzzyCurve:
     Most methods may raise KeyError if some required specs/proto cubes are not defined
     """
 
-    def __init__(self, dim, div, patterns, pnum=0):
+    type PatternArgType = Pattern | tuple[Proto | Iterable[CubeType | None], Iterable[Spec | None]]  # TODO simplify; None in CubeType ?
+
+    def __init__(self, dim: int, div: int, patterns: Iterable[PatternArgType], pnum: int = 0) -> None:
         """
         Create FuzzyCurve instance.
 
@@ -95,17 +105,17 @@ class FuzzyCurve:
         self.genus = div**dim
 
     @property
-    def proto(self):
+    def proto(self) -> Proto:
         return self.patterns[self.pnum].proto
 
     @property
-    def specs(self):
+    def specs(self) -> tuple[Spec, ...]:
         return self.patterns[self.pnum].specs
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '\n'.join('@{}: {}'.format(pnum, pattern) for pnum, pattern in enumerate(self.patterns))
 
-    def _changed(self, patterns=None, pnum=None, **kwargs):
+    def _changed(self, patterns: Iterable[PatternArgType] | None = None, pnum: int | None = None, **kwargs) -> Self:
         return type(self)(
             dim=self.dim,
             div=self.div,
@@ -114,12 +124,12 @@ class FuzzyCurve:
             **kwargs,
         )
 
-    def __invert__(self):
+    def __invert__(self) -> Self:
         """Reverse time in a curve."""
         return self._changed(patterns=[~pattern for pattern in self.patterns])
 
-    def _apply_cube_map(self, base_map):
-        new_patterns = []
+    def _apply_cube_map(self, base_map: BaseMap) -> Self:
+        new_patterns: list[FuzzyCurve.PatternArgType] = []
         for pattern in self.patterns:
             # isometry for the prototype
             new_proto = base_map * pattern.proto
@@ -133,7 +143,7 @@ class FuzzyCurve:
 
         return self._changed(patterns=new_patterns)
 
-    def __rmul__(self, other):
+    def __rmul__(self, other: BaseMap | Spec) -> Self:
         """
         Apply base map or spec to a fractal curve, return new curve.
         
@@ -159,7 +169,7 @@ class FuzzyCurve:
 
         return curve
 
-    def _compose_specs(self, spec, cnum):
+    def _compose_specs(self, spec: Spec, cnum: int) -> Spec:
         # Fast spec composition without curve multiplication.
         # Get spec X such that: X * self = C.specs[cnum] * C, where C := spec*self
         # Method allows to get orientations of deep fractions of a curve.
@@ -172,7 +182,7 @@ class FuzzyCurve:
         #  equivalently: first, we map self by last_spec then apply spec.base_map to the whole picture
         return spec.base_map * last_spec
 
-    def get_deep_spec(self, pnum, cnums):
+    def get_deep_spec(self, pnum: int, cnums: Iterable[int]) -> Spec:
         """
         Get spec X such that fraction = X * self.
 
@@ -186,7 +196,8 @@ class FuzzyCurve:
     def gen_allowed_specs(self, pnum, cnum):
         raise NotImplementedError("Define in child class")
 
-    def get_curve_example(self):
+    # TODO: return Curve
+    def get_curve_example(self) -> Self:
         """
         Generate a curve, compatible with self.
 
@@ -195,14 +206,14 @@ class FuzzyCurve:
         Returns:
             Curve instance
         """
-        spec_dict = defaultdict(dict)
+        spec_dict: dict[int, dict[int, Spec]] = defaultdict(dict)
         for pnum, pattern in enumerate(self.patterns):
             for cnum, spec in enumerate(pattern.specs):
                 if spec is None:
                     spec_dict[pnum][cnum] = next(self.gen_allowed_specs(pnum=pnum, cnum=cnum))
         return self._specify_allowed(spec_dict)
 
-    def gen_possible_curves(self):
+    def gen_possible_curves(self) -> Iterable[Curve]:
         """Generate all curves, compatible with self."""
 
         sp_variant_generators = []
@@ -221,7 +232,7 @@ class FuzzyCurve:
 
             yield Curve(dim=self.dim, div=self.div, patterns=patterns, pnum=self.pnum)
 
-    def count_possible_curves(self):
+    def count_possible_curves(self) -> int:
         """Count all curves, compatible with self."""
         result = 1
         for pnum in range(self.mult):
@@ -229,14 +240,14 @@ class FuzzyCurve:
                 result *= len(list(self.gen_allowed_specs(pnum, cnum)))
         return result
 
-    def gen_defined_specs(self):
+    def gen_defined_specs(self) -> Iterable[tuple[int, int, Spec]]:
         """Generate triples (pnum, cnum, spec) of defined specs."""
         for pnum, pattern in enumerate(self.patterns):
             for cnum, spec in enumerate(pattern.specs):
                 if spec is not None:
                     yield pnum, cnum, spec
 
-    def specify(self, pnum, cnum, spec):
+    def specify(self, pnum: int, cnum: int, spec: Spec) -> Self:
         """
         Check that we can set self.patterns[pnum][cnum] = spec, and return specified curve if so.
 
@@ -259,7 +270,7 @@ class FuzzyCurve:
 
         return self._specify_allowed({pnum: {cnum: spec}})
 
-    def _specify_allowed(self, spec_dict):
+    def _specify_allowed(self, spec_dict: dict[int, dict[int, Spec]]) -> Self:
         # Specify many specs and do not check allowance
         new_patterns = list(self.patterns)
         for pnum, cnum_specs in spec_dict.items():
@@ -274,7 +285,7 @@ class FuzzyCurve:
     # Entrance/exit/moments
     #
 
-    def get_entrance(self, pnum=None):
+    def get_entrance(self, pnum: int | None = None) -> Point:
         """
         Entrance of a curve, i.e. point f(0).
 
@@ -288,17 +299,17 @@ class FuzzyCurve:
             pnum = self.pnum
         return self._get_cube_limit(pnum, 0)
 
-    def get_exit(self, pnum=None):
+    def get_exit(self, pnum: int | None = None) -> Point:
         """Exit of a curve, i.e. point f(1); see get_entrance."""
         if pnum is None:
             pnum = self.pnum
         return self._get_cube_limit(pnum, self.genus-1)
 
-    def _get_cube_limit(self, pnum, cnum):
+    def _get_cube_limit(self, pnum: int, cnum: int) -> Point:
         # we found the sequence of cubes that we obtain if we take cube #cnum in each fraction
         cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
-        cubes = []
-        index = {}
+        cubes: list[tuple[int, ...]] = []
+        index: dict[Spec, int] = {}
         # current curve = cur_spec * self
         while cur_spec not in index:
             index[cur_spec] = len(cubes)
@@ -311,14 +322,14 @@ class FuzzyCurve:
         idx = index[cur_spec]
         return self._get_limit_point(cubes[0:idx], cubes[idx:])
 
-    def _get_limit_point(self, cubes_start, cubes_period):
+    def _get_limit_point(self, cubes_start: Sequence[CubeType], cubes_period: Sequence[CubeType]) -> Point:
         xs = []
         for j in range(self.dim):
             xj = get_periodic_sum([cube[j] for cube in cubes_start], [cube[j] for cube in cubes_period], self.div)
             xs.append(xj)
         return Point(xs)
 
-    def get_vertex_moments(self, pnum=None):
+    def get_vertex_moments(self, pnum: int | None = None) -> dict[tuple[int, ...], Fraction]:
         """
         Get all vertex moments, i.e. t: f(t)=v, where v in {0,1}^d
 
@@ -333,7 +344,7 @@ class FuzzyCurve:
         """
         return {vertex: self.get_face_moment(vertex, pnum) for vertex in itertools.product((0, 1), repeat=self.dim)}
 
-    def get_face_moment(self, face, pnum=None, last=False, find_point=False):
+    def get_face_moment(self, face: tuple[int | None, ...], pnum: int | None = None, last: bool = False, find_point: bool = False) -> Fraction | CurvePoint:
         """
         Moment of face touch (default: first moment).
 
@@ -352,7 +363,9 @@ class FuzzyCurve:
             pnum = self.pnum
 
         cur_spec = Spec(base_map=BaseMap.id_map(self.dim), pnum=pnum)
-        cnums, cubes, index = [], [], {}
+        cnums: list[int] = []
+        cubes: list[CubeType] = []
+        index: dict[Spec, int] = {}
         while cur_spec not in index:
             index[cur_spec] = len(cnums)
             cur_proto = cur_spec.base_map * self.patterns[cur_spec.pnum].proto
@@ -371,8 +384,9 @@ class FuzzyCurve:
             return moment
 
     @staticmethod
-    def _get_face_cnum(proto, face, last=False):
+    def _get_face_cnum(proto: Proto, face: Sequence[int | None], last: bool = False) -> int:
         # cnum of face touch
+        data: Iterable[Any]
         data = enumerate(proto)
         if last:
             data = reversed(list(data))
@@ -384,16 +398,17 @@ class FuzzyCurve:
                     break
             if touches_face:
                 return cnum
+        raise ValueError("Could not touch face!")  # for mypy :(
 
     #
     # Junctions; see also the class Junction
     #
 
-    def gen_auto_junctions(self):
+    def gen_auto_junctions(self) -> Iterable[AutoJunction]:
         for pnum in range(self.mult):
             yield AutoJunction(dim=self.dim, pnum=pnum)
 
-    def _gen_junctions_from_base(self, base_juncs):
+    def _gen_junctions_from_base(self, base_juncs: Iterable[RegularJunction]) -> Iterable[RegularJunction]:
         # Yield base junctions and their derivatives
         # provide correct derivation order (in-width) to get correct depth in Curve.gen_regular_junctions
         seen = set()
@@ -412,7 +427,7 @@ class FuzzyCurve:
                 seen.add(dj)
                 to_derive.append(dj)
 
-    def _get_base_junction(self, pnum, cnum, depth=1):
+    def _get_base_junction(self, pnum: int, cnum: int, depth: int | None = 1) -> RegularJunction:
         # Get base junction if both specs are defined
         pattern = self.patterns[pnum]
         spec1, spec2 = pattern.specs[cnum], pattern.specs[cnum + 1]
@@ -421,7 +436,7 @@ class FuzzyCurve:
         delta_x = [c2j - c1j for c1j, c2j in zip(pattern.proto[cnum], pattern.proto[cnum + 1])]
         return RegularJunction(spec1, spec2, delta_x, depth=depth)
 
-    def _get_derived_junction(self, junc):
+    def _get_derived_junction(self, junc: RegularJunction) -> RegularJunction:
         if not isinstance(junc, RegularJunction):
             raise ValueError("Derivative is defined for regular junctions!")
 
@@ -448,7 +463,7 @@ class FuzzyCurve:
             depth=(junc.depth + 1 if junc.depth is not None else None),
         )
 
-    def get_junction_templates(self):
+    def get_junction_templates(self) -> dict[RegularJunction, list[FuzzyCurve]]:
         """
         Get possible junctions and template curves for them.
 
@@ -471,8 +486,8 @@ class FuzzyCurve:
             variants.append(self.gen_allowed_specs(pnum=pnum, cnum=0))
             variants.append(self.gen_allowed_specs(pnum=pnum, cnum=G - 1))
 
-        for variant in itertools.product(*variants):
-            variant = list(variant)
+        for variant_tuple in itertools.product(*variants):
+            variant = list(variant_tuple)
             gate_specs = {}
             for pnum in range(P):
                 gate_specs[pnum, 0] = variant.pop(0)
@@ -491,7 +506,7 @@ class FuzzyCurve:
 
         junc_curves = defaultdict(list)
         for pnum, cnum, tmpl_specs in templates:
-            spec_dict = defaultdict(dict)
+            spec_dict: dict[int, dict[int, Spec]] = defaultdict(dict)
             for (p, c), sp in tmpl_specs.items():
                 spec_dict[p][c] = sp
             curve = self._specify_allowed(spec_dict)
@@ -501,7 +516,7 @@ class FuzzyCurve:
 
         return junc_curves
 
-    def gen_regular_junctions(self):
+    def gen_regular_junctions(self) -> Iterable[RegularJunction]:
         """Gen all possible regular junctions."""
         yield from self.get_junction_templates()
 
@@ -520,7 +535,7 @@ class Curve(FuzzyCurve):
         return hash((self.patterns, self.pnum))
 
     @classmethod
-    def parse(cls, patterns_bases):
+    def parse(cls, patterns_bases: Sequence[tuple[str, str | Iterable[str]]]) -> Curve:
         """
         Convenient way to define a curve.
 
@@ -535,23 +550,23 @@ class Curve(FuzzyCurve):
         dim, div = proto0.dim, proto0.div
         return cls(dim, div, patterns)
 
-    def gen_allowed_specs(self, pnum, cnum):
+    def gen_allowed_specs(self, pnum: int, cnum: int) -> Iterable[Spec]:
         yield self.patterns[pnum].specs[cnum]
 
-    def get_paths(self):
+    def get_paths(self) -> tuple[Path[Point], ...]:
         """Get curve pointed prototypes (Path objects tuple)."""
         links = [Link(self.get_entrance(pnum), self.get_exit(pnum)) for pnum in range(self.mult)]
-        paths = []
+        paths: list[Path[Point]] = []
         for pattern in self.patterns:
             pattern_links = [spec.base_map * links[spec.pnum] for spec in pattern.specs]
             paths.append(Path(pattern.proto, pattern_links))
         return tuple(paths)
 
-    def forget(self, **kwargs):
+    def forget(self, **kwargs) -> PathFuzzyCurve:
         """Convert curve to a fuzzy curve, saving entrance/exit and forgetting all specs."""
         return PathFuzzyCurve.init_from_paths(self.get_paths(), **kwargs)
 
-    def get_subdivision(self, k=1):
+    def get_subdivision(self, k: int = 1) -> Curve:
         """Get k-th subdivision of a curve."""
         N = self.div
         current_curve = self
@@ -577,12 +592,12 @@ class Curve(FuzzyCurve):
 
         return current_curve
 
-    def check(self):
+    def check(self) -> None:
         """Assert that curve (all patterns) is continuous."""
         if any(not path.is_continuous() for path in self.get_paths()):
             raise ValueError("Not contiuous!")
 
-    def _gen_base_junctions(self):
+    def _gen_base_junctions(self) -> Iterable[RegularJunction]:
         # junctions from first subdivision
         seen = set()
         for pnum in range(self.mult):
@@ -592,11 +607,11 @@ class Curve(FuzzyCurve):
                     yield junc
                     seen.add(junc)
 
-    def gen_regular_junctions(self):
+    def gen_regular_junctions(self) -> Iterable[RegularJunction]:
         """Generate all regular junctions for a curve."""
         yield from self._gen_junctions_from_base(self._gen_base_junctions())
 
-    def get_depth(self):
+    def get_depth(self):  # problems with typing
         return max(junc.depth for junc in self.gen_regular_junctions())
 
 
@@ -621,19 +636,19 @@ class PathFuzzyCurve(FuzzyCurve):
     .pattern_reprs  --  array of reprs for each pattern; reprs[cnum] = bm that sends std_link to link of fraction
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.links_symmetries = kwargs.pop('links_symmetries')
         self.links_std = kwargs.pop('links_std')
         self.pattern_links = kwargs.pop('pattern_links')
         self.pattern_reprs = kwargs.pop('pattern_reprs')
         super().__init__(*args, **kwargs)
 
-    def _changed(self, *args, **kwargs):
+    def _changed(self, *args, **kwargs) -> Self:
         for add_field in ['links_symmetries', 'links_std', 'pattern_links', 'pattern_reprs']:
             kwargs.setdefault(add_field, getattr(self, add_field))
         return super()._changed(*args, **kwargs)
 
-    def __invert__(self):
+    def __invert__(self) -> Self:
         # we do not change links to keep them standard (hence, links_symmetries also do not change)
         new_links_std = {}
         for link, data in self.links_std.items():
@@ -647,7 +662,7 @@ class PathFuzzyCurve(FuzzyCurve):
             pattern_reprs=new_pattern_reprs,
         )
 
-    def _apply_cube_map(self, cube_map):
+    def _apply_cube_map(self, cube_map: BaseMap) -> Self:
         cube_inv = cube_map**(-1)
 
         # to get std_link, revert cube_map and the apply old std_map
@@ -663,7 +678,7 @@ class PathFuzzyCurve(FuzzyCurve):
             pattern_reprs=new_pattern_reprs,
         )
 
-    def gen_allowed_specs(self, pnum, cnum):
+    def gen_allowed_specs(self, pnum: int, cnum: int) -> Iterable[Spec]:
         pattern = self.patterns[pnum]
         if pattern.specs[cnum] is not None:
             # this is the case for partially specified curves, they arise in dilation estimation
@@ -683,17 +698,15 @@ class PathFuzzyCurve(FuzzyCurve):
                 yield Spec(repr * symm * std_map, pn)
 
     @classmethod
-    def init_from_paths(cls, paths, base_maps_group=None, disable_time_rev=False):
+    def init_from_paths(cls, paths: Sequence[Path[Point]], base_maps_group: Iterable[BaseMap] | None = None, disable_time_rev: bool = False):
         """
         Create PathFuzzyCurve from a tuple of pointed paths (Path instances).
 
         Args:
-            paths: tuple of Path instances (so, mult is len(paths))
+            paths: path for each pattern (so, mult == len(paths))
             base_maps_group: subgroup of all base maps to use in curve
             disable_time_rev: boolean, disable time_rev in curve base_maps
         """
-        if not all(all(isinstance(link.entrance, Point) and isinstance(link.exit, Point) for link in path.links) for path in paths):
-            raise ValueError("Only pointed links (gate pairs) are supported!")
 
         dim = paths[0].dim
         div = paths[0].div
@@ -703,7 +716,7 @@ class PathFuzzyCurve(FuzzyCurve):
         if disable_time_rev:
             base_maps_group = [bm for bm in base_maps_group if not bm.time_rev]
 
-        links_std = defaultdict(dict)
+        links_std: dict[Link[Point], dict[int, BaseMap]] = defaultdict(dict)
         for pnum, path in enumerate(paths):
             std_link = min(bm * path.link for bm in base_maps_group)
             std_map = next(bm for bm in base_maps_group if bm * path.link == std_link)
@@ -748,7 +761,7 @@ class Junction:
         delta_t: time shift (=0 or 1, see below)
         depth: junction has depth k if it is obtained from fractions of k-th curve subdivision
     """
-    def __init__(self, spec1, spec2, delta_x, delta_t, depth=None):
+    def __init__(self, spec1: Spec, spec2: Spec, delta_x: tuple[Fraction, ...], delta_t: int, depth: int | None = None):
         self.spec1 = spec1
         self.spec2 = spec2
         self.delta_x = delta_x
@@ -756,7 +769,7 @@ class Junction:
         self._hash = hash(self._data())  # depth is just some additional information that is determined by junc
         self.depth = depth
 
-    def _data(self):
+    def _data(self) -> tuple[tuple[Fraction, ...], int, Spec, Spec]:
         return self.delta_x, self.delta_t, self.spec1, self.spec2
 
     def __eq__(self, other):
@@ -782,7 +795,7 @@ class RegularJunction(Junction):
     * base junctions
     * derivatives of base junctions (derivative is implemented in the curve class)
     """
-    def __init__(self, spec1, spec2, delta_x, depth=None):
+    def __init__(self, spec1: Spec, spec2: Spec, delta_x: Sequence[Fraction], depth: int | None =None):
         if spec1.pnum > spec2.pnum \
                 or (spec1.pnum == spec2.pnum and spec1.base_map.time_rev and spec2.base_map.time_rev):
             # swap and reverse time
@@ -807,16 +820,19 @@ class AutoJunction(Junction):
 
     Required for correct dilation estimation
     """
-    def __init__(self, dim, pnum):
+    def __init__(self, dim: int, pnum: int) -> None:
         spec = Spec(base_map=BaseMap.id_map(dim), pnum=pnum)
         super().__init__(spec1=spec, spec2=spec, delta_x=(0,) * dim, delta_t=0, depth=0)
 
 
-class CurvePoint(namedtuple('CurvePoint', ['x', 't'])):
+@dataclass(frozen=True, order=True)
+class CurvePoint:
     """Pair (x,t) of a Point and time moment; i.e. a point on the graph of a curve, f(t)=x"""
+    x: Point
+    t: Fraction
 
-    def __rmul__(self, base_map):
+    def __rmul__(self, base_map: BaseMap) -> CurvePoint:
         return CurvePoint(base_map * self.x, base_map.apply_t(self.t))
 
-    def scale(self, factor):
+    def scale(self, factor: Fraction) -> CurvePoint:
         return CurvePoint(Point(xj * factor for xj in self.x), (factor**self.x.dim) * self.t)

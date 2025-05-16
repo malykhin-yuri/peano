@@ -5,7 +5,7 @@ from peano.curves import Curve
 # 2D curves
 #
 
-def get_hilbert_curve():
+def get_hilbert_curve() -> Curve:
     """
     Example of fractal curve due to D.Hilbert.
 
@@ -15,13 +15,13 @@ def get_hilbert_curve():
     return Curve.parse([pattern])
 
 
-def get_peano_curve():
+def get_peano_curve() -> Curve:
     """First example of space-filling curve due to G.Peano."""
     pattern = ('jjiJJijj', 'ij,Ij,ij,iJ,IJ,iJ,ij,Ij,ij')
     return Curve.parse([pattern])
 
 
-def get_bauman_curve():
+def get_bauman_curve() -> Curve:
     """
     TODO: add description
     """
@@ -29,7 +29,7 @@ def get_bauman_curve():
     return Curve.parse([pattern])
 
 
-def get_scepin_bauman_curve():
+def get_scepin_bauman_curve() -> Curve:
     """
     Minimal 3*3 Peano Curve by E.V. Shchepin and K.E. Bauman.
 
@@ -39,7 +39,7 @@ def get_scepin_bauman_curve():
     return Curve.parse([pattern])
 
 
-def get_peano5_curve():
+def get_peano5_curve() -> Curve:
     """5-div analog of original Peano curve."""
     pattern = (
         'jjjjiJJJJijjjjiJJJJijjjj',
@@ -48,31 +48,31 @@ def get_peano5_curve():
     return Curve.parse([pattern])
 
 
-def get_meurthe_curve():
+def get_meurthe_curve() -> Curve:
     """Meurthe curve, equivalent to Schepin-Bauman curve."""
     pattern = ('jjiJJijj', 'ji,jI,ij,Ji,JI,iJ,ji,jI,ij')
     return Curve.parse([pattern])
 
     
-def get_coil_curve():
+def get_coil_curve() -> Curve:
     """Coil 2D 3-div curve, see Haverkort & Walderveen."""
     pattern = ('jjiJJijj', 'ji,jI,ji,Ji,JI,Ji,ji,jI,ji')
     return Curve.parse([pattern])
 
 
-def get_serpentine_curve():
+def get_serpentine_curve() -> Curve:
     """Serpentine 2D 3-div curve, see Haverkort & Walderveen."""
     pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,iJ,ji,jI,ij')
     return Curve.parse([pattern])
 
 
-def get_r_curve():
+def get_r_curve() -> Curve:
     """R-curve, 2D 3-div, see Haverkort & Walderveen."""
     pattern = ('jjiiJIJi', 'ji,ji,ij,ij,ij,IJ,JI,JI,ij')
     return Curve.parse([pattern])
 
 
-def get_ye_curve():
+def get_ye_curve() -> Curve:
     """YE-curve: 5*5 monofractal with l2-ratio 5 43/73."""
     pattern = (
         'jiJijjIIjjiJijiiJIJiJIJi',
@@ -83,7 +83,7 @@ def get_ye_curve():
 
 # 2D polyfractals
 
-def get_beta_omega_curve():
+def get_beta_omega_curve() -> Curve:
     """
     Beta-Omega bifractal 2d curve, best polyfractal in l2
 
@@ -102,7 +102,7 @@ def get_beta_omega_curve():
     return Curve.parse([omega_pattern, beta_pattern])
 
 
-def get_ARW_Curve():
+def get_ARW_Curve() -> Curve:
     """
     AR^2W^2 tetrafractal curve.
 
@@ -119,7 +119,7 @@ def get_ARW_Curve():
 # 3D curves
 #
 
-def get_haverkort_curve_a26():
+def get_haverkort_curve_a26() -> Curve:
     """
     3D Haverkort A26 curve, best monofractal in linf.
 
@@ -136,7 +136,7 @@ def get_haverkort_curve_a26():
     return Curve.parse([pattern])
 
 
-def get_haverkort_curve_f():
+def get_haverkort_curve_f() -> Curve:
     """
     3D Haverkort F curve, best known monofractal in l2
 
@@ -153,7 +153,7 @@ def get_haverkort_curve_f():
     return Curve.parse([pattern])
 
 
-def get_tokarev_curve():
+def get_tokarev_curve() -> Curve:
     """
     3D monofractal curve defined by Tokarev.
 
@@ -166,7 +166,7 @@ def get_tokarev_curve():
 
 # 3D polyfractals
 
-def get_neptunus_curve():
+def get_neptunus_curve() -> Curve:
     """
     3D bifractal Neptunus curve, best in linf (9.45)
 
@@ -183,7 +183,7 @@ def get_neptunus_curve():
     return Curve.parse([p0, p1])
 
 
-def get_luna_curve():
+def get_luna_curve() -> Curve:
     """
     3D bifractal Luna curve
 
@@ -196,7 +196,7 @@ def get_luna_curve():
     return Curve.parse([p0, p1])
 
 
-def get_iupiter_curve():
+def get_iupiter_curve() -> Curve:
     """Inventory, p.17"""
     pa0 = ('jkJijKJ', ['0ikJ', '4jkI', '1jki~', '0IkJ~', '0ikJ', '1jkI', '0jIK~', '0kIJ~'])
 
@@ -219,7 +219,7 @@ def get_iupiter_curve():
     return Curve.parse([pa0, pb1, pc2, pd3, pe4])
 
 
-def get_spring_curve():
+def get_spring_curve() -> Curve:
     """Spring curve - 3D bifractal facet-gated curve with l2-ratio <17"""
     # this curve coincides with the spring example in the Scepin-Malykhin paper
     # calculations show that WD = 1533\sqrt{6}/221
@@ -228,7 +228,7 @@ def get_spring_curve():
     return Curve.parse([p0, p1])
 
 
-def get_3d_l1_best_curve():
+def get_3d_l1_best_curve() -> Curve:
     """
     3d-curve with best l1-dilation 89.74, found by:
     $ python search.py --dim 3 --mult 1 --div 2 --gates '(0,0,0)->(0,0,1)' --metric l1 --rel-tol-inv 100000
@@ -237,7 +237,7 @@ def get_3d_l1_best_curve():
     return Curve.parse([p0])
 
 
-def get_4d_facet_gated_curve():
+def get_4d_facet_gated_curve() -> Curve:
     """4d facet-gated curve with dilation < 61.9354839"""
     # WD = 1920/31?
     p = ('kljKLkiKlkJLKlI', 'iKLJ,kLij,lJki,jklI,lKjI~,LKIj,IkLj~,ikLj,LKij~,lKji,kjlI,lJkI~,LkIJ,LKji~,iljk~,jIlK~')

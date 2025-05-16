@@ -1,18 +1,23 @@
 from collections import Counter, namedtuple
+from collections.abc import MutableSet, Mapping
+# TODO import stuff from collection.abc instead of typing
 import logging
 import itertools
+from typing import Iterable, Sequence, Any
 
 from .curves import FuzzyCurve
-from .subsets import Link, FacetDivSubset
-from .paths import Proto, PathsGenerator
+from .subsets import Link, Point, FacetDivSubset
+from .paths import Path, Proto, PathsGenerator
 from .base_maps import BaseMap, Spec
 
 
 logger = logging.getLogger(__name__)
 
+type Gate = Link[Point]
+type GateTuple = tuple[Gate, ...]
 
 class GatesGenerator:
-    def __init__(self, dim, div, mult, only_facet=False):
+    def __init__(self, dim: int, div: int, mult: int, only_facet: bool = False) -> None:
         """
         Generate gates for given configuration.
 
@@ -25,10 +30,10 @@ class GatesGenerator:
         self.div = div
         self.mult = mult
         self.only_facet = only_facet
-        self.stats = Counter()
+        self.stats: dict[str, int] = Counter()
         self._boundary_pnum_cnums = tuple((pnum, cnum) for pnum in range(mult) for cnum in [0, -1])
 
-    def gen_gates(self):
+    def gen_gates(self) -> Iterable[GateTuple]:
         """
         Generate all gates such that there is at least one path with them.
 
@@ -41,14 +46,14 @@ class GatesGenerator:
         Yields:
             tuples of pointed Links instances
         """
-        self._seen_gates = set()
-        self._seen_std_gates = set()
+        self._seen_gates: MutableSet[GateTuple] = set()
+        self._seen_std_gates: MutableSet[GateTuple] = set()
         if self.only_facet:
             yield from self._gen_facet_gates()
         else:
             yield from self._gen_all_gates()
 
-    def _gen_facet_gates(self):
+    def _gen_facet_gates(self) -> Iterable[GateTuple]:
         dim, div, mult = self.dim, self.div, self.mult
 
         facet0 = FacetDivSubset(dim=dim, div=div, facet=(0, 0))  # x0=0
@@ -78,7 +83,7 @@ class GatesGenerator:
                         specs_dict[pnum, cnum] = specs
                     yield from self._check_variants(protos, specs_dict)
 
-    def _gen_all_gates(self):
+    def _gen_all_gates(self) -> Iterable[GateTuple]:
         dim, div, mult = self.dim, self.div, self.mult
 
         # curves are non-internal, so first and last cubes are on the boundary
@@ -122,7 +127,7 @@ class GatesGenerator:
                 specs_dict[pnum, cnum] = specs
             yield from self._check_variants(protos, specs_dict)
 
-    def _check_variants(self, protos, specs_dict):
+    def _check_variants(self, protos: Sequence[Proto], specs_dict: Mapping[tuple[int, int], Sequence[Spec]]) -> Iterable[GateTuple]:
         # in each proto only first and last cubes are used
         variants = [specs_dict[pnum, cnum] for pnum, cnum in self._boundary_pnum_cnums]
         total = 1
@@ -136,31 +141,31 @@ class GatesGenerator:
             if gates is not None:
                 yield gates
 
-    def _check_and_std(self, protos, spec_list):
+    def _check_and_std(self, protos: Sequence[Proto], spec_list: Sequence[Spec]) -> GateTuple | None:
         dim, div, mult = self.dim, self.div, self.mult
 
-        pattern_specs = [[None] * (div**dim) for _ in range(mult)]
+        pattern_specs: list[list[Spec | None]] = [[None] * (div**dim) for _ in range(mult)]
         for (pnum, cnum), spec in zip(self._boundary_pnum_cnums, spec_list):
             pattern_specs[pnum][cnum] = spec
 
         patterns = [(proto, specs) for proto, specs in zip(protos, pattern_specs)]
         curve = FuzzyCurve(dim=dim, div=div, patterns=patterns)
 
-        gates = []
+        gates: Any = []  # TODO
         for pnum in range(mult):
             entr = curve.get_entrance(pnum)
             if (self.only_facet and entr.face_dim() != dim-1) or (entr.face_dim() == dim):
-                return
+                return None
 
             exit = curve.get_exit(pnum)
             if (self.only_facet and exit.face_dim() != dim-1) or (exit.face_dim() == dim):
-                return
+                return None
 
             gates.append(Link(entr, exit))
 
         gates = tuple(gates)
         if gates in self._seen_gates:
-            return
+            return None
 
         self._seen_gates.add(gates)
         self.stats['new_path_gate'] += 1
@@ -168,7 +173,7 @@ class GatesGenerator:
         std_gates = tuple(sorted(gate.std() for gate in gates))
 
         if std_gates in self._seen_std_gates:
-            return
+            return None
         self._seen_std_gates.add(std_gates)
         self.stats['new_std_gate'] += 1
 
@@ -179,7 +184,7 @@ class GatesGenerator:
         # TODO: optimize params ?
         if not pg.get_paths_example(start_max_count=1000, finish_max_count=1000000):
             logger.debug('BAD gates: %s', [str(g) for g in std_gates])
-            return
+            return None
 
         logger.debug('GOOD gates: %s', [str(g) for g in std_gates])
         self.stats['new_good_gate'] += 1
@@ -187,7 +192,7 @@ class GatesGenerator:
 
     _NarrowLinks = namedtuple('_NarrowLinks', ['link', 'links'])
 
-    def _gen_narrow_links(self, paths):
+    def _gen_narrow_links(self, paths: tuple[Path[Point], ...]) -> Iterable[tuple[Path[Point], ...]]:
         # paths = one paths tuple
         # narrowing idea: suppose we have a path with facet links;
         # this path's global link is more "narrow" - a div-subset of facet

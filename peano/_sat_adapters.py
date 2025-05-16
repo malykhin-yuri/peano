@@ -1,9 +1,12 @@
+from __future__ import annotations
 import itertools
 from collections import namedtuple
+from typing import Any, Sequence, Iterable, Mapping
 
-from pysat.solvers import Glucose3
+from pysat.solvers import Glucose3  # type: ignore
 
-from .curves import Curve
+from .curves import Curve, FuzzyCurve, Junction
+from .base_maps import Spec
 
 
 class CurveSATAdapter:
@@ -24,9 +27,16 @@ class CurveSATAdapter:
     # - junc_var: additional variable for to represent presence of a junction
     # - curve_var: additional variables for some fuzzy curves (internal)
 
-    def __init__(self, curve=None, adapter=None):
+    type Clause = tuple[int, ...]
+    type BoolVar = tuple[str, tuple[Any, ...]]
+
+    _int_clauses: list[Clause]
+    _curve_vars: set[BoolVar]
+    _var_no: dict[BoolVar, int]
+
+    def __init__(self, curve: FuzzyCurve | None = None, adapter: CurveSATAdapter | None = None) -> None:
         self._int_clauses = []
-        self._curve_vars = set()  # just cache (?)
+        self._curve_vars = set()
         self._var_no = {}
         self._solver = None  # set in solve()
 
@@ -37,13 +47,15 @@ class CurveSATAdapter:
         else:
             raise ValueError("Init with curve or adapter!")
 
-    def _load_curve(self, curve):
+    def _load_curve(self, curve: FuzzyCurve) -> None:
         self._curve = curve  # used in get_model
 
         # possible specs
         for pnum in range(curve.mult):
             for cnum in range(curve.genus):
                 self._make_only([self._get_sp_var(pnum, cnum, sp) for sp in curve.gen_allowed_specs(pnum, cnum)])
+
+        junc: Junction
 
         # auto-junction - in each curve
         for junc in curve.gen_auto_junctions():
@@ -53,7 +65,7 @@ class CurveSATAdapter:
         for junc, curves in curve.get_junction_templates().items():
             self._make_junc_var(junc, curves)
 
-    def _copy_from(self, other):
+    def _copy_from(self, other: CurveSATAdapter) -> None:
         assert other._solver is None
         self._int_clauses = other._int_clauses[:]
         self._curve_vars = other._curve_vars.copy()
@@ -61,21 +73,21 @@ class CurveSATAdapter:
         self._curve = other._curve
 
     @staticmethod
-    def _get_sp_var(pnum, cnum, sp):
+    def _get_sp_var(pnum: int, cnum: int, sp: Spec) -> BoolVar:
         # sp_var: var=True <=> curve has given spec at given pnum, cnum.
-        return 'spec', pnum, cnum, sp
+        return 'spec', (pnum, cnum, sp)
 
     @staticmethod
-    def _get_junc_var(junc):
+    def _get_junc_var(junc: Junction) -> BoolVar:
         # See _make_junc_var
-        return 'junc', junc
+        return 'junc', (junc,)
 
     @staticmethod
-    def _get_curve_var(curve):
+    def _get_curve_var(curve: FuzzyCurve) -> BoolVar:
         # See _make_curve_var
         return 'curve', tuple(curve.gen_defined_specs())
 
-    def _make_only(self, only_vars):
+    def _make_only(self, only_vars: Sequence[BoolVar]) -> None:
         # Add clauses that exactly one var is True.
         # (var1 or var2 or ... or varN) and (!var_i or !var_j)
         # N.B. try to use add_atmost
@@ -83,7 +95,7 @@ class CurveSATAdapter:
         for var1, var2 in itertools.combinations(only_vars, 2):
             self._append_clause({var1: False, var2: False})
 
-    def _make_curve_var(self, curve):
+    def _make_curve_var(self, curve: FuzzyCurve) -> BoolVar:
         # Create variable Z, such that Z=True <=> maintained curve is consistent with given one.
         Z = self._get_curve_var(curve)
         if Z in self._curve_vars:
@@ -105,7 +117,7 @@ class CurveSATAdapter:
         self._curve_vars.add(Z)
         return Z
         
-    def _make_junc_var(self, junc, curves):
+    def _make_junc_var(self, junc: Junction, curves: Iterable[FuzzyCurve]) -> BoolVar:
         # Create variable J, such that J=True <=> curve has junction J
         # curves is the list of minimal fuzzy curves with this junc (see get_junction_templates)
         J = self._get_junc_var(junc)
@@ -125,7 +137,7 @@ class CurveSATAdapter:
 
         return J
 
-    def add_forbid_clause(self, junc, curve):
+    def add_forbid_clause(self, junc: Junction, curve: FuzzyCurve) -> None:
         # Forbid that maintained fuzzy curve has given junction and is consistent with given sub-curve
         # !(J and sp1 and sp2 .. and spk) = !J or !sp1 or !sp1 ..
         junc_var = self._get_junc_var(junc)
@@ -133,7 +145,7 @@ class CurveSATAdapter:
         clause[junc_var] = False
         self._append_clause(clause)
 
-    def _append_clause(self, clause):
+    def _append_clause(self, clause: Mapping[BoolVar, bool]) -> None:
         # Add clause to CNF, maintain int representation
         int_clause = []
         for var, value in clause.items():
@@ -147,14 +159,14 @@ class CurveSATAdapter:
 
     SATProblemSize = namedtuple('SATProblemSize', ['literals', 'clauses', 'variables'])
 
-    def get_problem_size(self):
+    def get_problem_size(self) -> SATProblemSize:
         return self.SATProblemSize(
             literals=sum(len(clause) for clause in self._int_clauses),
             clauses=len(self._int_clauses),
             variables=len(self._var_no),
         )
 
-    def solve(self):
+    def solve(self):  # TODO
         # Call SAT-solver to determine if there is a curve satisfying clauses.
         # We create Solver object from scratch every time.
         # Returns:
@@ -163,12 +175,12 @@ class CurveSATAdapter:
         self._solver.append_formula(self._int_clauses)
         return self._solver.solve()
 
-    def _get_model(self):
+    def _get_model(self) -> dict[BoolVar, bool]:
         # Get a model, i.e., values for variables satisfying clauses.
         # Only active variables are used in model, for other vars any value may be set.
         # A noteworthy restriction of used SAT-solver is that it
         # returns only one model, not the list of all possible models.
-        int_model = self._solver.get_model()
+        int_model = self._solver.get_model()  # type: ignore
         model = {}
         no_var = {var_no: var for var, var_no in self._var_no.items()}
         for int_tok in int_model:
@@ -176,7 +188,7 @@ class CurveSATAdapter:
             model[var] = (int_tok > 0)
         return model
 
-    def get_model_curve(self):
+    def get_model_curve(self) -> Curve:
         # Get a full-defined curve corresponding to found model
         model = self._get_model()
 

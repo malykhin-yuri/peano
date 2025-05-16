@@ -1,7 +1,8 @@
+from __future__ import annotations
 import itertools
-from collections import namedtuple
+from typing import TypeVar, Generator, Iterable, Sequence, Self
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from .base_maps import BaseMap
 
@@ -13,10 +14,12 @@ class Subset:
     Defines interface for usage of subsets in Link class.
     """
 
-    def intersects(self, other):
+    dim: int
+
+    def intersects(self, other: Self) -> bool:
         raise NotImplementedError
 
-    def map_to_cube(self, div, cube):
+    def map_to_cube(self, div: int, cube: Sequence[int]):
         """
         Put self in given cube.
 
@@ -24,7 +27,7 @@ class Subset:
         """
         raise NotImplementedError
 
-    def gen_neighbours(self):
+    def gen_neighbours(self) -> Generator[tuple[tuple[int, ...], Self], None, None]:
         """
         Generate neighbour cubes with set portions.
 
@@ -33,7 +36,7 @@ class Subset:
         """
         raise NotImplementedError
 
-    def divide(self, div):
+    def divide(self, div: int) -> Generator[tuple[tuple[int, ...], Self], None, None]:
         """
         Get fractions of this set.
 
@@ -42,21 +45,24 @@ class Subset:
         """
         raise NotImplementedError
 
-    def __rmul__(self, base_map):
+    def __rmul__(self, base_map: BaseMap) -> Self:  # type: ignore[override]
         """Apply cube map to self."""
         raise NotImplementedError
 
-    def std(self):
+    def std(self):  # TODO
         """Standartization."""
         return min(bm * self for bm in BaseMap.gen_base_maps(self.dim, time_rev=False))
 
-    def argmul_intersect(self, other, bms=None):
+    def argmul_intersect(self, other: Self, bms: Iterable[BaseMap] | None = None) -> Generator[BaseMap, None, None]:
         """Yield bms that bm * self intersects other."""
         if bms is None:
             bms = BaseMap.gen_base_maps(self.dim, time_rev=False)
         for bm in bms:
             if (bm * self).intersects(other):
                 yield bm
+
+    def transform(self, *args, **kwargs):
+        raise NotImplementedError
 
 
 class Point(tuple, Subset):
@@ -69,7 +75,7 @@ class Point(tuple, Subset):
     def dim(self):
         return len(self)
 
-    def transform(self, scale=None, shift=None):
+    def transform(self, scale: Fraction | None = None, shift: Sequence[Fraction | int] | None = None) -> "Point":
         """M -> M*scale + shift"""
         if scale is not None:
             scale = Fraction(scale)
@@ -82,26 +88,26 @@ class Point(tuple, Subset):
             new_pt.append(pj)
         return Point(new_pt)
 
-    def map_to_cube(self, div, cube):
+    def map_to_cube(self, div: int, cube: Sequence[int]) -> "Point":  # type: ignore[override]
         return self.transform(shift=cube).transform(scale=Fraction(1, div))
 
-    def intersects(self, other):
+    def intersects(self, other: "Point") -> bool:
         return self == other
 
-    def gen_neighbours(self):
+    def gen_neighbours(self) -> Generator[tuple[tuple[int, ...], "Point"], None, None]:
         for cube in self._gen_integer_cubes():
             if all(cj == 0 for cj in cube):
                 continue
             yield cube, self.transform(shift=[-cj for cj in cube])
 
-    def divide(self, div):
+    def divide(self, div: int) -> Generator[tuple[tuple[int, ...], "Point"], None, None]:
         scaled = self.transform(scale=div)
         for cube in scaled._gen_integer_cubes():
             if any(cj < 0 or cj >= div for cj in cube):
                 continue
             yield cube, scaled.transform(shift=[-cj for cj in cube])
 
-    def _gen_integer_cubes(self):
+    def _gen_integer_cubes(self) -> Generator[tuple[int], None, None]:
         # cubes that contain point
         rngs = []
         for pj in self:
@@ -110,30 +116,30 @@ class Point(tuple, Subset):
             rngs.append(rng)
         yield from itertools.product(*rngs)
 
-    def __rmul__(self, bm):
+    def __rmul__(self, bm: BaseMap) -> "Point":  # type: ignore[override]
         new_x = bm.apply_x(self)
         return Point(new_x)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '(' + ','.join(str(pj) for pj in self) + ')'
 
     @classmethod
-    def parse(cls, text):
+    def parse(cls, text: str) -> "Point":
         """Parse from usual representation, e.g. (0,1/2,-1/3)."""
         pt = [Fraction(token) for token in text.strip().strip('()').split(',')]
-        return cls(pt)
+        return Point(pt)
 
-    def std(self):
+    def std(self) -> "Point":
         half = Fraction(1, 2)
         one = Fraction(1)
         new = [pj if pj <= half else one - pj for pj in self]
         new.sort()
         return Point(new)
 
-    def argstd(self):
+    def argstd(self) -> Generator[BaseMap, None, None]:
         yield from BaseMap.gen_constraint_fast(self, self.std())
 
-    def face_dim(self):
+    def face_dim(self) -> int:
         return sum(pj != Fraction(0) and pj != Fraction(1) for pj in self)
 
 
@@ -152,7 +158,7 @@ class FacetDivSubset(Subset):
         FacetDivSubset(dim=2, div=2, facet=(0, 0), cubes=[(0,),(1,)])  -  x0=0, 1/4<x1<1/2
     """
 
-    def __init__(self, dim, div, facet, cubes=()):
+    def __init__(self, dim: int, div: int, facet: tuple[int, int], cubes: Iterable[tuple[int, ...]] = ()) -> None:
         """
         Args:
             dim, div: as usual
@@ -161,13 +167,10 @@ class FacetDivSubset(Subset):
         """
         self.dim = dim
         self.div = div
-        self.facet = tuple(facet)
+        self.facet = (facet[0], facet[1])
         self.cubes = tuple(tuple(cube) for cube in cubes)
 
-    def is_subset(self, other):
-        return self.intersects(other) and len(self.cubes) >= len(other.cubes)
-
-    def intersects(self, other):
+    def intersects(self, other: FacetDivSubset) -> bool:
         if self.facet != other.facet:
             return False
         if any(c1 != c2 for c1, c2 in zip(self.cubes, other.cubes)):  # zip shortest
@@ -204,7 +207,7 @@ class FacetDivSubset(Subset):
     def _abs_to_facet(self, j):
         return j if j < self.facet_coord else j-1
 
-    def __rmul__(self, cube_map):
+    def __rmul__(self, cube_map: BaseMap) -> FacetDivSubset:
         """Apply cube map (a BaseMap instance)."""
         assert self.dim == cube_map.dim
 
@@ -224,12 +227,13 @@ class FacetDivSubset(Subset):
         new_cubes = (facet_map.apply_cube(self.div, cube) for cube in self.cubes)
         return FacetDivSubset(self.dim, self.div, new_facet, new_cubes)
 
+    # TODO move this to BaseMaps module to store all base maps once
     def all_cube_maps(self):
         if not hasattr(self, '_all_cube_maps'):
             self._all_cube_maps = list(BaseMap.gen_base_maps(self.dim, time_rev=False))
         return self._all_cube_maps
 
-    def argmul_intersect(self, other, bms=None):
+    def argmul_intersect(self, other: FacetDivSubset, bms: Iterable[BaseMap] | None = None) -> Generator[BaseMap, None, None]:
         """Yield bms that bm * self intersects other."""
         if bms is None:
             bms = self.all_cube_maps()
@@ -239,13 +243,13 @@ class FacetDivSubset(Subset):
             if (bm * self).intersects(other):
                 yield bm
 
-    def map_to_cube(self, div, cube):
+    def map_to_cube(self, div: int, cube: Sequence[int]) -> FacetDivSubset:
         assert div == self.div
         assert cube[self.facet_coord] == (0 if self.facet_value == 0 else div-1)
         facet_cube = tuple(cube[c] for c in range(self.dim) if c != self.facet_coord)
         return FacetDivSubset(self.dim, self.div, self.facet, (facet_cube,) + self.cubes)
 
-    def gen_neighbours(self):
+    def gen_neighbours(self: FacetDivSubset) -> Generator[tuple[tuple[int, ...], FacetDivSubset], None, None]:
         if self.facet_value == 0:
             delta = -1
             new_facet_value = 1
@@ -255,12 +259,13 @@ class FacetDivSubset(Subset):
         cube = tuple(0 if j != self.facet_coord else delta for j in range(self.dim))
         yield cube, FacetDivSubset(self.dim, self.div, (self.facet_coord, new_facet_value), self.cubes)
 
-    def divide(self, div):
+    def divide(self, div: int) -> Generator[tuple[tuple[int, ...], FacetDivSubset], None, None]:
         assert div == self.div
         dim = self.dim
         fc, fv = self.facet
 
         # facet_cube = (dim-1)-cube on the facet with relative coordinates
+        facet_cubes: Iterable[tuple[int, ...]]
         if self.cubes:
             facet_cubes = [self.cubes[0]]
             new_set = FacetDivSubset(dim, div, self.facet, self.cubes[1:])
@@ -272,7 +277,7 @@ class FacetDivSubset(Subset):
             abs_cube = tuple((0 if fv == 0 else div-1) if j == fc else facet_cube[self._abs_to_facet(j)] for j in range(dim))
             yield abs_cube, new_set
 
-    def __str__(self):
+    def __str__(self) -> str:
         text = 'x{}={}'.format(self.facet_coord, self.facet_value)
         if self.cubes:
             cubes_str = '->'.join(str(cube) for cube in self.cubes)
@@ -280,7 +285,7 @@ class FacetDivSubset(Subset):
         return text
 
 
-class Link(namedtuple('Link', ['entrance', 'exit'])):
+class Link[ST: Subset]:
     """
     Link is defined by pair of subsets of [0,1]^d: entrance and exit subsets (derived from Subset class)
 
@@ -289,11 +294,26 @@ class Link(namedtuple('Link', ['entrance', 'exit'])):
 
     Most useful are pointed links - pairs of entrance/exit gates.
     """
-    @property
-    def dim(self):
-        return self.entrance.dim
 
-    def __rmul__(self, base_map):
+    entrance: ST
+    exit: ST
+    dim: int
+
+    def __init__(self, entrance: ST, exit: ST) -> None:
+        self.entrance = entrance
+        self.exit = exit
+        self.dim = entrance.dim
+
+    def __lt__(self, other):
+        return (self.entrance, self.exit) < (other.entrance, other.exit)
+
+    def __eq__(self, other):
+        return (self.entrance, self.exit) == (other.entrance, other.exit)
+
+    def __hash__(self):
+        return hash((self.entrance, self.exit))
+
+    def __rmul__(self, base_map: BaseMap) -> Self:
         ne, nx = base_map * self.entrance, base_map * self.exit
         if base_map.time_rev:
             ne, nx = nx, ne
@@ -326,16 +346,16 @@ class Link(namedtuple('Link', ['entrance', 'exit'])):
             other = min(other1, other2)
         return type(self)(min_std, other)
 
-    def __invert__(self):
+    def __invert__(self) -> Self:
         return type(self)(self.exit, self.entrance)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '{} -> {}'.format(self.entrance, self.exit)
 
-    def intersects(self, other):
+    def intersects(self, other) -> bool:
         return self.entrance.intersects(other.entrance) and self.exit.intersects(other.exit)
 
-    def argmul_intersect(self, other):
+    def argmul_intersect(self, other: Self) -> Generator[BaseMap, None, None]:
         bms1 = list(self.entrance.argmul_intersect(other.entrance))
         for bm in self.exit.argmul_intersect(other.exit, bms=bms1):
             yield bm
@@ -343,9 +363,10 @@ class Link(namedtuple('Link', ['entrance', 'exit'])):
         for bm in self.exit.argmul_intersect(other.entrance, bms=bms2):
             yield ~bm
 
+    # TODO: make Gate equal to Link[Point] ?
     @classmethod
-    def parse_gates(cls, text):
+    def parse_gates(cls, text: str) -> Link[Point]:
         """Create Points Link from string, e.g., '(0,0)->(1,1/2)'"""
         points = [Point.parse(pt_str) for pt_str in text.split('->')]
         assert len(points) == 2
-        return cls(*points)
+        return Link(*points)

@@ -1,6 +1,6 @@
 import unittest
 
-from quicktions import Fraction
+from quicktions import Fraction  # type: ignore
 
 from peano.utils import combinations_product, get_periodic_sum
 
