@@ -1,5 +1,6 @@
 """
 Known Peano curves with some information about them.
+Bibliography is given in the README.md file.
 """
 
 from dataclasses import dataclass
@@ -64,7 +65,7 @@ def get_all_curves() -> list[CurveInfo]:
 
 def get_hilbert_curve() -> CurveInfo:
     """
-    Example of fractal curve due to D.Hilbert.
+    Classical example of a fractal curve due to D.Hilbert.
     This curve has minimal known L_1 ratio.
     """
     pattern = ('jiJ', 'ji,ij,ij,JI')
@@ -98,9 +99,7 @@ def get_bauman_curve() -> CurveInfo:
 
 def get_scepin_bauman_curve() -> CurveInfo:
     """
-    Minimal 3*3 Peano Curve by E.V. Shchepin and K.E. Bauman.
-
-    Proceedings of the Steklov Institute of Mathematics, 2008, Vol. 263, pp. 236--256.
+    Minimal 3*3 Peano Curve by Shchepin and Bauman [SB08]
     """
     pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,Ji,ij,jI,ji')
     return CurveInfo(
@@ -130,7 +129,7 @@ def get_meurthe_curve() -> CurveInfo:
 
     
 def get_coil_curve() -> CurveInfo:
-    """Coil 2D 3-div curve, see Haverkort & Walderveen."""
+    """Coil 2D 3-div curve, see Haverkort & Walderveen [HW10]."""
     pattern = ('jjiJJijj', 'ji,jI,ji,Ji,JI,Ji,ji,jI,ji')
     return CurveInfo(
         curve=Curve.parse([pattern]),
@@ -139,7 +138,7 @@ def get_coil_curve() -> CurveInfo:
 
 
 def get_serpentine_curve() -> CurveInfo:
-    """Serpentine 2D 3-div curve, see Haverkort & Walderveen."""
+    """Serpentine 2D 3-div curve, see Haverkort & Walderveen [HW10]."""
     pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,iJ,ji,jI,ij')
     return CurveInfo(
         curve=Curve.parse([pattern]),
@@ -148,7 +147,7 @@ def get_serpentine_curve() -> CurveInfo:
 
 
 def get_r_curve() -> CurveInfo:
-    """R-curve, 2D 3-div, see Haverkort & Walderveen."""
+    """R-curve, 2D 3-div, see [HW10]."""
     pattern = ('jjiiJIJi', 'ji,ji,ij,ij,ij,IJ,JI,JI,ij')
     return CurveInfo(
         curve=Curve.parse([pattern]),
@@ -157,7 +156,7 @@ def get_r_curve() -> CurveInfo:
 
 
 def get_ye_curve() -> CurveInfo:
-    """YE-curve: 5*5 monofractal with l2-ratio 5 43/73."""
+    """YE-curve: best l2-dilation 5*5 monofractal (dilation is 5 43/73), see [MS23]"""
     pattern = (
         'jiJijjIIjjiJijiiJIJiJIJi',
         '0Ji~,0ij,0ij,0jI~,0Ji~,0Ji~,0Ji~,0IJ,0IJ,0Ji~,0ij,0ij,0jI~,0Ji~,0ij,0ij,0ij,0IJ,0jI~,0jI~,0ij,0IJ,0jI~,0jI~,0ij',
@@ -173,14 +172,12 @@ def get_ye_curve() -> CurveInfo:
 
 def get_beta_omega_curve() -> CurveInfo:
     """
-    Beta-Omega bifractal 2d curve, best polyfractal in l2
+    Beta-Omega bifractal 2d curve, best known polyfractal in l2
 
     See J.-M. Wierum, ``Definition of a New Circular Space-Filling Curve'',
     Technical report PC^2, 2002
 
-    Realization from Haverkort & Walderveen,
-    ``Locality and bounding-box quality of two-dimensional space-filling curves'',
-    Comp.Geom and Appl, v.43 (2010)
+    Realization from [HW10]
     """
     omega_pattern = ('jiJ', '1iJ,1jI,1ji~,1IJ~')
     beta_pattern = ('jiJ', '1iJ,1jI,1ji~,0Ji')
@@ -193,9 +190,7 @@ def get_beta_omega_curve() -> CurveInfo:
 
 def get_ARW_Curve() -> CurveInfo:
     """
-    AR^2W^2 tetrafractal curve.
-
-    See reference to Haverkort & Walderveen in get_beta_omega_curve doc
+    AR^2W^2 tetrafractal curve, see [HW10]
     """
     r_pattern = ('i(Ij)i', '3ij,1Ji~,2jI,1iJ')  # pnum=0
     f_pattern = ('jiJ',    '3ji,2Ij~,1ij,1JI')  # pnum=1
@@ -214,10 +209,7 @@ def get_ARW_Curve() -> CurveInfo:
 def get_haverkort_curve_a26() -> CurveInfo:
     """
     3D Haverkort A26 curve, best monofractal in linf.
-
-    Monofractal curve with time reversal.
-    "An inventory of three-dimensional Hilbert space-filling curves", Herman Haverkort
-    https://arxiv.org/abs/1109.2323
+    See Inventory [HW11]: 
     Curve A26.0010 1011.1011 0011, see p.10, p.15, p.18
     """
     pattern = ('jkJijKJ', 'Jki~,Kij~,kij,IKJ~,iKJ,kIj~,KIj,JIk')
@@ -234,12 +226,7 @@ def get_haverkort_curve_f() -> CurveInfo:
     3D Haverkort F curve, best known monofractal in l2
 
     Monofractal curve with time reversal,
-    "An inventory of three-dimensional Hilbert space-filling curves", Herman Haverkort
-    https://arxiv.org/abs/1109.2323
-    Curve F, see p.13, p.15, p.18
-
-    Properties:
-    l2 ratio is best known among monofractals!
+    Inventory [H11], Curve F, see p.13, p.15, p.18
     """
     pattern = ('jkJijKJ', 'iKJ,jIK,jIk~,JkI,Jki~,jik,jiK~,kiJ~')
     return CurveInfo(
@@ -252,10 +239,12 @@ def get_haverkort_curve_f() -> CurveInfo:
 
 def get_tokarev_curve() -> CurveInfo:
     """
-    3D monofractal curve defined by Tokarev.
+    3D monofractal curve defined by Tokarev [Tok10]
 
-    Definition is taken from Haverkort's inventory,
+    Precise definition is taken from Haverkort's inventory [H11],
     Curve A26.0000 0000.0000 0000 (page 9, Fig.5(b))
+
+    Dilation studied in [KS18]
     """
     p0 = ('jkJijKJ', 'jki,kij,kij,iJK,iJK,KIj,KIj,JkI')
     return CurveInfo(
@@ -266,7 +255,6 @@ def get_tokarev_curve() -> CurveInfo:
             linf=Fraction(896, 37),
             spec={'linf': {'face_dim': 2}},
         ),
-        # from Scepin & Korneev (2018):
         moments={
             0: [Fraction(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
             1: [Fraction(k, 4194176) for k in [0, 693632, 1364617, 1659520]]
@@ -287,15 +275,8 @@ def get_tokarev_curve() -> CurveInfo:
 
 def get_neptunus_curve() -> CurveInfo:
     """
-    3D bifractal Neptunus curve, best in linf (9.45)
-
-    "An inventory of three-dimensional Hilbert space-filling curves", Herman Haverkort
-    https://arxiv.org/abs/1109.2323
-    p.16
-
-    Properties:
-    ratio: linf=9.45, best in class of poly-Hilbert curves
-    gates: (0,0,0)->(1,0,0), (0,0,0)->(1,1,1)
+    3D bifractal Neptunus curve, linf (9.45) is best in the class of poly-Hilbert curves.
+    See [H11], p.16
     """
     p0 = ('jkJijKJ', '1ijk,0jIK,1kJI,1JiK,1ijk,1jKI,1KJi,0JIk')
     p1 = ('jkJiKjk', '1ijk,0jIK,1kJI,1JiK,0ijk,1KjI,1jki,0kIJ')
@@ -308,9 +289,7 @@ def get_neptunus_curve() -> CurveInfo:
 
 def get_luna_curve() -> CurveInfo:
     """
-    3D bifractal Luna curve
-
-    Inventory ref, p.16
+    3D bifractal Luna curve; [H11], p.16
     """
     p0 = ('jkJijKJ', '1kji,0jIK,1JIk,1iKJ,1ijk,1jKI,0JiK,1KiJ')
     p1 = ('jkJiKjk', '1kji,0jIK,1JIk,1iKJ,0ijk,1KjI,0kij,1jik')
@@ -322,7 +301,7 @@ def get_luna_curve() -> CurveInfo:
 
 
 def get_iupiter_curve() -> CurveInfo:
-    """Inventory, p.17"""
+    """[H11], p.17"""
     pa0 = ('jkJijKJ', ['0ikJ', '4jkI', '1jki~', '0IkJ~', '0ikJ', '1jkI', '0jIK~', '0kIJ~'])
 
     pb1 = (pa0[0], pa0[1][:])
@@ -356,7 +335,7 @@ def get_iupiter_curve() -> CurveInfo:
 
 
 def get_spring_curve() -> CurveInfo:
-    """Spring curve - 3D bifractal facet-gated curve with l2-ratio <17"""
+    """Spring curve - 3D bifractal facet-gated curve with l2-ratio <17, [MS23]"""
     # this curve coincides with the spring example in the Scepin-Malykhin paper
     # calculations show that WD = 1533\sqrt{6}/221
     p0 = ('jikIJiK', '1KIJ~,0KIj,1kji,0Jki~,1JkI,0kIJ,1KJi,1JiK')
@@ -380,9 +359,10 @@ def get_3d_l1_best_curve() -> CurveInfo:
 
 
 def get_4d_facet_gated_curve() -> CurveInfo:
-    """4d facet-gated curve with dilation < 61.9354839"""
+    """4d facet-gated curve with l2-dilation < 61.9354839, see [MS23]"""
     # WD = 1920/31?
     p = ('kljKLkiKlkJLKlI', 'iKLJ,kLij,lJki,jklI,lKjI~,LKIj,IkLj~,ikLj,LKij~,lKji,kjlI,lJkI~,LkIJ,LKji~,iljk~,jIlK~')
     return CurveInfo(
         curve=Curve.parse([p]),
+        dilation=DilationInfo(l2=[61.9,62.0]),
     )

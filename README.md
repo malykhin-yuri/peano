@@ -35,8 +35,8 @@ sub-cubes of [0,1]^d that defines curve order. Next, for each cube in the
 prototype we define **spec** -- i.e. we specify what base_map and what
 pattern may be used to obtain sub-curve on that cube.
 
-Many examples of the curves and some information about them
-may be found in our "Zoo": [zoo.py](peano/zoo.py).
+Fairly complete collection of the curves and some information about them
+is presented in our **Zoo**: [zoo.py](peano/zoo.py).
 There we use compact notation to define multifractals; it is briefly exaplained
 in `Proto.parse` method in [paths](peano/paths.py) module and `Spec.parse`,
 `BaseMap.parse` methods in [base_maps](peano/base_maps.py) module.
@@ -127,3 +127,20 @@ Useful:
 
 # Additional links
 Another python library about Peano curves, with useful table of records: https://github.com/Anton495/space-filling-curves
+
+# Bibliography
+
+[H11] H. Haverkort, An inventory of three-dimensional Hilbert space-ﬁlling curves: E-print, 2011. arXiv: 1109.2323v2
+
+[HW10] H. Haverkort, F. Walderveen, "Locality and bounding-box quality of two-dimensional
+space-ﬁlling curves", *Comp. Geom. Th. Appl.*, **43** (2010), 131--147.
+
+[KS18] A.A. Korneev, E.V. Shchepin, *Proceedings of the Steklov Institute of Mathematics*, **302** (2018), 217--249.
+
+[MS23] Yu. Malykhin, E. Shchepin,
+"Search of fractal space-filling curves with minimal dilation",
+*Discrete Comput. Geom.*, **70** (2023), 189--213.
+
+[SB08] E.V. Shchepin, K.E. Bauman, "Minimal Peano Curve", Proc. Steklov Inst. Math., **263** (2008), 236--256.
+
+[Tok10] С.С. Токарев. Дипломная работа. 2010.

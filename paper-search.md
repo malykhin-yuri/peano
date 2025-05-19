@@ -2,6 +2,11 @@
 
 Preprint: https://arxiv.org/abs/2103.07344
 
+Journal version:
+[MS23] Yu. Malykhin, E. Shchepin,
+"Search of fractal space-filling curves with minimal dilation",
+*Discrete Comput. Geom.*, **70** (2023), 189--213.
+
 Computations from the paper may be reproduced using the [search.py](search.py) script:
 
 Computation 1 (Spring 3d curve):
