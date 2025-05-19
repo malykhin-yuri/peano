@@ -9,8 +9,7 @@ from peano.subsets import Link
 from peano.paths import PathsGenerator
 from peano.gates import GatesGenerator
 from peano.utils import gen_faces
-
-from .examples import *
+from peano.zoo import *
 
 
 # some additional curves for testing
@@ -28,27 +27,11 @@ class TestCommon(unittest.TestCase):
     """Tests for any curves (fuzzy, poly, 2D, 3D, ...)."""
 
     def setUp(self):
-        self.curves = [
-            get_hilbert_curve(),
-            get_peano_curve(),
-            get_peano5_curve(),
-            get_tokarev_curve(),
-            get_meurthe_curve(),
-            get_coil_curve(),
-            get_serpentine_curve(),
-            get_r_curve(),
-            get_haverkort_curve_a26(),
-            get_haverkort_curve_f(),
-
-            get_hilbert_curve().forget(disable_time_rev=True),
-            get_haverkort_curve_a26().forget(disable_time_rev=True),
-
-            get_beta_omega_curve(),
-            get_ARW_Curve(),
-            get_neptunus_curve(),
-            get_luna_curve(),
-            get_iupiter_curve(),
-        ]
+        self.curves = [x.curve for x in get_all_curves()]
+        self.curves.extend([
+            get_hilbert_curve().curve.forget(disable_time_rev=True),
+            get_haverkort_curve_a26().curve.forget(disable_time_rev=True),
+        ])
         self.curves += get_rev_curves()
 
     def test_rrev(self) -> None:
@@ -95,25 +78,10 @@ class TestCurve(unittest.TestCase):
     """Tests for regular curves (peano.Curve)."""
 
     def setUp(self):
-        self.curves = [
-            get_hilbert_curve(),
-            get_peano_curve(),
-            get_peano5_curve(),
-            get_scepin_bauman_curve(),
-            get_tokarev_curve(),
-            get_meurthe_curve(),
-            get_coil_curve(),
-            get_serpentine_curve(),
-            get_r_curve(),
-            get_haverkort_curve_a26(),
-            get_haverkort_curve_f(),
-            get_beta_omega_curve(),
-            get_ARW_Curve(),
-            get_neptunus_curve(),
-            get_luna_curve(),
-            get_iupiter_curve(),
-            get_spring_curve(),
-        ]
+        self.curves_info = get_all_curves()
+
+        # TODO: maybe some filtering is required
+        self.curves = [x.curve for x in self.curves_info]
         self.curves += get_rev_curves()
 
     def test_check(self) -> None:
@@ -160,77 +128,14 @@ class TestCurve(unittest.TestCase):
                     raise Exception("Too many juncs!")
             self.assertEqual(set(curve.gen_regular_junctions()), set(curve.get_junction_templates()))
 
-    def test_face_moments(self):  # TODO
-        """
-        Check first and last face moments for miscellaneous dimesions.
-        """
 
-        # key = face dim; if negative, check last moments instead of first
-        known_moments = [
-            {
-                'curve': get_haverkort_curve_a26(),
-                'moments': {0: [Fraction(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]]},
-            },
-            {
-                'curve': get_haverkort_curve_f(),
-                'moments': {0: [Fraction(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]]},
-            },
-            # Tokarev curve: from Scepin & Korneev (2018)
-            {
-                'curve': get_tokarev_curve(),
-                'moments': {
-                    0: [Fraction(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
-                    1: [Fraction(k, 4194176) for k in [0, 693632, 1364617, 1659520]]
-                        + [Fraction(k, 65534) for k in [0, 11433, 38292, 44200]]
-                        + [Fraction(k, 524272) for k in [0, 169360, 316073, 431496]],
-                    -1: [Fraction(k, 4194176) for k in [2534656, 2829559, 3500544, 4194176]]
-                        + [Fraction(k, 65534) for k in [21334, 27242, 54101, 65534]]
-                        + [Fraction(k, 524272) for k in [92776, 208199, 354912, 524272]],
-                    2: [Fraction(k, 224) for k in [0, 0, 0, 37, 72, 128]],
-                    -2: [Fraction(k, 224) for k in [96, 152, 187, 224, 224, 224]],
-                },
-            },
-        ]
-        for data in known_moments:
-            curve = data['curve']
-            for face_dim, true_moments in data['moments'].items():
-                last = (face_dim < 0)
-                got_moments = [curve.get_face_moment(face, last=last) for face in gen_faces(curve.dim, abs(face_dim))]
-                self.assertEqual(list(sorted(true_moments)), list(sorted((got_moments))))
-
-    def test_gate(self):  # TODO
-        known = [
-            {
-                'curve': get_haverkort_curve_f(),
-                'gates': [Link.parse_gates('(0,1/3,1/3)->(2/3,1/3,0)')],
-            },
-            {
-                'curve': get_beta_omega_curve(),
-                'gates': [Link.parse_gates('(0,1/3)->(1,1/3)'), Link.parse_gates('(0,1/3)->(2/3,0)')],
-            },
-            {
-                'curve': get_neptunus_curve(),
-                'gates': [Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
-            },
-            {
-                'curve': get_luna_curve(),
-                'gates': [Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
-            },
-            {
-                'curve': get_iupiter_curve(),
-                'gates': [
-                    Link.parse_gates('(0,2/5,1/5)->(4/5,2/5,0)'),
-                    Link.parse_gates('(0,2/5,1/5)->(4/5,0,2/5)'),
-                    Link.parse_gates('(0,2/5,1/5)->(1,2/5,1/5)'),
-                    Link.parse_gates('(0,1/5,2/5)->(4/5,2/5,0)'),
-                    Link.parse_gates('(0,2/5,1/5)->(4/5,1,3/5)'),
-                ],
-            },
-        ]
-        for data in known:
-            curve = data['curve']
+    def test_gate(self):
+        for info in self.curves_info:
+            if info.gates is None:
+                continue
+            curve = info.curve
             gates = [Link(curve.get_entrance(pnum), curve.get_exit(pnum)) for pnum in range(curve.mult)]
-            self.assertEqual(gates, data['gates'])
+            self.assertEqual(gates, info.gates)
 
             for pnum, gate in enumerate(gates):
                 entr_face = [1 if pj == Fraction(1) else 0 if pj == Fraction(0) else None for pj in gate.entrance]
@@ -239,23 +144,20 @@ class TestCurve(unittest.TestCase):
                 exit_face = [1 if pj == Fraction(1) else 0 if pj == Fraction(0) else None for pj in gate.exit]
                 assert curve.get_face_moment(exit_face, pnum, last=True) == Fraction(1)
 
-    def test_known_junctions(self):  # TODO
-        known = [
-            {'curve': get_tokarev_curve(), 'junctions_count': 9},  # Scepin & Korneev
-        ]
-        for data in known:
-            juncs = list(data['curve'].gen_regular_junctions())
-            self.assertEqual(len(juncs), data['junctions_count'])
+    def test_other_info(self):
+        for info in self.curves_info:
+            if info.moments is not None:
+                for face_dim, expected_moments in info.moments.items():
+                    last = (face_dim < 0)
+                    got_moments = [info.curve.get_face_moment(face, last=last) for face in gen_faces(info.curve.dim, abs(face_dim))]
+                    self.assertEqual(list(sorted(expected_moments)), list(sorted((got_moments))))
 
-    def test_depth(self):  # TODO
-        known = [
-            {'curve': get_hilbert_curve(), 'depth': 2},
-            {'curve': get_peano_curve(), 'depth': 1},
-            {'curve': get_tokarev_curve(), 'depth': 3},
-            {'curve': get_ye_curve(), 'depth': 1},
-        ]
-        for data in known:
-            self.assertEqual(data['curve'].get_depth(), data['depth'])
+            if info.junctions_count is not None:
+                juncs = list(info.curve.gen_regular_junctions())
+                self.assertEqual(info.junctions_count, len(juncs))
+
+            if info.depth is not None:
+                self.assertEqual(info.depth, info.curve.get_depth())
 
 
 class TestFuzzyCurves(unittest.TestCase):
@@ -263,13 +165,13 @@ class TestFuzzyCurves(unittest.TestCase):
 
     def setUp(self):
         self.curves = [
-            get_hilbert_curve(),
-            get_peano_curve(),
-            get_tokarev_curve(),
+            get_hilbert_curve().curve,
+            get_peano_curve().curve,
+            get_tokarev_curve().curve,
         ]
 
     def test_check(self) -> None:
-        for curve in [get_hilbert_curve()]:
+        for curve in [get_hilbert_curve().curve]:
             pcurve = curve.forget()
             for c in pcurve.gen_possible_curves():
                 c.check()

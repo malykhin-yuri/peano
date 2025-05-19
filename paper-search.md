@@ -24,4 +24,3 @@ YE curve search:
 See also [YE-proof](YE-proof.py) for a full computer-assisted proof of YE curve minimality.
 
 In the [logs](logs) directory we put the output of three mentioned computations.
-

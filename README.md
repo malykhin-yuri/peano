@@ -35,7 +35,8 @@ sub-cubes of [0,1]^d that defines curve order. Next, for each cube in the
 prototype we define **spec** -- i.e. we specify what base_map and what
 pattern may be used to obtain sub-curve on that cube.
 
-Many examples of the curves may be found in tests: [examples.py](tests/examples.py).
+Many examples of the curves and some information about them
+may be found in our "Zoo": [zoo.py](peano/zoo.py).
 There we use compact notation to define multifractals; it is briefly exaplained
 in `Proto.parse` method in [paths](peano/paths.py) module and `Spec.parse`,
 `BaseMap.parse` methods in [base_maps](peano/base_maps.py) module.

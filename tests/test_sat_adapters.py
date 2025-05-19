@@ -3,14 +3,14 @@ import unittest
 from peano._sat_adapters import CurveSATAdapter
 from peano.curves import Curve
 
-from .examples import get_peano_curve, get_ye_curve
+from peano.zoo import get_peano_curve, get_ye_curve
 
 
 class TestSAT(unittest.TestCase):
     def setUp(self):
         self.curves = [
-            get_peano_curve(),
-            get_ye_curve(),
+            get_peano_curve().curve,
+            get_ye_curve().curve,
         ]
 
     def test_sat(self):
