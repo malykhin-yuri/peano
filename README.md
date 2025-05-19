@@ -41,15 +41,8 @@ There we use compact notation to define multifractals; it is briefly exaplained
 in `Proto.parse` method in [paths](peano/paths.py) module and `Spec.parse`,
 `BaseMap.parse` methods in [base_maps](peano/base_maps.py) module.
 
-In these examples we use data from several papers:
-
-Haverkort, Walderveen, ``Locality and bounding-box quality of two-dimensional
-space-filling curves'', 2010
-
-Haverkort, ``An inventory of three-dimensional Hilbert space-filling curves'', 2011
-https://arxiv.org/abs/1109.2323
-
-Korneev, Shchepin, ``L_infty-Locality of Three-Dimensional Peano Curves'', 2019
+In these examples we use data from several papers [HW10], [H11], [KS18]
+(see the "Bibliography" section below).
 
 Here are some common notations used in code:
 * `dim` -- dimension of the curve (also called `d`)
