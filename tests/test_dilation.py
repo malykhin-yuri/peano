@@ -7,28 +7,33 @@ from quicktions import Fraction  # type: ignore
 
 from peano import utils
 from peano.dilation import Estimator
-from peano.zoo import CurveInfo, DilationInfo, get_all_curves, get_ye_curve, get_spring_curve
+from peano.zoo import CurveInfo, SpecValue, get_all_curves, get_ye_curve, get_spring_curve
 from peano.curves import Curve
 
 
 def _check_dilation(data: CurveInfo, fuzzy: bool = False) -> None:
     curve = data.curve
-    dilation_dict = asdict(data.dilation)
-    for metric in sorted(dilation_dict.keys()):
-        if metric == 'spec':
-            continue  # UGLY TODO FIX
-        dilation = dilation_dict[metric]
-        if dilation is None:
-            continue
+    for metric in sorted(data.dilation.keys()):
+        dilation = data.dilation[metric]
+        spec = {}
         if isinstance(dilation, list) or isinstance(dilation, tuple):
             dilation_lo, dilation_up = dilation
             dilation_eq = None
+        elif isinstance(dilation, int) or isinstance(dilation, Fraction):
+            dilation_eq = dilation
+        elif isinstance(dilation, SpecValue):
+            dilation_eq = dilation.eq
+            dilation_lo = dilation.lo
+            dilation_up = dilation.up
+            if dilation.spec is not None:
+                spec = dilation.spec
         else:
-            if isinstance(dilation, dict):
-                print('ZOPA BLIAT', data.dilation, metric)
-            dilation_lo = dilation * 0.999
-            dilation_up = dilation * 1.001
-            dilation_eq = Fraction(dilation)
+            raise TypeError("Unknown dilation value type!")
+
+        if dilation_eq is not None:
+            dilation_lo = float(dilation_eq) * 0.999
+            dilation_up = float(dilation_eq) * 1.001
+            dilation_eq = Fraction(dilation_eq)
 
         if metric == 'l2':
             func = utils.ratio_l2_squared
@@ -47,10 +52,7 @@ def _check_dilation(data: CurveInfo, fuzzy: bool = False) -> None:
         else:
             res = Estimator(func).estimate_dilation_regular(curve, rel_tol_inv=10 ** 5)
             if dilation_eq is not None:
-                if data.dilation.spec is not None:
-                    face_dim = data.dilation.spec.get(metric, {}).get('face_dim', 0)
-                else:
-                    face_dim = 0
+                face_dim = spec.get('face_dim', 0)
                 res = Estimator(func).estimate_dilation_regular(
                     curve, use_face_moments=True, face_dim=face_dim, max_depth=5, rel_tol_inv=10 ** 5,  # WHY max_depth = 5?
                 )
@@ -72,11 +74,11 @@ class TestCurve(unittest.TestCase):
         known_bounds = [
             CurveInfo(
                 curve=get_ye_curve().curve.forget(),
-                dilation=DilationInfo(l2=[5.588, 5.59]),
+                dilation={'l2': [5.588, 5.59]},
             ),
             CurveInfo(
                 curve=get_spring_curve().curve.forget(),
-                dilation=DilationInfo(l2=[16.9, 17.0]),
+                dilation={'l2': [16.9, 17.0]},
             ),
         ]
 
@@ -87,7 +89,7 @@ class TestCurve(unittest.TestCase):
         ])
         known_bounds.append(CurveInfo(
             curve=special_curve.forget(),
-            dilation=DilationInfo(l2=[18, 19]),
+            dilation={'l2': [18, 19]},
         ))
         for data in known_bounds:
             _check_dilation(data, fuzzy=True)

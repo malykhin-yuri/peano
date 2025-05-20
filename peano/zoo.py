@@ -12,21 +12,26 @@ from peano.curves import Curve
 from peano.subsets import Link, Point
 
 
-# TODO: better typing for DilationInfo (use enum MT & dict MT->Info?; spec - ?)
+L1 = 'l1'
+L2 = 'l2'
+L2_SQUARED = 'l2_squared'
+LINF = 'linf'
+
+
 @dataclass
-class DilationInfo:
-    type DilationValue = Fraction | tuple[float, float] | None
-    l1: DilationValue = None
-    l2: DilationValue = None
-    l2_squared: DilationValue = None
-    linf: DilationValue = None
+class SpecValue:
+    eq: Fraction | int | None = None
+    lo: float | None = None
+    up: float | None = None
     spec: dict[str, Any] | None = None
 
 
 @dataclass
 class CurveInfo:
+    type DilationValue = Fraction | int | list[float, float] | SpecValue
+
     curve: Curve
-    dilation: DilationInfo | None = None
+    dilation: dict[str, DilationValue] | None = None
     moments: dict[int, list[Fraction]] | None = None
     gates: list[Link[Point]] | None = None
     depth: int | None = None
@@ -71,7 +76,7 @@ def get_hilbert_curve() -> CurveInfo:
     pattern = ('jiJ', 'ji,ij,ij,JI')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=9, l2=6, linf=6),
+        dilation={L1: 9, L2: 6, LINF: 6},
         depth=2,
     )
 
@@ -81,7 +86,7 @@ def get_peano_curve() -> CurveInfo:
     pattern = ('jjiJJijj', 'ij,Ij,ij,iJ,IJ,iJ,ij,Ij,ij')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=Fraction(32, 3), l2=8, linf=8),
+        dilation={L1: Fraction(32, 3), L2: 8, LINF: 8},
         depth=1,
     )
 
@@ -93,7 +98,7 @@ def get_bauman_curve() -> CurveInfo:
     pattern = ('ijIjiiJJ', 'ij,ji,Ji~,iJ~,ij,ij,Ij~,jI~,jI~')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l2=Fraction(17, 3), linf=Fraction(9, 2)),
+        dilation={L2: Fraction(17, 3), LINF: Fraction(9, 2)},
     )
 
 
@@ -104,7 +109,7 @@ def get_scepin_bauman_curve() -> CurveInfo:
     pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,Ji,ij,jI,ji')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=Fraction(32, 3), l2=Fraction(17, 3), linf=Fraction(16, 3)),
+        dilation={L1: Fraction(32, 3), L2: Fraction(17, 3), LINF: Fraction(16, 3)},
     )
 
 
@@ -124,7 +129,7 @@ def get_meurthe_curve() -> CurveInfo:
     pattern = ('jjiJJijj', 'ji,jI,ij,Ji,JI,iJ,ji,jI,ij')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=Fraction(32, 3), l2=Fraction(17, 3), linf=Fraction(16, 3)),
+        dilation={L1: Fraction(32, 3), L2: Fraction(17, 3), LINF: Fraction(16, 3)},
     )
 
     
@@ -133,7 +138,7 @@ def get_coil_curve() -> CurveInfo:
     pattern = ('jjiJJijj', 'ji,jI,ji,Ji,JI,Ji,ji,jI,ji')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=Fraction(32, 3), l2=Fraction(20, 3), linf=Fraction(20, 3)),
+        dilation={L1: Fraction(32, 3), L2: Fraction(20, 3), LINF: Fraction(20, 3)},
     )
 
 
@@ -142,7 +147,7 @@ def get_serpentine_curve() -> CurveInfo:
     pattern = ('jjiJJijj', 'ij,jI,ji,iJ,JI,iJ,ji,jI,ij')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=10, l2=Fraction(25, 4), linf=Fraction(45, 8)),
+        dilation={L1: 10, L2: Fraction(25, 4), LINF: Fraction(45, 8)},
     )
 
 
@@ -151,7 +156,7 @@ def get_r_curve() -> CurveInfo:
     pattern = ('jjiiJIJi', 'ji,ji,ij,ij,ij,IJ,JI,JI,ij')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=Fraction(32, 3), l2=Fraction(20, 3), linf=Fraction(20, 3)),
+        dilation={L1: Fraction(32, 3), L2: Fraction(20, 3), LINF: Fraction(20, 3)},
     )
 
 
@@ -163,7 +168,7 @@ def get_ye_curve() -> CurveInfo:
     )
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l2=Fraction(408, 73)),
+        dilation={L2: Fraction(408, 73)},
         depth=1,
     )
 
@@ -183,7 +188,7 @@ def get_beta_omega_curve() -> CurveInfo:
     beta_pattern = ('jiJ', '1iJ,1jI,1ji~,0Ji')
     return CurveInfo(
         curve=Curve.parse([omega_pattern, beta_pattern]),
-        dilation=DilationInfo(l1=9, l2=5, linf=5),
+        dilation={L1: 9, L2: 5, LINF: 5},
         gates=[Link.parse_gates('(0,1/3)->(1,1/3)'), Link.parse_gates('(0,1/3)->(2/3,0)')],
     )
 
@@ -198,7 +203,7 @@ def get_ARW_Curve() -> CurveInfo:
     g_pattern = ('jiJ',    '0ij,2jI,0Ji,3jI~')  # pnum=3
     return CurveInfo(
         curve=Curve.parse([r_pattern, f_pattern, p_pattern, g_pattern]),
-        dilation=DilationInfo(l1=12, l2=Fraction(260, 43), linf=Fraction(27, 5)),  # l2,l2inf: Haverkort & Walderveen
+        dilation={L1: 12, L2: Fraction(260, 43), LINF: Fraction(27, 5)},  # l2,l2inf: Haverkort & Walderveen
     )
 
 
@@ -215,7 +220,7 @@ def get_haverkort_curve_a26() -> CurveInfo:
     pattern = ('jkJijKJ', 'Jki~,Kij~,kij,IKJ~,iKJ,kIj~,KIj,JIk')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=Fraction(99, 1) + Fraction(5, 9), l2=[22.7,22.9], linf=Fraction(12, 1) + Fraction(4, 9)),
+        dilation={L1: Fraction(99, 1) + Fraction(5, 9), L2: [22.7,22.9], LINF: Fraction(12, 1) + Fraction(4, 9)},
         moments={0: [Fraction(k, 28) for k in [0, 5, 9, 12, 16, 19, 23, 28]]},
         gates=[Link.parse_gates('(0,0,0)->(1,0,0)')],
     )
@@ -231,7 +236,7 @@ def get_haverkort_curve_f() -> CurveInfo:
     pattern = ('jkJijKJ', 'iKJ,jIK,jIk~,JkI,Jki~,jik,jiK~,kiJ~')
     return CurveInfo(
         curve=Curve.parse([pattern]),
-        dilation=DilationInfo(l1=[89.754, 89.758], l2=[18.5,18.7], linf=14),
+        dilation={L1: [89.754, 89.758], L2: [18.5, 18.7], LINF: 14},
         moments={0: [Fraction(k, 28) for k in [1, 6, 8, 13, 15, 20, 22, 27]]},
         gates=[Link.parse_gates('(0,1/3,1/3)->(2/3,1/3,0)')],
     )
@@ -244,17 +249,16 @@ def get_tokarev_curve() -> CurveInfo:
     Precise definition is taken from Haverkort's inventory [H11],
     Curve A26.0000 0000.0000 0000 (page 9, Fig.5(b))
 
-    Dilation studied in [KS18]
+    Dilation and moments studied in [KS18]
     """
     p0 = ('jkJijKJ', 'jki,kij,kij,iJK,iJK,KIj,KIj,JkI')
     return CurveInfo(
         curve=Curve.parse([p0]),
-        dilation=DilationInfo(
-            l1=[98.2, 98.4],
-            l2_squared=Fraction(5215408884, 7579009),  # TODO ref
-            linf=Fraction(896, 37),
-            spec={'linf': {'face_dim': 2}},
-        ),
+        dilation={
+            L1: [98.2, 98.4],
+            L2_SQUARED: Fraction(8694, 2753)**2 * 69,  # [KS18], Theorem 6
+            LINF: SpecValue(eq=Fraction(896, 37), spec={'face_dim': 2}), # [KS18], Theorem 5
+        },
         moments={
             0: [Fraction(k, 126) for k in [0, 22, 41, 50, 76, 85, 104, 126]],
             1: [Fraction(k, 4194176) for k in [0, 693632, 1364617, 1659520]]
@@ -282,7 +286,7 @@ def get_neptunus_curve() -> CurveInfo:
     p1 = ('jkJiKjk', '1ijk,0jIK,1kJI,1JiK,0ijk,1KjI,1jki,0kIJ')
     return CurveInfo(
         curve=Curve.parse([p0, p1]),
-        dilation=DilationInfo(l1=[88.8, 89.0], l2=[18.2, 18.4], linf=Fraction(945, 100)),
+        dilation={L1: [88.8, 89.0], L2: [18.2, 18.4], LINF: Fraction(945, 100)},
         gates=[Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
     )
 
@@ -295,7 +299,7 @@ def get_luna_curve() -> CurveInfo:
     p1 = ('jkJiKjk', '1kji,0jIK,1JIk,1iKJ,0ijk,1KjI,0kij,1jik')
     return CurveInfo(
         curve=Curve.parse([p0, p1]),
-        dilation=DilationInfo(l1=[75.5, 75.7], l2=[18.2, 18.4], linf=14),
+        dilation={L1: [75.5, 75.7], L2: [18.2, 18.4], LINF: 14},
         gates=[Link.parse_gates('(0,0,0)->(1,0,0)'), Link.parse_gates('(0,0,0)->(1,1,1)')],
     )
 
@@ -322,7 +326,7 @@ def get_iupiter_curve() -> CurveInfo:
 
     return CurveInfo(
         curve=Curve.parse([pa0, pb1, pc2, pd3, pe4]),
-        dilation=DilationInfo(l1=[88.6, 88.8], l2=[24.8, 30.0], linf=[16.9, 17.1]),
+        dilation={L1: [88.6, 88.8], L2: [24.8, 30.0], LINF: [16.9, 17.1]},
         gates=[
             Link.parse_gates('(0,2/5,1/5)->(4/5,2/5,0)'),
             Link.parse_gates('(0,2/5,1/5)->(4/5,0,2/5)'),
@@ -342,7 +346,7 @@ def get_spring_curve() -> CurveInfo:
     p1 = ('jkJijKJ', '1KIJ~,0ijK~,0Ikj~,0KJI~,0kiJ~,0Ijk~,0IjK,1iKJ')
     return CurveInfo(
         curve=Curve.parse([p0, p1]),
-        dilation=DilationInfo(l1=[82.9, 83.0], l2=[16.9, 17.0]),
+        dilation={L1: [82.9, 83.0], L2: [16.9, 17.0]},
     )
 
 
@@ -354,7 +358,7 @@ def get_3d_l1_best_curve() -> CurveInfo:
     p0 = ('jiJkjIJ', 'ikJ~,kjI~,kjI~,JIk,JIK~,KjI,jKi~,iKj~')
     return CurveInfo(
         curve=Curve.parse([p0]),
-        dilation=DilationInfo(l1=[89.742, 89.745]),
+        dilation={L1: [89.742, 89.745]},
     )
 
 
@@ -364,5 +368,5 @@ def get_4d_facet_gated_curve() -> CurveInfo:
     p = ('kljKLkiKlkJLKlI', 'iKLJ,kLij,lJki,jklI,lKjI~,LKIj,IkLj~,ikLj,LKij~,lKji,kjlI,lJkI~,LkIJ,LKji~,iljk~,jIlK~')
     return CurveInfo(
         curve=Curve.parse([p]),
-        dilation=DilationInfo(l2=[61.9,62.0]),
+        dilation={L2: [61.9, 62.0]},
     )
