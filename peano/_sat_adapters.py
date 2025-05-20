@@ -53,7 +53,7 @@ class CurveSATAdapter:
         # possible specs
         for pnum in range(curve.mult):
             for cnum in range(curve.genus):
-                self._make_only([self._get_sp_var(pnum, cnum, sp) for sp in curve.gen_allowed_specs(pnum, cnum)])
+                self._make_only([self._get_spec_var(pnum, cnum, sp) for sp in curve.gen_allowed_specs(pnum, cnum)])
 
         junc: Junction
 
@@ -73,7 +73,7 @@ class CurveSATAdapter:
         self._curve = other._curve
 
     @staticmethod
-    def _get_sp_var(pnum: int, cnum: int, sp: Spec) -> BoolVar:
+    def _get_spec_var(pnum: int, cnum: int, sp: Spec) -> BoolVar:
         # sp_var: var=True <=> curve has given spec at given pnum, cnum.
         return 'spec', (pnum, cnum, sp)
 
@@ -107,10 +107,10 @@ class CurveSATAdapter:
 
         # Z->curve  <=>  !Z or curve  <=>  (!Z or sp1) and (!Z or sp2) and ... (!Z or spk)
         for pnum, cnum, sp in curve_info:
-            self._append_clause({Z: False, self._get_sp_var(pnum, cnum, sp): True})
+            self._append_clause({Z: False, self._get_spec_var(pnum, cnum, sp): True})
 
         # curve->Z  <=>  !curve or Z  <=>  !sp1 or !sp2 or ... or !spk or Z
-        clause_rev = {self._get_sp_var(pnum, cnum, sp): False for pnum, cnum, sp in curve_info}
+        clause_rev = {self._get_spec_var(pnum, cnum, sp): False for pnum, cnum, sp in curve_info}
         clause_rev[Z] = True
         self._append_clause(clause_rev)
 
@@ -141,7 +141,7 @@ class CurveSATAdapter:
         # Forbid that maintained fuzzy curve has given junction and is consistent with given sub-curve
         # !(J and sp1 and sp2 .. and spk) = !J or !sp1 or !sp1 ..
         junc_var = self._get_junc_var(junc)
-        clause = {self._get_sp_var(pnum, cnum, sp): False for pnum, cnum, sp in curve.gen_defined_specs()}
+        clause = {self._get_spec_var(pnum, cnum, sp): False for pnum, cnum, sp in curve.gen_defined_specs()}
         clause[junc_var] = False
         self._append_clause(clause)
 
@@ -202,7 +202,7 @@ class CurveSATAdapter:
             for cnum in range(G):
                 good_spec = None
                 for sp in curve.gen_allowed_specs(pnum, cnum):
-                    sp_var = self._get_sp_var(pnum, cnum, sp)
+                    sp_var = self._get_spec_var(pnum, cnum, sp)
                     if (sp_var not in model) or model[sp_var]:
                         good_spec = sp
                         break
